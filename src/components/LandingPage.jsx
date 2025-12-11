@@ -20,10 +20,12 @@ import {
   Security,
   Speed,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 const LandingPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
 
   const features = [
     {
@@ -76,7 +78,7 @@ const LandingPage = () => {
             <Button variant="outlined" color="primary">
               Sign In
             </Button>
-            <Button variant="contained" color="primary">
+            <Button variant="contained" color="primary" onClick={() => navigate('/signup')}>
               Get Started
             </Button>
           </Stack>
@@ -130,6 +132,7 @@ const LandingPage = () => {
                 <Button
                   variant="contained"
                   size="large"
+                  onClick={() => navigate('/signup')}
                   sx={{
                     bgcolor: 'white',
                     color: 'primary.main',
@@ -257,6 +260,7 @@ const LandingPage = () => {
             <Button
               variant="contained"
               size="large"
+              onClick={() => navigate('/signup')}
               sx={{
                 bgcolor: 'white',
                 color: 'primary.main',
