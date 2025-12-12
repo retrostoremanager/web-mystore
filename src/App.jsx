@@ -3,6 +3,12 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import AccountWizard from './components/AccountWizard';
+import Dashboard from './components/Dashboard';
+import InventoryPage from './components/InventoryPage';
+import CustomersPage from './components/CustomersPage';
+import EmployeesPage from './components/EmployeesPage';
+import TradeInPage from './components/TradeInPage';
+import CheckoutPage from './components/CheckoutPage';
 
 const theme = createTheme({
   palette: {
@@ -50,6 +56,12 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/signup" element={<AccountWizard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/inventory" element={<InventoryPage />} />
+          <Route path="/dashboard/customers" element={<CustomersPage />} />
+          <Route path="/dashboard/employees" element={<EmployeesPage />} />
+          <Route path="/dashboard/trade-in" element={<TradeInPage />} />
+          <Route path="/dashboard/checkout" element={<CheckoutPage />} />
         </Routes>
       </Router>
     </ThemeProvider>
