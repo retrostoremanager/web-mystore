@@ -67,10 +67,51 @@ const InventoryItemDetail = () => {
 
   const conditionOptions = ['New', 'Like New', 'Very Good', 'Good', 'Fair', 'Poor'];
 
+  // Show loading state if inventory is still being loaded
+  if (inventory.length === 0 && !item) {
+    return (
+      <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
+        <AppBar 
+          position="sticky" 
+          elevation={1}
+          sx={{
+            bgcolor: '#2c3e50',
+            color: '#ffffff',
+          }}
+        >
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={() => navigate('/dashboard/inventory')} sx={{ mr: 2 }}>
+              <ArrowBack />
+            </IconButton>
+            <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+              Loading...
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <Container maxWidth="md" sx={{ py: 4 }}>
+          <Card elevation={2}>
+            <CardContent sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="h6" color="text.secondary">
+                Loading item details...
+              </Typography>
+            </CardContent>
+          </Card>
+        </Container>
+      </Box>
+    );
+  }
+
   if (!item) {
     return (
       <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
-        <AppBar position="sticky" elevation={1}>
+        <AppBar 
+          position="sticky" 
+          elevation={1}
+          sx={{
+            bgcolor: '#2c3e50', // Dark slate gray
+            color: '#ffffff',
+          }}
+        >
           <Toolbar>
             <IconButton edge="start" color="inherit" onClick={() => navigate('/dashboard/inventory')} sx={{ mr: 2 }}>
               <ArrowBack />
@@ -226,7 +267,14 @@ const InventoryItemDetail = () => {
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
-      <AppBar position="sticky" elevation={1}>
+      <AppBar 
+        position="sticky" 
+        elevation={1}
+        sx={{
+          bgcolor: '#2c3e50', // Dark slate gray
+          color: '#ffffff',
+        }}
+      >
         <Toolbar>
           <IconButton edge="start" color="inherit" onClick={() => navigate('/dashboard/inventory')} sx={{ mr: 2 }}>
             <ArrowBack />
@@ -237,11 +285,24 @@ const InventoryItemDetail = () => {
           {!isEditMode ? (
             <Button
               variant="contained"
+              size="large"
               startIcon={<Edit />}
               onClick={() => setIsEditMode(true)}
-              sx={{ ml: 2 }}
+              sx={{ 
+                ml: 2,
+                fontWeight: 600,
+                boxShadow: 3,
+                bgcolor: '#16a085', // Teal green
+                color: '#ffffff',
+                '&:hover': {
+                  bgcolor: '#138d75', // Darker teal on hover
+                  boxShadow: 5,
+                  transform: 'translateY(-1px)',
+                },
+                transition: 'all 0.2s',
+              }}
             >
-              Edit
+              Edit Item
             </Button>
           ) : (
             <Stack direction="row" spacing={1} sx={{ ml: 2 }}>
@@ -257,6 +318,13 @@ const InventoryItemDetail = () => {
                 variant="contained"
                 startIcon={<Save />}
                 onClick={handleSave}
+                sx={{
+                  bgcolor: '#16a085', // Teal green
+                  color: '#ffffff',
+                  '&:hover': {
+                    bgcolor: '#138d75', // Darker teal on hover
+                  },
+                }}
               >
                 Save
               </Button>

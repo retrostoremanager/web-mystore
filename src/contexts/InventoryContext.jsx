@@ -93,9 +93,23 @@ const initialData = [
 ];
 
 export const InventoryProvider = ({ children }) => {
-  const [inventory, setInventory] = useState([]);
+  const [inventory, setInventory] = useState(() => {
+    // Initialize from localStorage synchronously to prevent blank screen
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading inventory from localStorage:', error);
+    }
+    return initialData;
+  });
 
-  // Load inventory from localStorage on mount
+  // Load inventory from localStorage on mount (fallback)
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);

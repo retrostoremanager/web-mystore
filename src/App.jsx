@@ -2,6 +2,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { InventoryProvider } from './contexts/InventoryContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import LandingPage from './components/LandingPage';
 import AccountWizard from './components/AccountWizard';
 import Dashboard from './components/Dashboard';
@@ -13,6 +14,7 @@ import CustomersPage from './components/CustomersPage';
 import EmployeesPage from './components/EmployeesPage';
 import TradeInPage from './components/TradeInPage';
 import CheckoutPage from './components/CheckoutPage';
+import SalesHistoryPage from './components/SalesHistoryPage';
 
 const theme = createTheme({
   palette: {
@@ -54,26 +56,29 @@ const theme = createTheme({
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <InventoryProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/signup" element={<AccountWizard />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/inventory" element={<InventoryPage />} />
-            <Route path="/dashboard/inventory/add" element={<AddInventoryItem />} />
-            <Route path="/dashboard/inventory/bulk-import" element={<BulkImportInventory />} />
-            <Route path="/dashboard/inventory/:id" element={<InventoryItemDetail />} />
-            <Route path="/dashboard/customers" element={<CustomersPage />} />
-            <Route path="/dashboard/employees" element={<EmployeesPage />} />
-            <Route path="/dashboard/trade-in" element={<TradeInPage />} />
-            <Route path="/dashboard/checkout" element={<CheckoutPage />} />
-          </Routes>
-        </Router>
-      </InventoryProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <InventoryProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/signup" element={<AccountWizard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/inventory" element={<InventoryPage />} />
+              <Route path="/dashboard/inventory/add" element={<AddInventoryItem />} />
+              <Route path="/dashboard/inventory/bulk-import" element={<BulkImportInventory />} />
+              <Route path="/dashboard/inventory/:id" element={<InventoryItemDetail />} />
+              <Route path="/dashboard/customers" element={<CustomersPage />} />
+              <Route path="/dashboard/employees" element={<EmployeesPage />} />
+              <Route path="/dashboard/trade-in" element={<TradeInPage />} />
+              <Route path="/dashboard/checkout" element={<CheckoutPage />} />
+              <Route path="/dashboard/sales-history" element={<SalesHistoryPage />} />
+            </Routes>
+          </Router>
+        </InventoryProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

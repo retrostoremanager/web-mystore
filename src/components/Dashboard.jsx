@@ -19,6 +19,7 @@ import {
   PointOfSale,
   ExitToApp,
   ArrowForward,
+  History,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../contexts/InventoryContext';
@@ -68,10 +69,17 @@ const Dashboard = () => {
     },
     {
       title: 'Checkout',
-      description: 'View transaction history and checkout records',
+      description: 'Process new customer transactions and checkout',
       icon: <PointOfSale sx={{ fontSize: 48 }} />,
       color: 'secondary',
       route: '/dashboard/checkout',
+    },
+    {
+      title: 'Historical Sales Records',
+      description: 'View transaction history and sales records',
+      icon: <History sx={{ fontSize: 48 }} />,
+      color: 'primary',
+      route: '/dashboard/sales-history',
     },
   ];
 
