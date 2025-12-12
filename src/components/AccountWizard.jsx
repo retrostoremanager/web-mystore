@@ -31,10 +31,34 @@ const AccountWizard = () => {
     password: '',
     confirmPassword: '',
     storeName: '',
+    numberOfLocations: '',
+    locations: [],
   });
 
   const handleInputChange = (field) => (event) => {
-    setFormData({ ...formData, [field]: event.target.value });
+    const value = event.target.value;
+    
+    if (field === 'numberOfLocations') {
+      const numLocations = parseInt(value, 10) || 0;
+      // Initialize locations array with empty strings
+      const newLocations = Array.from({ length: numLocations }, (_, i) => 
+        formData.locations[i] || ''
+      );
+      setFormData({ 
+        ...formData, 
+        numberOfLocations: value,
+        locations: newLocations
+      });
+    } else {
+      setFormData({ ...formData, [field]: value });
+    }
+    setError('');
+  };
+
+  const handleLocationChange = (index) => (event) => {
+    const newLocations = [...formData.locations];
+    newLocations[index] = event.target.value;
+    setFormData({ ...formData, locations: newLocations });
     setError('');
   };
 
@@ -74,6 +98,21 @@ const AccountWizard = () => {
     if (!formData.storeName.trim()) {
       setError('Store name is required');
       return false;
+    }
+    if (!formData.numberOfLocations || parseInt(formData.numberOfLocations, 10) < 1) {
+      setError('Please enter the number of locations (at least 1)');
+      return false;
+    }
+    const numLocations = parseInt(formData.numberOfLocations, 10);
+    if (formData.locations.length !== numLocations) {
+      setError('Please fill in all location names');
+      return false;
+    }
+    for (let i = 0; i < numLocations; i++) {
+      if (!formData.locations[i] || !formData.locations[i].trim()) {
+        setError(`Location ${i + 1} name is required`);
+        return false;
+      }
     }
     return true;
   };
@@ -166,6 +205,7 @@ const AccountWizard = () => {
         );
       
       case 1:
+        const numLocations = parseInt(formData.numberOfLocations, 10) || 0;
         return (
           <Stack spacing={3}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -180,6 +220,37 @@ const AccountWizard = () => {
               placeholder="e.g., GameStop Central"
               autoFocus
             />
+            <TextField
+              label="Number of Locations"
+              fullWidth
+              required
+              type="number"
+              inputProps={{ min: 1, max: 50 }}
+              value={formData.numberOfLocations}
+              onChange={handleInputChange('numberOfLocations')}
+              placeholder="e.g., 3"
+              helperText="How many store locations do you have?"
+            />
+            {numLocations > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                  Location Names
+                </Typography>
+                <Stack spacing={2}>
+                  {Array.from({ length: numLocations }, (_, index) => (
+                    <TextField
+                      key={index}
+                      label={`Location ${index + 1} Name`}
+                      fullWidth
+                      required
+                      value={formData.locations[index] || ''}
+                      onChange={handleLocationChange(index)}
+                      placeholder={`e.g., ${formData.storeName || 'Store'} - Downtown`}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            )}
           </Stack>
         );
       
