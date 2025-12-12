@@ -21,12 +21,17 @@ import {
   ArrowForward,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useInventory } from '../contexts/InventoryContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { inventory } = useInventory();
+
+  // Calculate total quantity of all inventory items
+  const totalQuantity = inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   const stats = [
-    { label: 'Total Inventory Items', value: '1,234', icon: <Inventory />, color: 'primary' },
+    { label: 'Total Inventory Items', value: inventory.length.toLocaleString(), icon: <Inventory />, color: 'primary' },
     { label: 'Active Customers', value: '156', icon: <People />, color: 'success' },
     { label: 'Employees', value: '4', icon: <Badge />, color: 'info' },
     { label: 'Today\'s Sales', value: '$2,450.00', icon: <PointOfSale />, color: 'warning' },
