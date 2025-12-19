@@ -1,0 +1,159 @@
+# Azure Pipeline for MyStore Web Application
+# This pipeline builds and deploys the React application to Azure App Service
+# Supports: development, QA, staging, and production environments
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - qa
+      - staging
+  paths:
+    include:
+      - src/*
+      - package.json
+      - vite.config.js
+
+parameters:
+  - name: environment
+    displayName: 'Target Environment'
+    type: string
+    default: 'development'
+    values:
+      - development
+      - qa
+      - staging
+      - production
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  nodeVersion: '20.x'
+  # Environment-specific variables - set these per environment in Azure DevOps variable groups
+  # Variable groups: mystore-web-dev, mystore-web-qa, mystore-web-staging, mystore-web-prod
+  - group: 'mystore-web-${{ parameters.environment }}'
+  # Map branch to environment if parameter not provided
+  - name: targetEnvironment
+    value: ${{ coalesce(parameters.environment, variables['Build.SourceBranchName']) }}
+    ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+      value: 'production'
+    ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/staging') }}:
+      value: 'staging'
+    ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
+      value: 'qa'
+    ${{ else }}:
+      value: 'development'
+
+stages:
+- stage: Build
+  displayName: 'Build React Application'
+  jobs:
+  - job: Build
+    displayName: 'Build and Package'
+    steps:
+    - checkout: self
+      displayName: 'Checkout code from GitHub'
+      persistCredentials: true
+
+    - task: NodeTool@0
+      displayName: 'Use Node.js $(nodeVersion)'
+      inputs:
+        versionSpec: '$(nodeVersion)'
+
+    - task: Npm@1
+      displayName: 'Install dependencies'
+      inputs:
+        command: 'install'
+        workingDir: '.'
+
+    - task: Npm@1
+      displayName: 'Build application'
+      inputs:
+        command: 'custom'
+        workingDir: '.'
+        customCommand: 'run build'
+
+    - task: ArchiveFiles@2
+      displayName: 'Archive build output'
+      inputs:
+        rootFolderOrFile: '$(System.DefaultWorkingDirectory)/dist'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/web-app.zip'
+        replaceExistingArchive: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish build artifacts'
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)/web-app.zip'
+        artifactName: 'web-app'
+        publishLocation: 'Container'
+
+- stage: Deploy
+  displayName: 'Deploy Web Application to ${{ variables.targetEnvironment }}'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - deployment: DeployWebApp
+    displayName: 'Deploy to Azure App Service'
+    environment: '${{ variables.targetEnvironment }}'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Azure App Service'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              appType: 'webApp'
+              appName: '$(webAppName)'
+              package: '$(Pipeline.Workspace)/web-app/web-app.zip'
+              deploymentMethod: 'zipDeploy'
+
+          - task: AzureAppServiceSettings@1
+            displayName: 'Configure Application Settings'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              appName: '$(webAppName)'
+              appSettings: |
+                [
+                  {
+                    "name": "REACT_APP_API_URL",
+                    "value": "$(apimGatewayUrl)",
+                    "slotSetting": false
+                  },
+                  {
+                    "name": "REACT_APP_ENVIRONMENT",
+                    "value": "${{ variables.targetEnvironment }}",
+                    "slotSetting": false
+                  },
+                  {
+                    "name": "WEBSITE_NODE_DEFAULT_VERSION",
+                    "value": "~20",
+                    "slotSetting": false
+                  },
+                  {
+                    "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+                    "value": "false",
+                    "slotSetting": false
+                  }
+                ]
+
+          - task: AzureCLI@2
+            displayName: 'Output Web App URL'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                WEB_APP_URL=$(az webapp show \
+                  --name $(webAppName) \
+                  --resource-group $(resourceGroupName) \
+                  --query defaultHostName \
+                  --output tsv)
+                
+                echo "##[section]Web Application Deployment Complete - ${{ variables.targetEnvironment }}"
+                echo "Web App URL: https://$WEB_APP_URL"
+                echo "Environment: ${{ variables.targetEnvironment }}"
