@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { InventoryProvider } from './contexts/InventoryContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import LandingPage from './components/LandingPage';
-import AccountWizard from './components/AccountWizard';
+import SignUpForm from './components/SignUpForm';
 import Dashboard from './components/Dashboard';
 import InventoryPage from './components/InventoryPage';
 import AddInventoryItem from './components/AddInventoryItem';
@@ -63,7 +63,7 @@ function App() {
           <Router>
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              <Route path="/signup" element={<AccountWizard />} />
+              <Route path="/signup" element={<SignUpForm />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/dashboard/inventory" element={<InventoryPage />} />
               <Route path="/dashboard/inventory/add" element={<AddInventoryItem />} />
