@@ -343,10 +343,11 @@ const SignUpForm = () => {
 
       if (!response.ok) {
         // Handle server-side validation errors
-        if (response.status === 400 && data.errors) {
+        // Backend returns field-level errors in data.fieldErrors (camelCase from JSON serialization)
+        if (response.status === 400 && data.fieldErrors) {
           // Server returned field-level validation errors
           const serverErrors = {};
-          Object.keys(data.errors).forEach((field) => {
+          Object.keys(data.fieldErrors).forEach((field) => {
             // Map server field names to form field names if needed
             const formField = field === 'email' ? 'email' :
                             field === 'password' ? 'password' :
@@ -354,10 +355,11 @@ const SignUpForm = () => {
                             field === 'subscriptionTier' || field === 'subscription_tier' ? 'subscriptionTier' :
                             field;
             
-            if (Array.isArray(data.errors[field])) {
-              serverErrors[formField] = data.errors[field][0]; // Take first error message
+            // fieldErrors is a Dictionary<string, List<string>>, so each field has an array of errors
+            if (Array.isArray(data.fieldErrors[field])) {
+              serverErrors[formField] = data.fieldErrors[field][0]; // Take first error message
             } else {
-              serverErrors[formField] = data.errors[field];
+              serverErrors[formField] = data.fieldErrors[field];
             }
           });
           
@@ -368,11 +370,20 @@ const SignUpForm = () => {
           
           setError(data.message || 'Please correct the errors below and try again.');
         } else if (response.status === 409) {
-          // Email already exists
-          setFieldErrors((prev) => ({
-            ...prev,
-            email: data.message || 'This email is already registered',
-          }));
+          // Email already exists - may also have fieldErrors
+          if (data.fieldErrors && data.fieldErrors.email) {
+            setFieldErrors((prev) => ({
+              ...prev,
+              email: Array.isArray(data.fieldErrors.email) 
+                ? data.fieldErrors.email[0] 
+                : data.fieldErrors.email,
+            }));
+          } else {
+            setFieldErrors((prev) => ({
+              ...prev,
+              email: data.message || 'This email is already registered',
+            }));
+          }
           setError(data.message || 'This email is already registered');
         } else {
           // Other server errors

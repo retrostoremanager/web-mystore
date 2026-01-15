@@ -579,15 +579,16 @@ describe('SignUpForm', () => {
       const user = userEvent.setup();
       
       // Mock fetch to return 400 with validation errors
+      // Backend returns fieldErrors (camelCase from JSON serialization)
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
         headers: new Headers({ 'content-type': 'application/json' }),
         json: async () => ({
           message: 'Validation failed',
-          errors: {
-            email: 'Email is already registered',
-            companyName: 'Company name is already taken',
+          fieldErrors: {
+            email: ['Email is already registered'],
+            companyName: ['Company name is already taken'],
           },
         }),
       });
@@ -617,9 +618,15 @@ describe('SignUpForm', () => {
       await user.click(submitButton);
 
       // Wait for server errors to be displayed
+      // Errors are displayed in the helper text of form fields
       await waitFor(() => {
-        expect(screen.getByText(/email is already registered/i)).toBeInTheDocument();
-        expect(screen.getByText(/company name is already taken/i)).toBeInTheDocument();
+        const emailField = screen.getByLabelText(/email address/i);
+        const emailHelperText = emailField.closest('.MuiFormControl-root')?.querySelector('.MuiFormHelperText-root');
+        expect(emailHelperText).toHaveTextContent(/email is already registered/i);
+        
+        const companyNameField = screen.getByLabelText(/company name/i);
+        const companyNameHelperText = companyNameField.closest('.MuiFormControl-root')?.querySelector('.MuiFormHelperText-root');
+        expect(companyNameHelperText).toHaveTextContent(/company name is already taken/i);
       });
     });
 
