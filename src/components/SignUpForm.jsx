@@ -100,9 +100,18 @@ const SignUpForm = () => {
     subscriptionTier: '',
   });
 
+  // Track which fields have been touched/blurred for real-time validation
+  const [touchedFields, setTouchedFields] = useState({
+    email: false,
+    password: false,
+    confirmPassword: false,
+    companyName: false,
+    subscriptionTier: false,
+  });
+
   /**
    * Handles input changes for all form fields.
-   * Updates form data state and clears field-specific errors when user starts typing.
+   * Updates form data state and validates in real-time if field has been touched.
    * 
    * @param {string} field - The name of the field being changed (e.g., 'email', 'password')
    * @returns {Function} Event handler function that receives the change event
@@ -114,15 +123,61 @@ const SignUpForm = () => {
       [field]: value,
     }));
     
-    // Clear field error when user starts typing to provide immediate feedback
-    if (fieldErrors[field]) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        [field]: '',
-      }));
-    }
     // Clear general error message
     setError('');
+    
+    // Validate in real-time if field has been touched/blurred
+    if (touchedFields[field]) {
+      const error = validateField(field, value);
+      setFieldErrors((prev) => ({
+        ...prev,
+        [field]: error,
+      }));
+      
+      // Special handling for password confirmation: re-validate when password changes
+      // Use the new password value for comparison to avoid stale closure
+      if (field === 'password' && touchedFields.confirmPassword) {
+        // Re-validate confirmPassword using the new password value
+        const currentConfirmPassword = formData.confirmPassword;
+        const confirmError = validateField('confirmPassword', currentConfirmPassword, value);
+        setFieldErrors((prev) => ({
+          ...prev,
+          confirmPassword: confirmError,
+        }));
+      }
+    }
+  };
+
+  /**
+   * Handles field blur events to trigger validation.
+   * Marks the field as touched and validates it immediately.
+   * 
+   * @param {string} field - The name of the field that lost focus
+   * @returns {Function} Event handler function that receives the blur event
+   */
+  const handleFieldBlur = (field) => () => {
+    setTouchedFields((prev) => ({
+      ...prev,
+      [field]: true,
+    }));
+    
+    // Validate the field when it loses focus
+    const value = formData[field];
+    const error = validateField(field, value);
+    setFieldErrors((prev) => ({
+      ...prev,
+      [field]: error,
+    }));
+    
+    // Special handling for password confirmation: re-validate when password field is blurred
+    if (field === 'password' && touchedFields.confirmPassword && formData.confirmPassword) {
+      // Use the current password value from the blurred field for comparison
+      const confirmError = validateField('confirmPassword', formData.confirmPassword, value);
+      setFieldErrors((prev) => ({
+        ...prev,
+        confirmPassword: confirmError,
+      }));
+    }
   };
 
   /**
@@ -132,14 +187,15 @@ const SignUpForm = () => {
    * - Email: Required, must match RFC 5322 compliant email format
    * - Password: Required, minimum 8 characters, must contain uppercase, lowercase, and number
    * - Confirm Password: Required, must match the password field
-   * - Company Name: Required, minimum 2 characters after trimming whitespace
+   * - Company Name: Required, 2-100 characters, alphanumeric and spaces allowed
    * - Subscription Tier: Required selection
    * 
    * @param {string} field - The name of the field to validate
    * @param {string} value - The current value of the field
+   * @param {string} [passwordValue] - Optional: current password value for confirmPassword validation
    * @returns {string} Error message if validation fails, empty string if valid
    */
-  const validateField = (field, value) => {
+  const validateField = (field, value, passwordValue = null) => {
     let error = '';
     
     switch (field) {
@@ -156,16 +212,32 @@ const SignUpForm = () => {
           error = 'Password is required';
         } else if (value.length < 8) {
           error = 'Password must be at least 8 characters';
-        } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
-          // Password must contain: at least one lowercase, one uppercase, and one digit
-          error = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
+        } else {
+          // Check individual password requirements and provide specific feedback
+          const hasLowercase = /[a-z]/.test(value);
+          const hasUppercase = /[A-Z]/.test(value);
+          const hasNumber = /\d/.test(value);
+          
+          if (!hasLowercase || !hasUppercase || !hasNumber) {
+            const missing = [];
+            if (!hasLowercase) missing.push('lowercase letter');
+            if (!hasUppercase) missing.push('uppercase letter');
+            if (!hasNumber) missing.push('number');
+            
+            error = `Password must contain at least one ${missing.join(', ')}`;
+          }
         }
         break;
       case 'confirmPassword':
         if (!value) {
           error = 'Please confirm your password';
-        } else if (value !== formData.password) {
-          error = 'Passwords do not match';
+        } else {
+          // Use provided passwordValue if available (for real-time validation),
+          // otherwise fall back to formData.password
+          const passwordToCompare = passwordValue !== null ? passwordValue : formData.password;
+          if (value !== passwordToCompare) {
+            error = 'Passwords do not match';
+          }
         }
         break;
       case 'companyName':
@@ -173,6 +245,11 @@ const SignUpForm = () => {
           error = 'Company name is required';
         } else if (value.trim().length < 2) {
           error = 'Company name must be at least 2 characters';
+        } else if (value.trim().length > 100) {
+          error = 'Company name must be 100 characters or less';
+        } else if (!/^[a-zA-Z0-9\s]+$/.test(value.trim())) {
+          // Alphanumeric and spaces only
+          error = 'Company name can only contain letters, numbers, and spaces';
         }
         break;
       case 'subscriptionTier':
@@ -199,7 +276,9 @@ const SignUpForm = () => {
 
     // Validate each field in the form data
     Object.keys(formData).forEach((field) => {
-      const error = validateField(field, formData[field]);
+      // For confirmPassword, pass the current password value for accurate comparison
+      const passwordValue = field === 'confirmPassword' ? formData.password : null;
+      const error = validateField(field, formData[field], passwordValue);
       if (error) {
         errors[field] = error;
         isValid = false;
@@ -214,6 +293,7 @@ const SignUpForm = () => {
    * Handles form submission.
    * Validates all fields, then submits the registration data to the backend API.
    * Shows loading state during submission and handles errors appropriately.
+   * Handles server-side validation errors and displays them field by field.
    * 
    * @param {Event} event - The form submission event
    * @async
@@ -221,6 +301,15 @@ const SignUpForm = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    
+    // Mark all fields as touched before validation
+    setTouchedFields({
+      email: true,
+      password: true,
+      confirmPassword: true,
+      companyName: true,
+      subscriptionTier: true,
+    });
 
     // Validate all fields before submission
     if (!validateForm()) {
@@ -230,25 +319,86 @@ const SignUpForm = () => {
     setLoading(true);
     
     try {
-      // TODO: Replace with actual API call when backend is ready
-      // Example API call:
-      // const response = await fetch('/api/register', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData),
-      // });
-      // if (!response.ok) throw new Error('Registration failed');
-      
-      // Simulate API call for now
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      console.log('Sign-up data:', formData);
-      
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email.trim(),
+          password: formData.password,
+          companyName: formData.companyName.trim(),
+          subscriptionTier: formData.subscriptionTier,
+        }),
+      });
+
+      // Check if response has JSON content before parsing
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // Handle non-JSON responses (e.g., plain text errors)
+        const text = await response.text();
+        data = { message: text || 'An error occurred' };
+      }
+
+      if (!response.ok) {
+        // Handle server-side validation errors
+        if (response.status === 400 && data.errors) {
+          // Server returned field-level validation errors
+          const serverErrors = {};
+          Object.keys(data.errors).forEach((field) => {
+            // Map server field names to form field names if needed
+            const formField = field === 'email' ? 'email' :
+                            field === 'password' ? 'password' :
+                            field === 'companyName' || field === 'company_name' ? 'companyName' :
+                            field === 'subscriptionTier' || field === 'subscription_tier' ? 'subscriptionTier' :
+                            field;
+            
+            if (Array.isArray(data.errors[field])) {
+              serverErrors[formField] = data.errors[field][0]; // Take first error message
+            } else {
+              serverErrors[formField] = data.errors[field];
+            }
+          });
+          
+          setFieldErrors((prev) => ({
+            ...prev,
+            ...serverErrors,
+          }));
+          
+          setError(data.message || 'Please correct the errors below and try again.');
+        } else if (response.status === 409) {
+          // Email already exists
+          setFieldErrors((prev) => ({
+            ...prev,
+            email: data.message || 'This email is already registered',
+          }));
+          setError(data.message || 'This email is already registered');
+        } else {
+          // Other server errors
+          setError(data.message || 'Failed to create account. Please try again.');
+        }
+        return;
+      }
+
+      // Success - account created
       // Once backend is ready, uncomment navigation:
       // navigate('/onboarding');
+      
+      console.log('Sign-up successful:', data);
+      
     } catch (err) {
-      setError('Failed to create account. Please try again.');
+      // Network errors, JSON parsing errors, or other exceptions
       console.error('Sign-up error:', err);
+      
+      // Provide more specific error messages based on error type
+      if (err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('Network') || err.message.includes('Failed to execute'))) {
+        setError('Network error. Please check your connection and try again.');
+      } else if (err instanceof SyntaxError) {
+        setError('Invalid response from server. Please try again.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -318,8 +468,9 @@ const SignUpForm = () => {
                 required
                 value={formData.email}
                 onChange={handleInputChange('email')}
+                onBlur={handleFieldBlur('email')}
                 error={!!fieldErrors.email}
-                helperText={fieldErrors.email}
+                helperText={fieldErrors.email || (touchedFields.email ? '' : 'Enter your email address')}
                 autoFocus
                 autoComplete="email"
               />
@@ -331,6 +482,7 @@ const SignUpForm = () => {
                 required
                 value={formData.password}
                 onChange={handleInputChange('password')}
+                onBlur={handleFieldBlur('password')}
                 error={!!fieldErrors.password}
                 helperText={fieldErrors.password || 'Must be at least 8 characters with uppercase, lowercase, and number'}
                 autoComplete="new-password"
@@ -357,8 +509,9 @@ const SignUpForm = () => {
                 required
                 value={formData.confirmPassword}
                 onChange={handleInputChange('confirmPassword')}
+                onBlur={handleFieldBlur('confirmPassword')}
                 error={!!fieldErrors.confirmPassword}
-                helperText={fieldErrors.confirmPassword}
+                helperText={fieldErrors.confirmPassword || 'Re-enter your password to confirm'}
                 autoComplete="new-password"
                 InputProps={{
                   endAdornment: (
@@ -381,8 +534,9 @@ const SignUpForm = () => {
                 required
                 value={formData.companyName}
                 onChange={handleInputChange('companyName')}
+                onBlur={handleFieldBlur('companyName')}
                 error={!!fieldErrors.companyName}
-                helperText={fieldErrors.companyName}
+                helperText={fieldErrors.companyName || '2-100 characters, letters, numbers, and spaces only'}
                 placeholder="e.g., GameStop Central"
                 autoComplete="organization"
               />
@@ -393,6 +547,7 @@ const SignUpForm = () => {
                 <Select
                   value={formData.subscriptionTier}
                   onChange={handleInputChange('subscriptionTier')}
+                  onBlur={handleFieldBlur('subscriptionTier')}
                   label="Subscription Tier"
                   data-testid="subscription-tier-select"
                 >
