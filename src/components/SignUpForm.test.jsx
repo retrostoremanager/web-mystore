@@ -236,6 +236,104 @@ describe('SignUpForm', () => {
         expect(screen.queryByText(/email is required/i)).not.toBeInTheDocument();
       });
     });
+
+    it('validates email field on blur and shows error immediately', async () => {
+      const user = userEvent.setup();
+      renderSignUpForm();
+
+      const emailField = screen.getByLabelText(/email address/i);
+
+      // Enter invalid email and blur the field
+      await user.type(emailField, 'invalid-email');
+      await user.tab(); // Blur the field
+
+      // Error should appear immediately on blur
+      await waitFor(() => {
+        expect(screen.getByText(/please enter a valid email address/i)).toBeInTheDocument();
+      });
+    });
+
+    it('validates password field on blur and shows specific requirements', async () => {
+      const user = userEvent.setup();
+      renderSignUpForm();
+
+      const passwordFields = screen.getAllByLabelText(/password/i);
+      const passwordField = passwordFields[0];
+
+      // Enter password without uppercase and blur
+      await user.type(passwordField, 'lowercase123');
+      await user.tab(); // Blur the field
+
+      // Error should appear immediately on blur
+      await waitFor(() => {
+        expect(screen.getByText(/password must contain at least one uppercase letter/i)).toBeInTheDocument();
+      });
+    });
+
+    it('validates confirm password on blur and shows mismatch error', async () => {
+      const user = userEvent.setup();
+      renderSignUpForm();
+
+      const passwordFields = screen.getAllByLabelText(/password/i);
+      const passwordField = passwordFields[0];
+      const confirmPasswordField = passwordFields[1];
+
+      // Enter password
+      await user.type(passwordField, 'ValidPass123');
+      await user.tab();
+      
+      // Enter different password in confirm field and blur
+      await user.type(confirmPasswordField, 'DifferentPass123');
+      await user.tab(); // Blur the field
+
+      // Error should appear immediately on blur
+      await waitFor(() => {
+        expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument();
+      });
+    });
+
+    it('re-validates confirm password when password field changes', async () => {
+      const user = userEvent.setup();
+      renderSignUpForm();
+
+      const passwordFields = screen.getAllByLabelText(/password/i);
+      const passwordField = passwordFields[0];
+      const confirmPasswordField = passwordFields[1];
+
+      // Enter matching passwords
+      await user.type(passwordField, 'ValidPass123');
+      await user.tab();
+      await user.type(confirmPasswordField, 'ValidPass123');
+      await user.tab();
+
+      // No error should be present
+      expect(screen.queryByText(/passwords do not match/i)).not.toBeInTheDocument();
+
+      // Change password field
+      await user.clear(passwordField);
+      await user.type(passwordField, 'NewPassword123');
+
+      // Confirm password should be re-validated and show error
+      await waitFor(() => {
+        expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument();
+      });
+    });
+
+    it('validates company name on blur and shows error for invalid characters', async () => {
+      const user = userEvent.setup();
+      renderSignUpForm();
+
+      const companyField = screen.getByLabelText(/company name/i);
+
+      // Enter company name with invalid characters
+      await user.type(companyField, 'Test@Company');
+      await user.tab(); // Blur the field
+
+      // Error should appear immediately on blur
+      await waitFor(() => {
+        expect(screen.getByText(/company name can only contain letters, numbers, and spaces/i)).toBeInTheDocument();
+      });
+    });
   });
 
   describe('Password Visibility Toggle', () => {
@@ -285,8 +383,30 @@ describe('SignUpForm', () => {
   });
 
   describe('Form Submission', () => {
+    beforeEach(() => {
+      // Mock fetch globally for form submission tests
+      global.fetch = vi.fn();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('shows loading state when form is submitting', async () => {
       const user = userEvent.setup();
+      
+      // Mock fetch to delay response so we can check loading state
+      global.fetch.mockImplementationOnce(() => 
+        new Promise((resolve) => 
+          setTimeout(() => resolve({
+            ok: true,
+            status: 201,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({ success: true }),
+          }), 100)
+        )
+      );
+
       renderSignUpForm();
 
       // Fill in valid form data
@@ -325,6 +445,19 @@ describe('SignUpForm', () => {
 
     it('disables submit button during submission', async () => {
       const user = userEvent.setup();
+      
+      // Mock fetch to delay response
+      global.fetch.mockImplementationOnce(() => 
+        new Promise((resolve) => 
+          setTimeout(() => resolve({
+            ok: true,
+            status: 201,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({ success: true }),
+          }), 100)
+        )
+      );
+
       renderSignUpForm();
 
       // Fill in valid form data
@@ -429,6 +562,190 @@ describe('SignUpForm', () => {
       // Check that Container with maxWidth is used (responsive)
       const container = document.querySelector('.MuiContainer-root');
       expect(container).toBeInTheDocument();
+    });
+  });
+
+  describe('Server-Side Validation Error Handling', () => {
+    beforeEach(() => {
+      // Mock fetch globally
+      global.fetch = vi.fn();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('displays server-side validation errors field by field', async () => {
+      const user = userEvent.setup();
+      
+      // Mock fetch to return 400 with validation errors
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          message: 'Validation failed',
+          errors: {
+            email: 'Email is already registered',
+            companyName: 'Company name is already taken',
+          },
+        }),
+      });
+
+      renderSignUpForm();
+
+      // Fill in form with valid data
+      await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
+      const passwordFields = screen.getAllByLabelText(/password/i);
+      await user.type(passwordFields[0], 'ValidPass123');
+      await user.type(passwordFields[1], 'ValidPass123');
+      await user.type(screen.getByLabelText(/company name/i), 'Test Company');
+
+      // Select subscription tier
+      const tierSelectContainer = screen.getByTestId('subscription-tier-select');
+      const tierSelectButton = tierSelectContainer.querySelector('[role="button"]') || 
+                                tierSelectContainer.querySelector('div[tabindex]') ||
+                                tierSelectContainer;
+      await user.click(tierSelectButton);
+      await waitFor(async () => {
+        const basicOption = await screen.findByText(/basic/i);
+        await user.click(basicOption);
+      }, { timeout: 2000 });
+
+      // Submit form
+      const submitButton = screen.getByRole('button', { name: /create account/i });
+      await user.click(submitButton);
+
+      // Wait for server errors to be displayed
+      await waitFor(() => {
+        expect(screen.getByText(/email is already registered/i)).toBeInTheDocument();
+        expect(screen.getByText(/company name is already taken/i)).toBeInTheDocument();
+      });
+    });
+
+    it('handles 409 Conflict error for duplicate email', async () => {
+      const user = userEvent.setup();
+      
+      // Mock fetch to return 409 Conflict
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          message: 'This email is already registered',
+        }),
+      });
+
+      renderSignUpForm();
+
+      // Fill in form
+      await user.type(screen.getByLabelText(/email address/i), 'existing@example.com');
+      const passwordFields = screen.getAllByLabelText(/password/i);
+      await user.type(passwordFields[0], 'ValidPass123');
+      await user.type(passwordFields[1], 'ValidPass123');
+      await user.type(screen.getByLabelText(/company name/i), 'Test Company');
+
+      // Select subscription tier
+      const tierSelectContainer = screen.getByTestId('subscription-tier-select');
+      const tierSelectButton = tierSelectContainer.querySelector('[role="button"]') || 
+                                tierSelectContainer.querySelector('div[tabindex]') ||
+                                tierSelectContainer;
+      await user.click(tierSelectButton);
+      await waitFor(async () => {
+        const basicOption = await screen.findByText(/basic/i);
+        await user.click(basicOption);
+      }, { timeout: 2000 });
+
+      // Submit form
+      const submitButton = screen.getByRole('button', { name: /create account/i });
+      await user.click(submitButton);
+
+      // Wait for error message - check for Alert message and field error
+      await waitFor(() => {
+        // Check that error message appears in Alert
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent(/this email is already registered/i);
+        // Also verify field error helper text is shown
+        expect(screen.getAllByText(/this email is already registered/i).length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it('handles network errors gracefully', async () => {
+      const user = userEvent.setup();
+      
+      // Mock fetch to throw network error (TypeError with specific message that includes 'fetch')
+      const networkError = new TypeError('Failed to execute "fetch()" on "Window"');
+      global.fetch.mockRejectedValueOnce(networkError);
+
+      renderSignUpForm();
+
+      // Fill in form
+      await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
+      const passwordFields = screen.getAllByLabelText(/password/i);
+      await user.type(passwordFields[0], 'ValidPass123');
+      await user.type(passwordFields[1], 'ValidPass123');
+      await user.type(screen.getByLabelText(/company name/i), 'Test Company');
+
+      // Select subscription tier
+      const tierSelectContainer = screen.getByTestId('subscription-tier-select');
+      const tierSelectButton = tierSelectContainer.querySelector('[role="button"]') || 
+                                tierSelectContainer.querySelector('div[tabindex]') ||
+                                tierSelectContainer;
+      await user.click(tierSelectButton);
+      await waitFor(async () => {
+        const basicOption = await screen.findByText(/basic/i);
+        await user.click(basicOption);
+      }, { timeout: 2000 });
+
+      // Submit form
+      const submitButton = screen.getByRole('button', { name: /create account/i });
+      await user.click(submitButton);
+
+      // Wait for network error message
+      await waitFor(() => {
+        expect(screen.getByText(/network error/i)).toBeInTheDocument();
+      });
+    });
+
+    it('handles non-JSON error responses', async () => {
+      const user = userEvent.setup();
+      
+      // Mock fetch to return non-JSON response
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        headers: new Headers({ 'content-type': 'text/plain' }),
+        text: async () => 'Internal Server Error',
+      });
+
+      renderSignUpForm();
+
+      // Fill in form
+      await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
+      const passwordFields = screen.getAllByLabelText(/password/i);
+      await user.type(passwordFields[0], 'ValidPass123');
+      await user.type(passwordFields[1], 'ValidPass123');
+      await user.type(screen.getByLabelText(/company name/i), 'Test Company');
+
+      // Select subscription tier
+      const tierSelectContainer = screen.getByTestId('subscription-tier-select');
+      const tierSelectButton = tierSelectContainer.querySelector('[role="button"]') || 
+                                tierSelectContainer.querySelector('div[tabindex]') ||
+                                tierSelectContainer;
+      await user.click(tierSelectButton);
+      await waitFor(async () => {
+        const basicOption = await screen.findByText(/basic/i);
+        await user.click(basicOption);
+      }, { timeout: 2000 });
+
+      // Submit form
+      const submitButton = screen.getByRole('button', { name: /create account/i });
+      await user.click(submitButton);
+
+      // Wait for error message
+      await waitFor(() => {
+        expect(screen.getByText(/internal server error/i)).toBeInTheDocument();
+      });
     });
   });
 });
