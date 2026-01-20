@@ -1,14 +1,12 @@
 # Azure Pipeline for MyStore Web Application
-# This pipeline builds and deploys the React application to Azure App Service
-# Supports: development, QA, staging, and production environments
+# This pipeline builds and deploys the React application to Azure Storage Static Website
+# Supports: dev and test environments
 
 trigger:
   branches:
     include:
       - main
       - develop
-      - qa
-      - staging
   paths:
     include:
       - src/*
@@ -19,32 +17,18 @@ parameters:
   - name: environment
     displayName: 'Target Environment'
     type: string
-    default: 'development'
+    default: 'dev'
     values:
-      - development
-      - qa
-      - staging
-      - production
+      - dev
+      - test
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
   nodeVersion: '20.x'
-  # Environment-specific variables - set these per environment in Azure DevOps variable groups
-  # Variable groups: mystore-web-dev, mystore-web-qa, mystore-web-staging, mystore-web-prod
+  # Environment-specific variables
   - group: 'mystore-web-${{ parameters.environment }}'
-  # Map branch to environment if parameter not provided
-  - name: targetEnvironment
-    value: ${{ coalesce(parameters.environment, variables['Build.SourceBranchName']) }}
-    ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
-      value: 'production'
-    ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/staging') }}:
-      value: 'staging'
-    ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
-      value: 'qa'
-    ${{ else }}:
-      value: 'development'
 
 stages:
 - stage: Build
@@ -74,86 +58,57 @@ stages:
         command: 'custom'
         workingDir: '.'
         customCommand: 'run build'
-
-    - task: ArchiveFiles@2
-      displayName: 'Archive build output'
-      inputs:
-        rootFolderOrFile: '$(System.DefaultWorkingDirectory)/dist'
-        includeRootFolder: false
-        archiveType: 'zip'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/web-app.zip'
-        replaceExistingArchive: true
+      env:
+        VITE_API_URL: $(functionAppUrl)
 
     - task: PublishBuildArtifacts@1
       displayName: 'Publish build artifacts'
       inputs:
-        pathToPublish: '$(Build.ArtifactStagingDirectory)/web-app.zip'
+        pathToPublish: '$(System.DefaultWorkingDirectory)/dist'
         artifactName: 'web-app'
         publishLocation: 'Container'
 
 - stage: Deploy
-  displayName: 'Deploy Web Application to ${{ variables.targetEnvironment }}'
+  displayName: 'Deploy Web Application to ${{ parameters.environment }}'
   dependsOn: Build
   condition: succeeded()
   jobs:
   - deployment: DeployWebApp
-    displayName: 'Deploy to Azure App Service'
-    environment: '${{ variables.targetEnvironment }}'
+    displayName: 'Deploy to Azure Storage Static Website'
+    environment: '${{ parameters.environment }}'
     strategy:
       runOnce:
         deploy:
           steps:
-          - task: AzureWebApp@1
-            displayName: 'Deploy to Azure App Service'
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appType: 'webApp'
-              appName: '$(webAppName)'
-              package: '$(Pipeline.Workspace)/web-app/web-app.zip'
-              deploymentMethod: 'zipDeploy'
-
-          - task: AzureAppServiceSettings@1
-            displayName: 'Configure Application Settings'
-            inputs:
-              azureSubscription: '$(azureSubscription)'
-              appName: '$(webAppName)'
-              appSettings: |
-                [
-                  {
-                    "name": "REACT_APP_API_URL",
-                    "value": "$(apimGatewayUrl)",
-                    "slotSetting": false
-                  },
-                  {
-                    "name": "REACT_APP_ENVIRONMENT",
-                    "value": "${{ variables.targetEnvironment }}",
-                    "slotSetting": false
-                  },
-                  {
-                    "name": "WEBSITE_NODE_DEFAULT_VERSION",
-                    "value": "~20",
-                    "slotSetting": false
-                  },
-                  {
-                    "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-                    "value": "false",
-                    "slotSetting": false
-                  }
-                ]
+          - download: current
+            artifact: web-app
+            displayName: 'Download build artifacts'
 
           - task: AzureCLI@2
-            displayName: 'Output Web App URL'
+            displayName: 'Deploy to Static Website'
             inputs:
               azureSubscription: '$(azureSubscription)'
               scriptType: 'bash'
               scriptLocation: 'inlineScript'
               inlineScript: |
-                WEB_APP_URL=$(az webapp show \
-                  --name $(webAppName) \
+                echo "Deploying to Azure Storage Static Website..."
+                
+                # Upload files to $web container
+                az storage blob upload-batch \
+                  --account-name $(storageAccountName) \
+                  --destination '$web' \
+                  --source $(Pipeline.Workspace)/web-app \
+                  --auth-mode login \
+                  --overwrite
+                
+                # Get the static website URL
+                WEBSITE_URL=$(az storage account show \
+                  --name $(storageAccountName) \
                   --resource-group $(resourceGroupName) \
-                  --query defaultHostName \
+                  --query "primaryEndpoints.web" \
                   --output tsv)
                 
-                echo "##[section]Web Application Deployment Complete - ${{ variables.targetEnvironment }}"
-                echo "Web App URL: https://$WEB_APP_URL"
-                echo "Environment: ${{ variables.targetEnvironment }}"
+                echo "##[section]Web Application Deployment Complete - ${{ parameters.environment }}"
+                echo "Static Website URL: $WEBSITE_URL"
+                echo "Storage Account: $(storageAccountName)"
+                echo "Environment: ${{ parameters.environment }}"
