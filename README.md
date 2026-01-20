@@ -25,20 +25,37 @@ A modern React web application built with Material UI for video game and TCG sto
 npm install
 ```
 
-2. Start the development server:
+2. Set up environment variables:
+Create a `.env` file in the root directory with the following:
+```
+VITE_API_URL=https://your-function-app.azurewebsites.net
+```
+
+For local development, you can point to your local Function App or the dev environment.
+
+3. Start the development server:
 ```bash
 npm run dev
 ```
 
-3. Open your browser and navigate to `http://localhost:5173`
+4. Open your browser and navigate to `http://localhost:5173`
 
 ### Build for Production
 
+Before building, ensure the `VITE_API_URL` environment variable is set:
+
 ```bash
+# Windows PowerShell
+$env:VITE_API_URL="https://your-function-app.azurewebsites.net"
 npm run build
+
+# Linux/Mac
+VITE_API_URL=https://your-function-app.azurewebsites.net npm run build
 ```
 
 The built files will be in the `dist` directory.
+
+**Note**: The `VITE_API_URL` environment variable is required at build time. If not set, the build will fail with an error.
 
 ### Preview Production Build
 
