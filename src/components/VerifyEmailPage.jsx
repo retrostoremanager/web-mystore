@@ -13,7 +13,8 @@ import {
 import {
   CheckCircleOutline as SuccessIcon,
   ErrorOutline as ErrorIcon,
-  HourglassEmpty as ExpiredIcon
+  HourglassEmpty as ExpiredIcon,
+  EmailOutlined as EmailIcon
 } from '@mui/icons-material';
 
 const VerifyEmailPage = () => {
@@ -25,10 +26,20 @@ const VerifyEmailPage = () => {
   const [isExpired, setIsExpired] = useState(false);
   const [isAlreadyVerified, setIsAlreadyVerified] = useState(false);
   const [email, setEmail] = useState('');
+  const [isPendingVerification, setIsPendingVerification] = useState(false);
 
   useEffect(() => {
     const verifyEmail = async () => {
       const token = searchParams.get('token');
+      const emailParam = searchParams.get('email');
+
+      // If no token but email is provided, show "check your email" message
+      if (!token && emailParam) {
+        setEmail(emailParam);
+        setIsPendingVerification(true);
+        setLoading(false);
+        return;
+      }
 
       if (!token) {
         setError('Invalid verification link. The token is missing.');
@@ -126,7 +137,35 @@ const VerifyEmailPage = () => {
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          {success ? (
+          {isPendingVerification ? (
+            <Stack spacing={3} alignItems="center">
+              <EmailIcon sx={{ fontSize: 80, color: 'primary.main' }} />
+              <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
+                Check Your Email
+              </Typography>
+              <Typography variant="body1" color="text.secondary" textAlign="center">
+                We've sent a verification email to:
+              </Typography>
+              <Alert severity="info" sx={{ width: '100%' }}>
+                {email}
+              </Alert>
+              <Typography variant="body2" color="text.secondary" textAlign="center">
+                Please check your inbox and click the verification link to activate your account.
+                The link will expire in 24 hours.
+              </Typography>
+              <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ fontStyle: 'italic' }}>
+                Don't see the email? Check your spam or junk folder.
+              </Typography>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => navigate('/')}
+                sx={{ mt: 2 }}
+              >
+                Back to Home
+              </Button>
+            </Stack>
+          ) : success ? (
             <Stack spacing={3} alignItems="center">
               <SuccessIcon sx={{ fontSize: 80, color: 'success.main' }} />
               <Typography variant="h4" component="h1" textAlign="center" gutterBottom>

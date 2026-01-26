@@ -393,11 +393,8 @@ const SignUpForm = () => {
         return;
       }
 
-      // Success - account created
-      // Once backend is ready, uncomment navigation:
-      // navigate('/onboarding');
-      
-      console.log('Sign-up successful:', data);
+      // Success - account created, navigate to verification page
+      navigate(`/verify?email=${encodeURIComponent(formData.email.trim())}`);
       
     } catch (err) {
       // Network errors, JSON parsing errors, or other exceptions
