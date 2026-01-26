@@ -5,6 +5,7 @@ import { InventoryProvider } from './contexts/InventoryContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import LandingPage from './components/LandingPage';
 import SignUpForm from './components/SignUpForm';
+import VerifyEmailPage from './components/VerifyEmailPage';
 import Dashboard from './components/Dashboard';
 import InventoryPage from './components/InventoryPage';
 import AddInventoryItem from './components/AddInventoryItem';
@@ -64,6 +65,7 @@ function App() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/signup" element={<SignUpForm />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/dashboard/inventory" element={<InventoryPage />} />
               <Route path="/dashboard/inventory/add" element={<AddInventoryItem />} />
