@@ -2,10 +2,18 @@
 
 A modern React web application built with Material UI for video game and TCG store owners to efficiently manage all aspects of their store in one place.
 
+## Deployment Status
+
+✅ **Deployed to Azure** - This application is currently deployed and running on Azure App Service.
+
 ## Features
 
 - **Modern Landing Page**: Beautiful, responsive design with hero section, features showcase, and call-to-action
 - **Account Registration**: Comprehensive sign-up form with email verification, password validation, and subscription tier selection
+- **Inventory Management**: Full CRUD operations for game inventory
+- **Customer Management**: Track and manage customer information
+- **Employee Management**: Manage store employees and access
+- **Sales Tracking**: Record and view sales history
 - **Material UI**: Built with Material-UI v5 for a polished, professional look
 - **Responsive Design**: Fully responsive layout that works on all devices
 - **React 18**: Built with the latest React features
@@ -62,6 +70,17 @@ The built files will be in the `dist` directory.
 ```bash
 npm run preview
 ```
+
+## Deployment
+
+The application is currently deployed to Azure App Service. To deploy updates:
+
+1. Build the production bundle (see above)
+2. Deploy the `dist` folder contents to Azure App Service using:
+   - Azure CLI: `az webapp up`
+   - Visual Studio Code Azure extension
+   - FTP/FTPS upload
+   - Azure DevOps (if configured later)
 
 ## Project Structure
 
@@ -137,20 +156,26 @@ A comprehensive account registration form component located at `src/components/S
 **Usage:**
 The component is automatically routed at `/signup` in the application. It handles form submission and will integrate with the backend API once available.
 
-## Next Steps
+## Completed Features
 
-Completed features:
 - ✅ Landing page with hero section and features
-- ✅ Account registration form with validation
+- ✅ Account registration with validation
+- ✅ Inventory management (CRUD operations, search, bulk import)
+- ✅ Customer management
+- ✅ Employee management
+- ✅ Sales tracking and history
+- ✅ Point of sale / checkout system
+- ✅ Trade-in processing
 - ✅ Responsive design and Material UI integration
-- ✅ Comprehensive test suite
+- ✅ Backend API integration
 
-Future development can include:
-- Backend API integration for account registration
-- Email verification flow
-- User authentication and login
-- Dashboard components
-- Inventory management features
-- Point of sale system
-- Analytics and reporting
-- Customer management
+## Future Enhancements
+
+- [ ] Email verification flow
+- [ ] User authentication and login
+- [ ] Analytics and reporting dashboard
+- [ ] Advanced search and filtering
+- [ ] Inventory alerts and notifications
+- [ ] Multi-location support
+- [ ] Receipt printing
+- [ ] Barcode scanning integration
