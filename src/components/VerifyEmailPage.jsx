@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import config from '../config';
 import {
   Box,
   Container,
@@ -49,8 +50,7 @@ const VerifyEmailPage = () => {
 
       try {
         // Call the verify email API endpoint
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:7071/api';
-        const response = await fetch(`${apiUrl}/accounts/verify-email?token=${encodeURIComponent(token)}`, {
+        const response = await fetch(`${config.apiUrl}/accounts/verify-email?token=${encodeURIComponent(token)}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
