@@ -102,16 +102,24 @@ const VerifyEmailPage = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="sm">
-        <Box
-          sx={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Paper elevation={3} sx={{ p: 4, textAlign: 'center', width: '100%' }}>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          py: 4,
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <Container maxWidth="sm">
+          <Paper
+            elevation={24}
+            sx={{
+              p: { xs: 3, sm: 5 },
+              borderRadius: 3,
+              textAlign: 'center',
+            }}
+          >
             <CircularProgress size={60} sx={{ mb: 3 }} />
             <Typography variant="h5" gutterBottom>
               Verifying your email...
@@ -120,113 +128,143 @@ const VerifyEmailPage = () => {
               Please wait while we verify your account.
             </Typography>
           </Paper>
-        </Box>
-      </Container>
+        </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 4,
-        }}
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        py: 4,
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          elevation={24}
+          sx={{
+            p: { xs: 3, sm: 5 },
+            borderRadius: 3,
+          }}
+        >
           {isPendingVerification ? (
-            <Stack spacing={3} alignItems="center">
-              <EmailIcon sx={{ fontSize: 80, color: 'primary.main' }} />
-              <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-                Check Your Email
-              </Typography>
-              <Typography variant="body1" color="text.secondary" textAlign="center">
-                We've sent a verification email to:
-              </Typography>
-              <Alert severity="info" sx={{ width: '100%' }}>
-                {email}
-              </Alert>
-              <Typography variant="body2" color="text.secondary" textAlign="center">
-                Please check your inbox and click the verification link to activate your account.
-                The link will expire in 24 hours.
-              </Typography>
-              <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ fontStyle: 'italic' }}>
-                Don't see the email? Check your spam or junk folder.
-              </Typography>
-              <Button
-                variant="outlined"
-                fullWidth
-                onClick={() => navigate('/')}
-                sx={{ mt: 2 }}
-              >
-                Back to Home
-              </Button>
-            </Stack>
-          ) : success ? (
-            <Stack spacing={3} alignItems="center">
-              <SuccessIcon sx={{ fontSize: 80, color: 'success.main' }} />
-              <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-                {isAlreadyVerified ? 'Account Already Verified' : 'Email Verified Successfully!'}
-              </Typography>
-              <Typography variant="body1" color="text.secondary" textAlign="center">
-                {isAlreadyVerified 
-                  ? 'Your account is already verified. You can log in now.'
-                  : 'Your email has been verified successfully! You can now log in to your account.'}
-              </Typography>
-              {email && (
+            <>
+              <Box sx={{ mb: 4 }}>
+                <Button
+                  onClick={() => navigate('/')}
+                  sx={{ mb: 3, textTransform: 'none' }}
+                >
+                  ← Back to Home
+                </Button>
+              </Box>
+              <Stack spacing={3} alignItems="center">
+                <EmailIcon sx={{ fontSize: 80, color: 'primary.main' }} />
+                <Typography variant="h4" component="h1" textAlign="center" gutterBottom sx={{ fontWeight: 700 }}>
+                  Check Your Email
+                </Typography>
+                <Typography variant="body1" color="text.secondary" textAlign="center">
+                  We've sent a verification email to:
+                </Typography>
                 <Alert severity="info" sx={{ width: '100%' }}>
-                  Account: {email}
+                  {email}
                 </Alert>
-              )}
-              <Button
-                variant="contained"
-                size="large"
-                fullWidth
-                onClick={handleGoToLogin}
-                sx={{ mt: 2 }}
-              >
-                Go to Login
-              </Button>
-            </Stack>
-          ) : (
-            <Stack spacing={3} alignItems="center">
-              {isExpired ? (
-                <ExpiredIcon sx={{ fontSize: 80, color: 'warning.main' }} />
-              ) : (
-                <ErrorIcon sx={{ fontSize: 80, color: 'error.main' }} />
-              )}
-              <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-                {isExpired ? 'Verification Link Expired' : 'Verification Failed'}
-              </Typography>
-              <Alert severity={isExpired ? 'warning' : 'error'} sx={{ width: '100%' }}>
-                {error}
-              </Alert>
-              <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
-                {isExpired && (
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    onClick={handleResendVerification}
-                  >
-                    Resend Verification Email
-                  </Button>
+                <Typography variant="body2" color="text.secondary" textAlign="center">
+                  Please check your inbox and click the verification link to activate your account.
+                  The link will expire in 24 hours.
+                </Typography>
+                <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ fontStyle: 'italic' }}>
+                  Don't see the email? Check your spam or junk folder.
+                </Typography>
+              </Stack>
+            </>
+          ) : success ? (
+            <>
+              <Box sx={{ mb: 4 }}>
+                <Button
+                  onClick={() => navigate('/')}
+                  sx={{ mb: 3, textTransform: 'none' }}
+                >
+                  ← Back to Home
+                </Button>
+              </Box>
+              <Stack spacing={3} alignItems="center">
+                <SuccessIcon sx={{ fontSize: 80, color: 'success.main' }} />
+                <Typography variant="h4" component="h1" textAlign="center" gutterBottom sx={{ fontWeight: 700 }}>
+                  {isAlreadyVerified ? 'Account Already Verified' : 'Email Verified Successfully!'}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" textAlign="center">
+                  {isAlreadyVerified 
+                    ? 'Your account is already verified. You can log in now.'
+                    : 'Your email has been verified successfully! You can now log in to your account.'}
+                </Typography>
+                {email && (
+                  <Alert severity="info" sx={{ width: '100%' }}>
+                    Account: {email}
+                  </Alert>
                 )}
                 <Button
-                  variant={isExpired ? 'outlined' : 'contained'}
+                  variant="contained"
+                  size="large"
                   fullWidth
-                  onClick={() => navigate('/')}
+                  onClick={handleGoToLogin}
+                  sx={{ mt: 2, py: 1.5, textTransform: 'none' }}
                 >
-                  Go to Home
+                  Go to Login
                 </Button>
               </Stack>
-            </Stack>
+            </>
+          ) : (
+            <>
+              <Box sx={{ mb: 4 }}>
+                <Button
+                  onClick={() => navigate('/')}
+                  sx={{ mb: 3, textTransform: 'none' }}
+                >
+                  ← Back to Home
+                </Button>
+              </Box>
+              <Stack spacing={3} alignItems="center">
+                {isExpired ? (
+                  <ExpiredIcon sx={{ fontSize: 80, color: 'warning.main' }} />
+                ) : (
+                  <ErrorIcon sx={{ fontSize: 80, color: 'error.main' }} />
+                )}
+                <Typography variant="h4" component="h1" textAlign="center" gutterBottom sx={{ fontWeight: 700 }}>
+                  {isExpired ? 'Verification Link Expired' : 'Verification Failed'}
+                </Typography>
+                <Alert severity={isExpired ? 'warning' : 'error'} sx={{ width: '100%' }}>
+                  {error}
+                </Alert>
+                <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
+                  {isExpired && (
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={handleResendVerification}
+                      sx={{ py: 1.5, textTransform: 'none' }}
+                    >
+                      Resend Verification Email
+                    </Button>
+                  )}
+                  <Button
+                    variant={isExpired ? 'outlined' : 'contained'}
+                    fullWidth
+                    onClick={() => navigate('/')}
+                    sx={{ py: 1.5, textTransform: 'none' }}
+                  >
+                    Go to Home
+                  </Button>
+                </Stack>
+              </Stack>
+            </>
           )}
         </Paper>
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 
