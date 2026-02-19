@@ -28,6 +28,9 @@ const VerifyEmailPage = () => {
   const [isAlreadyVerified, setIsAlreadyVerified] = useState(false);
   const [email, setEmail] = useState('');
   const [isPendingVerification, setIsPendingVerification] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [resendError, setResendError] = useState('');
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -74,6 +77,10 @@ const VerifyEmailPage = () => {
               data.errors?.some(e => e.toLowerCase().includes('expired'))) {
             setIsExpired(true);
             setError('Your verification link has expired. Please request a new verification email.');
+            // Extract email from response if available (for expired tokens)
+            if (data.data?.email) {
+              setEmail(data.data.email);
+            }
           } else if (response.status === 404) {
             setError('Invalid verification link. The token may have been used already or does not exist.');
           } else {
@@ -95,9 +102,54 @@ const VerifyEmailPage = () => {
     navigate('/login');
   };
 
-  const handleResendVerification = () => {
-    // TODO: Implement resend verification (EPIC-0-001-006)
-    alert('Resend verification functionality will be implemented in the next task.');
+  const handleResendVerification = async () => {
+    if (!email) {
+      setResendError('Email address is required to resend verification email.');
+      return;
+    }
+
+    setResendLoading(true);
+    setResendError('');
+    setResendSuccess(false);
+
+    try {
+      const response = await fetch(`${config.apiUrl}/accounts/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setResendSuccess(true);
+        setResendError('');
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setResendSuccess(false);
+        }, 5000);
+      } else {
+        // Handle rate limiting (429 Too Many Requests)
+        if (response.status === 429 || 
+            data.message?.toLowerCase().includes('too many') ||
+            data.message?.toLowerCase().includes('rate limit')) {
+          setResendError(data.message || 'Too many resend requests. Please wait before requesting another verification email.');
+        } else if (data.message?.toLowerCase().includes('already verified')) {
+          setResendError('This account is already verified. You can log in now.');
+        } else {
+          setResendError(data.message || 'An error occurred while sending the verification email. Please try again later.');
+        }
+        setResendSuccess(false);
+      }
+    } catch (err) {
+      console.error('Error resending verification email:', err);
+      setResendError('An unexpected error occurred. Please try again later.');
+      setResendSuccess(false);
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   if (loading) {
@@ -179,6 +231,32 @@ const VerifyEmailPage = () => {
                 <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ fontStyle: 'italic' }}>
                   Don't see the email? Check your spam or junk folder.
                 </Typography>
+                {resendSuccess && (
+                  <Alert severity="success" sx={{ width: '100%' }}>
+                    A new verification email has been sent. Please check your inbox.
+                  </Alert>
+                )}
+                {resendError && (
+                  <Alert severity="error" sx={{ width: '100%' }}>
+                    {resendError}
+                  </Alert>
+                )}
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  sx={{ py: 1.5, textTransform: 'none' }}
+                >
+                  {resendLoading ? (
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Sending...
+                    </>
+                  ) : (
+                    'Resend Verification Email'
+                  )}
+                </Button>
               </Stack>
             </>
           ) : success ? (
@@ -239,21 +317,40 @@ const VerifyEmailPage = () => {
                 <Alert severity={isExpired ? 'warning' : 'error'} sx={{ width: '100%' }}>
                   {error}
                 </Alert>
+                {resendSuccess && (
+                  <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
+                    A new verification email has been sent. Please check your inbox.
+                  </Alert>
+                )}
+                {resendError && (
+                  <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+                    {resendError}
+                  </Alert>
+                )}
                 <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
                   {isExpired && (
                     <Button
                       variant="contained"
                       fullWidth
                       onClick={handleResendVerification}
+                      disabled={resendLoading}
                       sx={{ py: 1.5, textTransform: 'none' }}
                     >
-                      Resend Verification Email
+                      {resendLoading ? (
+                        <>
+                          <CircularProgress size={20} sx={{ mr: 1 }} />
+                          Sending...
+                        </>
+                      ) : (
+                        'Resend Verification Email'
+                      )}
                     </Button>
                   )}
                   <Button
                     variant={isExpired ? 'outlined' : 'contained'}
                     fullWidth
                     onClick={() => navigate('/')}
+                    disabled={resendLoading}
                     sx={{ py: 1.5, textTransform: 'none' }}
                   >
                     Go to Home
