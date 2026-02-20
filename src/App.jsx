@@ -3,7 +3,9 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { InventoryProvider } from './contexts/InventoryContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import AuthRedirect from './components/AuthRedirect';
 import LandingPage from './components/LandingPage';
+import LoginPage from './components/LoginPage';
 import SignUpForm from './components/SignUpForm';
 import VerifyEmailPage from './components/VerifyEmailPage';
 import Dashboard from './components/Dashboard';
@@ -62,8 +64,10 @@ function App() {
         <CssBaseline />
         <InventoryProvider>
           <Router>
+            <AuthRedirect>
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignUpForm />} />
               <Route path="/verify" element={<VerifyEmailPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
@@ -77,6 +81,7 @@ function App() {
               <Route path="/dashboard/checkout" element={<CheckoutPage />} />
               <Route path="/dashboard/sales-history" element={<SalesHistoryPage />} />
             </Routes>
+            </AuthRedirect>
           </Router>
         </InventoryProvider>
       </ThemeProvider>

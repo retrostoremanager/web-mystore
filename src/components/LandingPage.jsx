@@ -75,7 +75,7 @@ const LandingPage = () => {
             <Button color="inherit" sx={{ display: { xs: 'none', sm: 'block' } }}>
               Pricing
             </Button>
-            <Button variant="outlined" color="primary" onClick={() => navigate('/dashboard')}>
+            <Button variant="outlined" color="primary" onClick={() => navigate('/login')}>
               Sign In
             </Button>
             <Button variant="contained" color="primary" onClick={() => navigate('/signup')}>
