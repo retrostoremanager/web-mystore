@@ -151,6 +151,15 @@ const LoginPage = () => {
               color="text.secondary"
               align="center"
               sx={{ mt: 2, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+              onClick={() => navigate('/forgot-password')}
+            >
+              Forgot password?
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              align="center"
+              sx={{ mt: 1, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
               onClick={() => navigate('/')}
             >
               Back to home
