@@ -2,13 +2,13 @@ import { useState } from 'react';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Container,
   Typography,
   TextField,
   CircularProgress,
   Alert,
+  Paper,
+  Stack,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import config from '../config';
@@ -56,109 +56,117 @@ const ForgotPasswordPage = () => {
     }
   };
 
-  if (success) {
-    return (
+  const sharedLayout = (children) => (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        py: 4,
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
       <Container maxWidth="sm">
-        <Box
+        <Paper
+          elevation={24}
           sx={{
-            minHeight: '50vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 4,
+            p: { xs: 3, sm: 5 },
+            borderRadius: 3,
           }}
         >
-          <Card sx={{ width: '100%', maxWidth: 400 }}>
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h5" component="h1" gutterBottom align="center" fontWeight={600}>
-                Check Your Email
-              </Typography>
-              <Alert severity="success" sx={{ mb: 2 }}>
-                If an account exists with this email, a password reset link has been sent. Please check your inbox.
-              </Alert>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                The link will expire in 1 hour. Don&apos;t see the email? Check your spam or junk folder.
-              </Typography>
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={() => navigate('/login')}
-                sx={{ py: 1.5 }}
-              >
-                Back to Sign In
-              </Button>
-            </CardContent>
-          </Card>
-        </Box>
+          {children}
+        </Paper>
       </Container>
+    </Box>
+  );
+
+  if (success) {
+    return sharedLayout(
+      <>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
+            Check Your Email
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            If an account exists with this email, a password reset link has been sent.
+          </Typography>
+        </Box>
+        <Alert severity="success" sx={{ mb: 3 }}>
+          Please check your inbox. The link will expire in 1 hour. Don&apos;t see the email? Check your spam or junk folder.
+        </Alert>
+        <Button
+          variant="contained"
+          fullWidth
+          size="large"
+          onClick={() => navigate('/login')}
+          sx={{ py: 1.5, textTransform: 'none' }}
+        >
+          Back to Sign In
+        </Button>
+      </>
     );
   }
 
-  return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          minHeight: '50vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 4,
-        }}
-      >
-        <Card sx={{ width: '100%', maxWidth: 400 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h5" component="h1" gutterBottom align="center" fontWeight={600}>
-              Forgot Password
-            </Typography>
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-              Enter your email address and we&apos;ll send you a link to reset your password.
-            </Typography>
-
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <TextField
-                label="Email"
-                type="email"
-                fullWidth
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                sx={{ mb: 3 }}
-                autoComplete="email"
-                autoFocus
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                fullWidth
-                size="large"
-                disabled={loading}
-                sx={{ py: 1.5 }}
-              >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Send Reset Link'}
-              </Button>
-            </form>
-
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              align="center"
-              sx={{ mt: 2, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-              onClick={() => navigate('/login')}
-            >
-              Back to Sign In
-            </Typography>
-          </CardContent>
-        </Card>
+  return sharedLayout(
+    <>
+      <Box sx={{ mb: 4 }}>
+        <Button
+          onClick={() => navigate('/login')}
+          sx={{ mb: 3, textTransform: 'none' }}
+        >
+          ← Back to Sign In
+        </Button>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
+          Forgot Password
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Enter your email address and we&apos;ll send you a link to reset your password.
+        </Typography>
       </Box>
-    </Container>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate>
+        <Stack spacing={3}>
+          <TextField
+            label="Email"
+            type="email"
+            fullWidth
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            autoFocus
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            fullWidth
+            disabled={loading}
+            sx={{ py: 1.5, textTransform: 'none' }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Send Reset Link'}
+          </Button>
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Remember your password?{' '}
+              <Button
+                variant="text"
+                onClick={() => navigate('/login')}
+                sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
+              >
+                Sign In
+              </Button>
+            </Typography>
+          </Box>
+        </Stack>
+      </form>
+    </>
   );
 };
 

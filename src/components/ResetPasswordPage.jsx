@@ -3,8 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Container,
   Typography,
   TextField,
@@ -12,6 +10,8 @@ import {
   Alert,
   InputAdornment,
   IconButton,
+  Paper,
+  Stack,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import config from '../config';
@@ -95,180 +95,181 @@ const ResetPasswordPage = () => {
     }
   };
 
-  if (success) {
-    return (
+  const sharedLayout = (children) => (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        py: 4,
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
       <Container maxWidth="sm">
-        <Box
+        <Paper
+          elevation={24}
           sx={{
-            minHeight: '50vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 4,
+            p: { xs: 3, sm: 5 },
+            borderRadius: 3,
           }}
         >
-          <Card sx={{ width: '100%', maxWidth: 400 }}>
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h5" component="h1" gutterBottom align="center" fontWeight={600}>
-                Password Reset Successfully
-              </Typography>
-              <Alert severity="success" sx={{ mb: 2 }}>
-                Your password has been reset. You can now sign in with your new password.
-              </Alert>
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={() => navigate('/login')}
-                sx={{ py: 1.5 }}
-              >
-                Sign In
-              </Button>
-            </CardContent>
-          </Card>
-        </Box>
+          {children}
+        </Paper>
       </Container>
+    </Box>
+  );
+
+  if (success) {
+    return sharedLayout(
+      <>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
+            Password Reset Successfully
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Your password has been reset. You can now sign in with your new password.
+          </Typography>
+        </Box>
+        <Alert severity="success" sx={{ mb: 3 }}>
+          Your password has been reset. You can now sign in with your new password.
+        </Alert>
+        <Button
+          variant="contained"
+          fullWidth
+          size="large"
+          onClick={() => navigate('/login')}
+          sx={{ py: 1.5, textTransform: 'none' }}
+        >
+          Sign In
+        </Button>
+      </>
     );
   }
 
   if (!token) {
-    return (
-      <Container maxWidth="sm">
-        <Box
-          sx={{
-            minHeight: '50vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: 4,
-          }}
-        >
-          <Card sx={{ width: '100%', maxWidth: 400 }}>
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h5" component="h1" gutterBottom align="center" fontWeight={600}>
-                Invalid Reset Link
-              </Typography>
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={() => navigate('/forgot-password')}
-                sx={{ py: 1.5 }}
-              >
-                Request New Reset Link
-              </Button>
-            </CardContent>
-          </Card>
+    return sharedLayout(
+      <>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
+            Invalid Reset Link
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            The reset link is invalid or missing. Please request a new password reset.
+          </Typography>
         </Box>
-      </Container>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+        <Button
+          variant="contained"
+          fullWidth
+          size="large"
+          onClick={() => navigate('/forgot-password')}
+          sx={{ py: 1.5, textTransform: 'none' }}
+        >
+          Request New Reset Link
+        </Button>
+      </>
     );
   }
 
-  return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          minHeight: '50vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 4,
-        }}
-      >
-        <Card sx={{ width: '100%', maxWidth: 400 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h5" component="h1" gutterBottom align="center" fontWeight={600}>
-              Reset Your Password
-            </Typography>
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-              Enter your new password. It must be at least 8 characters with uppercase, lowercase, and a number.
-            </Typography>
-
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => { setError(null); setIsExpired(false); }}>
-                {error}
-              </Alert>
-            )}
-
-            {isExpired && (
-              <Button
-                variant="outlined"
-                fullWidth
-                onClick={() => navigate('/forgot-password')}
-                sx={{ mb: 2 }}
-              >
-                Request New Reset Link
-              </Button>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <TextField
-                label="New Password"
-                type={showPassword ? 'text' : 'password'}
-                fullWidth
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                sx={{ mb: 2 }}
-                autoComplete="new-password"
-                autoFocus
-                error={!!fieldErrors.newPassword}
-                helperText={fieldErrors.newPassword?.join(' ')}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={() => setShowPassword((p) => !p)}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <TextField
-                label="Confirm Password"
-                type={showPassword ? 'text' : 'password'}
-                fullWidth
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                sx={{ mb: 3 }}
-                autoComplete="new-password"
-                error={!!fieldErrors.confirmPassword}
-                helperText={fieldErrors.confirmPassword?.join(' ')}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                fullWidth
-                size="large"
-                disabled={loading}
-                sx={{ py: 1.5 }}
-              >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Reset Password'}
-              </Button>
-            </form>
-
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              align="center"
-              sx={{ mt: 2, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-              onClick={() => navigate('/login')}
-            >
-              Back to Sign In
-            </Typography>
-          </CardContent>
-        </Card>
+  return sharedLayout(
+    <>
+      <Box sx={{ mb: 4 }}>
+        <Button
+          onClick={() => navigate('/login')}
+          sx={{ mb: 3, textTransform: 'none' }}
+        >
+          ← Back to Sign In
+        </Button>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
+          Reset Your Password
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Enter your new password. It must be at least 8 characters with uppercase, lowercase, and a number.
+        </Typography>
       </Box>
-    </Container>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => { setError(null); setIsExpired(false); }}>
+          {error}
+        </Alert>
+      )}
+
+      {isExpired && (
+        <Button
+          variant="outlined"
+          fullWidth
+          onClick={() => navigate('/forgot-password')}
+          sx={{ mb: 2, textTransform: 'none' }}
+        >
+          Request New Reset Link
+        </Button>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate>
+        <Stack spacing={3}>
+          <TextField
+            label="New Password"
+            type={showPassword ? 'text' : 'password'}
+            fullWidth
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            autoFocus
+            error={!!fieldErrors.newPassword}
+            helperText={fieldErrors.newPassword?.join(' ')}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle password visibility"
+                    onClick={() => setShowPassword((p) => !p)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            label="Confirm Password"
+            type={showPassword ? 'text' : 'password'}
+            fullWidth
+            required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
+            error={!!fieldErrors.confirmPassword}
+            helperText={fieldErrors.confirmPassword?.join(' ')}
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            fullWidth
+            disabled={loading}
+            sx={{ py: 1.5, textTransform: 'none' }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Reset Password'}
+          </Button>
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Remember your password?{' '}
+              <Button
+                variant="text"
+                onClick={() => navigate('/login')}
+                sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
+              >
+                Sign In
+              </Button>
+            </Typography>
+          </Box>
+        </Stack>
+      </form>
+    </>
   );
 };
 

@@ -2,8 +2,6 @@ import { useState } from 'react';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Container,
   Typography,
   TextField,
@@ -11,6 +9,8 @@ import {
   Alert,
   InputAdornment,
   IconButton,
+  Paper,
+  Stack,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -73,33 +73,46 @@ const LoginPage = () => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          minHeight: '50vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 4,
-        }}
-      >
-        <Card sx={{ width: '100%', maxWidth: 400 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h5" component="h1" gutterBottom align="center" fontWeight={600}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        py: 4,
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          elevation={24}
+          sx={{
+            p: { xs: 3, sm: 5 },
+            borderRadius: 3,
+          }}
+        >
+          <Box sx={{ mb: 4 }}>
+            <Button
+              onClick={() => navigate('/')}
+              sx={{ mb: 3, textTransform: 'none' }}
+            >
+              ← Back to Home
+            </Button>
+            <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
               Sign in to MyStore
             </Typography>
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+            <Typography variant="body1" color="text.secondary">
               Enter your email and password to access your store.
             </Typography>
+          </Box>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
 
-            <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
+            <Stack spacing={3}>
               <TextField
                 label="Email"
                 type="email"
@@ -107,7 +120,6 @@ const LoginPage = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                sx={{ mb: 2 }}
                 autoComplete="email"
                 autoFocus
               />
@@ -118,7 +130,6 @@ const LoginPage = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                sx={{ mb: 3 }}
                 autoComplete="current-password"
                 InputProps={{
                   endAdornment: (
@@ -134,50 +145,41 @@ const LoginPage = () => {
                   ),
                 }}
               />
+              <Typography
+                variant="body2"
+                color="primary"
+                sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' }, alignSelf: 'flex-start' }}
+                onClick={() => navigate('/forgot-password')}
+              >
+                Forgot password?
+              </Typography>
               <Button
                 type="submit"
                 variant="contained"
-                fullWidth
                 size="large"
+                fullWidth
                 disabled={loading}
-                sx={{ py: 1.5 }}
+                sx={{ mt: 2, py: 1.5, textTransform: 'none' }}
               >
                 {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
               </Button>
-            </form>
-
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              align="center"
-              sx={{ mt: 2, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-              onClick={() => navigate('/forgot-password')}
-            >
-              Forgot password?
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              align="center"
-              sx={{ mt: 1, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-              onClick={() => navigate('/')}
-            >
-              Back to home
-            </Typography>
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
-              Don&apos;t have an account?{' '}
-              <Typography
-                component="span"
-                sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
-                onClick={() => navigate('/signup')}
-              >
-                Sign up
-              </Typography>
-            </Typography>
-          </CardContent>
-        </Card>
-      </Box>
-    </Container>
+              <Box sx={{ textAlign: 'center', mt: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Don&apos;t have an account?{' '}
+                  <Button
+                    variant="text"
+                    onClick={() => navigate('/signup')}
+                    sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
+                  >
+                    Sign up
+                  </Button>
+                </Typography>
+              </Box>
+            </Stack>
+          </form>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 

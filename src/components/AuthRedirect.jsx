@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const PUBLIC_PATHS = ['/', '/login', '/signup', '/verify'];
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/verify', '/forgot-password', '/reset-password'];
 
 /**
  * Redirects authenticated users from public pages to the dashboard.
