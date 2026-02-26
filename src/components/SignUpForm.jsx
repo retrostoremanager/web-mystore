@@ -387,8 +387,9 @@ const SignUpForm = () => {
           }
           setError(data.message || 'This email is already registered');
         } else {
-          // Other server errors
-          setError(data.message || 'Failed to create account. Please try again.');
+          // Other server errors (500, etc.) - show backend error details if available
+          const errorDetail = data.errors?.[0] || data.message;
+          setError(errorDetail || 'Failed to create account. Please try again.');
         }
         return;
       }
