@@ -8,8 +8,14 @@ if (!API_URL) {
   throw new Error('VITE_API_URL environment variable is not set');
 }
 
+// Stripe publishable key for payment method collection (subscription billing)
+// Use pk_test_... for development, pk_live_... for production
+const STRIPE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
+
 export const config = {
-  apiUrl: API_URL
+  apiUrl: API_URL,
+  stripePublishableKey: STRIPE_PUBLISHABLE_KEY
 };
 
 export default config;

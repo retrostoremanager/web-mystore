@@ -20,6 +20,7 @@ import EmployeesPage from './components/EmployeesPage';
 import TradeInPage from './components/TradeInPage';
 import CheckoutPage from './components/CheckoutPage';
 import SalesHistoryPage from './components/SalesHistoryPage';
+import BillingSettingsPage from './components/BillingSettingsPage';
 
 const theme = createTheme({
   palette: {
@@ -84,6 +85,7 @@ function App() {
               <Route path="/dashboard/trade-in" element={<TradeInPage />} />
               <Route path="/dashboard/checkout" element={<CheckoutPage />} />
               <Route path="/dashboard/sales-history" element={<SalesHistoryPage />} />
+              <Route path="/dashboard/billing" element={<BillingSettingsPage />} />
             </Routes>
             </AuthRedirect>
           </Router>

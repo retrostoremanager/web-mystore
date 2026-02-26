@@ -1,0 +1,167 @@
+import { useState, useEffect } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Button,
+  Alert,
+  CircularProgress,
+  Chip,
+  Stack,
+  Card,
+  CardContent,
+  AppBar,
+  Toolbar,
+} from '@mui/material';
+import { CreditCard, Add, ArrowBack } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { getPaymentMethods, storePaymentMethod } from '../services/billingApi';
+import PaymentMethodForm from './PaymentMethodForm';
+
+/**
+ * BillingSettingsPage - Manage payment methods for subscription billing
+ *
+ * Displays stored payment methods (last 4 digits, expiration) and allows
+ * adding new payment methods via Stripe Elements.
+ */
+export default function BillingSettingsPage() {
+  const navigate = useNavigate();
+  const { getAuthHeaders } = useAuth();
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadPaymentMethods = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getPaymentMethods(getAuthHeaders());
+      setPaymentMethods(result.data || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load payment methods');
+      setPaymentMethods([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPaymentMethods();
+  }, []);
+
+  const handleAddSuccess = async ({ paymentMethodId }) => {
+    try {
+      setSubmitting(true);
+      setError(null);
+      await storePaymentMethod(paymentMethodId, getAuthHeaders());
+      setShowAddForm(false);
+      await loadPaymentMethods();
+    } catch (err) {
+      setError(err.message || 'Failed to add payment method');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelAdd = () => {
+    setShowAddForm(false);
+    setError(null);
+  };
+
+  const formatExpiration = (month, year) => {
+    const m = String(month).padStart(2, '0');
+    const y = String(year).slice(-2);
+    return `${m}/${y}`;
+  };
+
+  return (
+    <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
+      <AppBar position="sticky" elevation={1}>
+        <Toolbar>
+          <Button color="inherit" startIcon={<ArrowBack />} onClick={() => navigate('/dashboard')}>
+            Back
+          </Button>
+          <Typography variant="h6" sx={{ flexGrow: 1, ml: 2 }}>
+            Billing & Payment Methods
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="md" sx={{ py: 4 }}>
+      <Typography variant="h4" gutterBottom>
+        Billing & Payment Methods
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        Manage your payment methods for subscription billing. Your card information is securely stored by Stripe.
+      </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CreditCard /> Payment methods
+            </Typography>
+
+            {paymentMethods.length === 0 && !showAddForm ? (
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                No payment methods on file. Add a card to ensure your subscription continues after trial.
+              </Typography>
+            ) : (
+              <Stack spacing={2} sx={{ mb: 2 }}>
+                {paymentMethods.map((pm) => (
+                  <Card key={pm.id} variant="outlined">
+                    <CardContent>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                        <Typography variant="body1">
+                          •••• •••• •••• {pm.last4}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Expires {formatExpiration(pm.expirationMonth, pm.expirationYear)}
+                        </Typography>
+                        {pm.isDefault && (
+                          <Chip label="Default" size="small" color="primary" />
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            )}
+
+            {showAddForm ? (
+              <Box sx={{ mt: 2 }}>
+                <PaymentMethodForm
+                  onSuccess={handleAddSuccess}
+                  onCancel={handleCancelAdd}
+                  disabled={submitting}
+                />
+              </Box>
+            ) : (
+              <Button
+                variant="outlined"
+                startIcon={<Add />}
+                onClick={() => setShowAddForm(true)}
+              >
+                Add payment method
+              </Button>
+            )}
+          </Paper>
+        </>
+      )}
+      </Container>
+    </Box>
+  );
+}

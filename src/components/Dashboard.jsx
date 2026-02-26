@@ -20,6 +20,7 @@ import {
   ExitToApp,
   ArrowForward,
   History,
+  CreditCard,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../contexts/InventoryContext';
@@ -87,6 +88,13 @@ const Dashboard = () => {
       icon: <History sx={{ fontSize: 48 }} />,
       color: 'primary',
       route: '/dashboard/sales-history',
+    },
+    {
+      title: 'Billing & Payment',
+      description: 'Manage payment methods for your subscription',
+      icon: <CreditCard sx={{ fontSize: 48 }} />,
+      color: 'success',
+      route: '/dashboard/billing',
     },
   ];
 
