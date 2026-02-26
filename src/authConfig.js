@@ -8,7 +8,7 @@ export const msalConfig = {
     clientId: import.meta.env.VITE_ENTRA_CLIENT_ID || '',
     authority:
       import.meta.env.VITE_ENTRA_AUTHORITY ||
-      'https://mystore-ciam-dev.ciamlogin.com/mystore-ciam-dev.onmicrosoft.com',
+      'https://mystoreciamdev.ciamlogin.com/mystoreciamdev.onmicrosoft.com',
     redirectUri: import.meta.env.VITE_ENTRA_REDIRECT_URI || window.location.origin,
     postLogoutRedirectUri: import.meta.env.VITE_ENTRA_POST_LOGOUT_URI || '/',
     navigateToLoginRequestUrl: false,

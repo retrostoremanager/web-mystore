@@ -26,6 +26,8 @@ jobs:
     - name: Build
       env:
         VITE_API_URL: https://mystore-func-dev.azurewebsites.net/api
+        VITE_ENTRA_CLIENT_ID: ${{ secrets.VITE_ENTRA_CLIENT_ID }}
+        VITE_ENTRA_AUTHORITY: https://mystoreciamdev.ciamlogin.com/mystoreciamdev.onmicrosoft.com
       run: npm run build
     
     - name: Azure Login
