@@ -23,10 +23,17 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../contexts/InventoryContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { inventory } = useInventory();
+  const { logout } = useAuth();
+
+  const handleSignOut = () => {
+    logout();
+    navigate('/login');
+  };
 
   // Calculate total quantity of all inventory items
   const totalQuantity = inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
@@ -92,7 +99,7 @@ const Dashboard = () => {
             MyStore Dashboard
           </Typography>
           <Stack direction="row" spacing={2}>
-            <Button color="inherit" startIcon={<ExitToApp />} onClick={() => navigate('/')}>
+            <Button color="inherit" startIcon={<ExitToApp />} onClick={handleSignOut}>
               Sign Out
             </Button>
           </Stack>

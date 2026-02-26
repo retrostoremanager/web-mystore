@@ -599,7 +599,7 @@ const SignUpForm = () => {
                   Already have an account?{' '}
                   <Button
                     variant="text"
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => navigate('/login')}
                     sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
                   >
                     Sign In

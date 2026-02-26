@@ -13,8 +13,6 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@azure/msal-browser": "^3.30.0",
-    "@azure/msal-react": "^2.2.0",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.15.0",

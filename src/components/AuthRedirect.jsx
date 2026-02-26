@@ -1,26 +1,30 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useIsAuthenticated } from '@azure/msal-react';
-import { isAuthConfigured } from '../auth/msalInstance';
+import { useAuth } from '../contexts/AuthContext';
 
 const PUBLIC_PATHS = ['/', '/login', '/signup', '/verify'];
 
 /**
  * Redirects authenticated users from public pages to the dashboard.
- * Only runs when auth is configured.
+ * Redirects unauthenticated users from protected pages to login.
  */
 const AuthRedirect = ({ children }) => {
-  const isAuthenticated = useIsAuthenticated();
+  const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (!isAuthConfigured() || !isAuthenticated) return;
+    if (loading) return;
+
     const path = location.pathname;
-    if (PUBLIC_PATHS.includes(path)) {
+    const isPublicPath = PUBLIC_PATHS.includes(path);
+
+    if (isAuthenticated && isPublicPath) {
       navigate('/dashboard', { replace: true });
+    } else if (!isAuthenticated && !isPublicPath) {
+      navigate('/login', { replace: true, state: { from: path } });
     }
-  }, [isAuthenticated, location.pathname, navigate]);
+  }, [isAuthenticated, loading, location.pathname, navigate]);
 
   return children;
 };
