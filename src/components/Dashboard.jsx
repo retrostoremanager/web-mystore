@@ -26,6 +26,7 @@ import {
   CreditCard,
   Schedule,
   Store,
+  WorkspacePremium,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../contexts/InventoryContext';
@@ -117,6 +118,13 @@ const Dashboard = () => {
       icon: <Store sx={{ fontSize: 48 }} />,
       color: 'info',
       route: '/dashboard/profile',
+    },
+    {
+      title: 'Subscription',
+      description: 'View subscription tier, billing cycle, and usage limits',
+      icon: <WorkspacePremium sx={{ fontSize: 48 }} />,
+      color: 'success',
+      route: '/dashboard/subscription',
     },
     {
       title: 'Billing & Payment',
