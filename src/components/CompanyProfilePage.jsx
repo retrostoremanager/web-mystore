@@ -50,7 +50,7 @@ const COMMON_LOCALES = [
 
 export default function CompanyProfilePage() {
   const navigate = useNavigate();
-  const { getAuthHeaders } = useAuth();
+  const { isAuthenticated, getAuthHeaders } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -102,8 +102,10 @@ export default function CompanyProfilePage() {
   };
 
   useEffect(() => {
-    loadProfile();
-  }, []);
+    if (isAuthenticated && getAuthHeaders().Authorization) {
+      loadProfile();
+    }
+  }, [isAuthenticated, getAuthHeaders]);
 
   const handleProfileChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));

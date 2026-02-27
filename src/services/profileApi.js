@@ -1,4 +1,5 @@
 import config from '../config';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 /**
  * Get company profile and locations.
@@ -6,10 +7,12 @@ import config from '../config';
  * @returns {Promise<{success: boolean, data?: {profile, locations}}>}
  */
 export async function getCompanyProfile(authHeaders) {
-  const response = await fetch(`${config.apiUrl}/company/profile`, {
-    method: 'GET',
-    headers: authHeaders,
-  });
+  const response = await fetchWithRetry(
+    `${config.apiUrl}/company/profile`,
+    { method: 'GET', headers: authHeaders },
+    3,
+    1500
+  );
 
   const result = await response.json();
 

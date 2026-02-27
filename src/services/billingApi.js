@@ -1,4 +1,5 @@
 import config from '../config';
+import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 /**
  * Store a payment method (Stripe payment method ID from frontend).
@@ -33,10 +34,12 @@ export async function storePaymentMethod(paymentMethodId, authHeaders) {
  * @returns {Promise<{success: boolean, data?: {isInTrial, trialStartDate, trialEndDate, daysRemaining, hasPaymentMethod, subscriptionTier}}>}
  */
 export async function getTrialStatus(authHeaders) {
-  const response = await fetch(`${config.apiUrl}/billing/trial-status`, {
-    method: 'GET',
-    headers: authHeaders,
-  });
+  const response = await fetchWithRetry(
+    `${config.apiUrl}/billing/trial-status`,
+    { method: 'GET', headers: authHeaders },
+    3,
+    1500
+  );
 
   const result = await response.json();
 
