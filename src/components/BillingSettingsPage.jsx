@@ -13,11 +13,22 @@ import {
   CardContent,
   AppBar,
   Toolbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
-import { CreditCard, Add, ArrowBack } from '@mui/icons-material';
+import { CreditCard, Add, ArrowBack, Delete, Star, StarBorder } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getPaymentMethods, storePaymentMethod } from '../services/billingApi';
+import {
+  getPaymentMethods,
+  storePaymentMethod,
+  setDefaultPaymentMethod,
+  deletePaymentMethod,
+} from '../services/billingApi';
 import PaymentMethodForm from './PaymentMethodForm';
 
 /**
@@ -34,6 +45,8 @@ export default function BillingSettingsPage() {
   const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [actionInProgress, setActionInProgress] = useState(null);
 
   const loadPaymentMethods = async () => {
     try {
@@ -70,6 +83,43 @@ export default function BillingSettingsPage() {
   const handleCancelAdd = () => {
     setShowAddForm(false);
     setError(null);
+  };
+
+  const handleSetDefault = async (pm) => {
+    if (pm.isDefault) return;
+    try {
+      setActionInProgress(pm.id);
+      setError(null);
+      await setDefaultPaymentMethod(pm.id, getAuthHeaders());
+      await loadPaymentMethods();
+    } catch (err) {
+      setError(err.message || 'Failed to set default payment method');
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleDeleteClick = (pm) => {
+    setDeleteConfirm(pm);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    try {
+      setActionInProgress(deleteConfirm.id);
+      setError(null);
+      await deletePaymentMethod(deleteConfirm.id, getAuthHeaders());
+      setDeleteConfirm(null);
+      await loadPaymentMethods();
+    } catch (err) {
+      setError(err.message || 'Failed to delete payment method');
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm(null);
   };
 
   const formatExpiration = (month, year) => {
@@ -124,16 +174,46 @@ export default function BillingSettingsPage() {
                 {paymentMethods.map((pm) => (
                   <Card key={pm.id} variant="outlined">
                     <CardContent>
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-                        <Typography variant="body1">
-                          •••• •••• •••• {pm.last4}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Expires {formatExpiration(pm.expirationMonth, pm.expirationYear)}
-                        </Typography>
-                        {pm.isDefault && (
-                          <Chip label="Default" size="small" color="primary" />
-                        )}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        flexWrap="wrap"
+                        gap={1}
+                      >
+                        <Stack direction="row" alignItems="center" gap={1} flex={1}>
+                          <Typography variant="body1">
+                            •••• •••• •••• {pm.last4}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Expires {formatExpiration(pm.expirationMonth, pm.expirationYear)}
+                          </Typography>
+                          {pm.isDefault && (
+                            <Chip label="Default" size="small" color="primary" />
+                          )}
+                        </Stack>
+                        <Stack direction="row" alignItems="center" gap={0.5}>
+                          <Button
+                            size="small"
+                            variant={pm.isDefault ? 'contained' : 'outlined'}
+                            startIcon={pm.isDefault ? <Star /> : <StarBorder />}
+                            onClick={() => handleSetDefault(pm)}
+                            disabled={pm.isDefault || actionInProgress === pm.id}
+                          >
+                            {pm.isDefault ? 'Default' : 'Set default'}
+                          </Button>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteClick(pm)}
+                            disabled={
+                              paymentMethods.length <= 1 || actionInProgress === pm.id
+                            }
+                            aria-label={`Delete card ending in ${pm.last4}`}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Stack>
                       </Stack>
                     </CardContent>
                   </Card>
@@ -159,6 +239,35 @@ export default function BillingSettingsPage() {
               </Button>
             )}
           </Paper>
+
+          <Dialog
+            open={!!deleteConfirm}
+            onClose={handleDeleteCancel}
+            aria-labelledby="delete-dialog-title"
+            aria-describedby="delete-dialog-description"
+          >
+            <DialogTitle id="delete-dialog-title">
+              Remove payment method?
+            </DialogTitle>
+            <DialogContent>
+              <DialogContentText id="delete-dialog-description">
+                {deleteConfirm
+                  ? `Are you sure you want to remove the card ending in ${deleteConfirm.last4}? This cannot be undone.`
+                  : ''}
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleDeleteCancel}>Cancel</Button>
+              <Button
+                onClick={handleDeleteConfirm}
+                color="error"
+                variant="contained"
+                disabled={!!actionInProgress}
+              >
+                Remove
+              </Button>
+            </DialogActions>
+          </Dialog>
         </>
       )}
       </Container>
