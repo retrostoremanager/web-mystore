@@ -61,6 +61,7 @@ export default function CompanyProfilePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [profile, setProfile] = useState({
+    companyName: '',
     storeName: '',
     storeType: '',
     storeAddress: '',
@@ -83,8 +84,11 @@ export default function CompanyProfilePage() {
       const result = await getCompanyProfile(getAuthHeaders());
       const p = result.data?.profile || {};
       const locs = result.data?.locations || [];
+      const companyName = p.companyName || '';
+      const storeName = p.storeName || companyName;
       setProfile({
-        storeName: p.storeName || '',
+        companyName: companyName,
+        storeName: storeName,
         storeType: p.storeType || '',
         storeAddress: p.storeAddress || '',
         storeCity: p.storeCity || '',
@@ -115,7 +119,11 @@ export default function CompanyProfilePage() {
     try {
       setSubmitting(true);
       setError(null);
-      await updateCompanyProfile(profile, getAuthHeaders());
+      const payload = {
+        ...profile,
+        storeName: profile.storeName || profile.companyName || '',
+      };
+      await updateCompanyProfile(payload, getAuthHeaders());
       await loadProfile();
     } catch (err) {
       setError(err.message || 'Failed to update profile');
@@ -228,7 +236,7 @@ export default function CompanyProfilePage() {
           Store Profile
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Configure your store information, business details, and locations.
+          Configure your company information, store details, and locations.
         </Typography>
 
         {error && (
@@ -239,17 +247,35 @@ export default function CompanyProfilePage() {
 
         <Paper component="form" onSubmit={handleProfileSubmit} sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Store Information
+            Company Profile
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Your company name as entered when you registered. This is used to identify your business.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Company Name"
+            value={profile.companyName}
+            onChange={(e) => handleProfileChange('companyName', e.target.value)}
+            helperText="The business name you entered at registration."
+            sx={{ maxWidth: 400, mb: 3 }}
+          />
+
+          <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+            Company Information
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Store details and contact information. Store Name is prepopulated from your company name when empty.
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Store Name"
-                value={profile.storeName}
+                value={profile.storeName || profile.companyName}
                 onChange={(e) => handleProfileChange('storeName', e.target.value)}
                 required
-                helperText="Required. Displayed throughout the system."
+                helperText="Required. Prepopulated from company name. Displayed throughout the system."
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -340,7 +366,7 @@ export default function CompanyProfilePage() {
             </Grid>
           </Grid>
           <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-            <Button type="submit" variant="contained" disabled={submitting || !profile.storeName.trim()}>
+            <Button type="submit" variant="contained" disabled={submitting || !(profile.storeName || profile.companyName || '').trim()}>
               {submitting ? 'Saving...' : 'Save Profile'}
             </Button>
           </Stack>
