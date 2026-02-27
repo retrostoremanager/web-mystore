@@ -10,7 +10,6 @@ import {
   CircularProgress,
   AppBar,
   Toolbar,
-  Grid,
   MenuItem,
   Stack,
   Card,
@@ -64,6 +63,16 @@ export default function CompanyProfilePage() {
     locale: 'en-US',
   });
   const [locations, setLocations] = useState([]);
+  const [companyDialog, setCompanyDialog] = useState(false);
+  const [companyForm, setCompanyForm] = useState({
+    companyName: '',
+    companyAddress: '',
+    companyCity: '',
+    companyState: '',
+    companyZipCode: '',
+    companyPhone: '',
+    locale: 'en-US',
+  });
   const [locationDialog, setLocationDialog] = useState(null);
   const [locationForm, setLocationForm] = useState({
     name: '',
@@ -107,19 +116,33 @@ export default function CompanyProfilePage() {
     }
   }, [isAuthenticated, getAuthHeaders]);
 
-  const handleProfileChange = (field, value) => {
-    setProfile((prev) => ({ ...prev, [field]: value }));
+  const handleOpenEditCompany = () => {
+    setCompanyForm({
+      companyName: profile.companyName || '',
+      companyAddress: profile.companyAddress || '',
+      companyCity: profile.companyCity || '',
+      companyState: profile.companyState || '',
+      companyZipCode: profile.companyZipCode || '',
+      companyPhone: profile.companyPhone || '',
+      locale: profile.locale || 'en-US',
+    });
+    setCompanyDialog(true);
   };
 
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
+  const handleCompanyFormChange = (field, value) => {
+    setCompanyForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleCompanySubmit = async () => {
+    if (!companyForm.companyName.trim()) return;
     try {
       setSubmitting(true);
       setError(null);
-      await updateCompanyProfile(profile, getAuthHeaders());
+      await updateCompanyProfile(companyForm, getAuthHeaders());
+      setCompanyDialog(false);
       await loadProfile();
     } catch (err) {
-      setError(err.message || 'Failed to update profile');
+      setError(err.message || 'Failed to update company');
     } finally {
       setSubmitting(false);
     }
@@ -235,72 +258,91 @@ export default function CompanyProfilePage() {
           </Alert>
         )}
 
-        <Paper component="form" onSubmit={handleProfileSubmit} sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Company
-          </Typography>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Typography variant="h6">Company</Typography>
+            <IconButton size="small" onClick={handleOpenEditCompany} aria-label="Edit company">
+              <Edit />
+            </IconButton>
+          </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Company name and contact info. Use for mailing address, PO box, or headquarters if different from store locations.
           </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={600}>
+                {profile.companyName || '—'}
+              </Typography>
+              {(profile.companyAddress || profile.companyCity) && (
+                <Typography variant="body2" color="text.secondary">
+                  {[profile.companyAddress, profile.companyCity, profile.companyState, profile.companyZipCode].filter(Boolean).join(', ')}
+                </Typography>
+              )}
+              {profile.companyPhone && (
+                <Typography variant="body2" color="text.secondary">
+                  {profile.companyPhone}
+                </Typography>
+              )}
+              {profile.locale && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {COMMON_LOCALES.find((l) => l.value === profile.locale)?.label || profile.locale}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Paper>
+
+        <Dialog open={companyDialog} onClose={() => setCompanyDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Edit Company</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
               <TextField
                 fullWidth
                 label="Company Name"
-                value={profile.companyName}
-                onChange={(e) => handleProfileChange('companyName', e.target.value)}
+                value={companyForm.companyName}
+                onChange={(e) => handleCompanyFormChange('companyName', e.target.value)}
                 required
                 helperText="The business name you entered at registration."
               />
-            </Grid>
-            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Address"
-                value={profile.companyAddress}
-                onChange={(e) => handleProfileChange('companyAddress', e.target.value)}
+                value={companyForm.companyAddress}
+                onChange={(e) => handleCompanyFormChange('companyAddress', e.target.value)}
                 placeholder="Street, PO box, etc."
               />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="City"
-                value={profile.companyCity}
-                onChange={(e) => handleProfileChange('companyCity', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="State"
-                value={profile.companyState}
-                onChange={(e) => handleProfileChange('companyState', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="Zip Code"
-                value={profile.companyZipCode}
-                onChange={(e) => handleProfileChange('companyZipCode', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  fullWidth
+                  label="City"
+                  value={companyForm.companyCity}
+                  onChange={(e) => handleCompanyFormChange('companyCity', e.target.value)}
+                />
+                <TextField
+                  fullWidth
+                  label="State"
+                  value={companyForm.companyState}
+                  onChange={(e) => handleCompanyFormChange('companyState', e.target.value)}
+                />
+                <TextField
+                  fullWidth
+                  label="Zip Code"
+                  value={companyForm.companyZipCode}
+                  onChange={(e) => handleCompanyFormChange('companyZipCode', e.target.value)}
+                />
+              </Stack>
               <TextField
                 fullWidth
                 label="Phone"
-                value={profile.companyPhone}
-                onChange={(e) => handleProfileChange('companyPhone', e.target.value)}
+                value={companyForm.companyPhone}
+                onChange={(e) => handleCompanyFormChange('companyPhone', e.target.value)}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 select
                 label="Locale"
-                value={profile.locale}
-                onChange={(e) => handleProfileChange('locale', e.target.value)}
+                value={companyForm.locale}
+                onChange={(e) => handleCompanyFormChange('locale', e.target.value)}
               >
                 {COMMON_LOCALES.map((opt) => (
                   <MenuItem key={opt.value} value={opt.value}>
@@ -308,14 +350,15 @@ export default function CompanyProfilePage() {
                   </MenuItem>
                 ))}
               </TextField>
-            </Grid>
-          </Grid>
-          <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-            <Button type="submit" variant="contained" disabled={submitting || !profile.companyName.trim()}>
-              {submitting ? 'Saving...' : 'Save Company'}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCompanyDialog(false)}>Cancel</Button>
+            <Button onClick={handleCompanySubmit} variant="contained" disabled={submitting || !companyForm.companyName.trim()}>
+              {submitting ? 'Saving...' : 'Save'}
             </Button>
-          </Stack>
-        </Paper>
+          </DialogActions>
+        </Dialog>
 
         <Paper sx={{ p: 3 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
