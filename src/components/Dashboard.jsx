@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -10,6 +11,8 @@ import {
   Toolbar,
   Button,
   Stack,
+  Alert,
+  Chip,
 } from '@mui/material';
 import {
   Inventory,
@@ -21,15 +24,30 @@ import {
   ArrowForward,
   History,
   CreditCard,
+  Schedule,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../contexts/InventoryContext';
 import { useAuth } from '../contexts/AuthContext';
+import { getTrialStatus } from '../services/billingApi';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { inventory } = useInventory();
-  const { logout } = useAuth();
+  const { logout, getAuthHeaders } = useAuth();
+  const [trialStatus, setTrialStatus] = useState(null);
+
+  useEffect(() => {
+    const loadTrialStatus = async () => {
+      try {
+        const result = await getTrialStatus(getAuthHeaders());
+        setTrialStatus(result.data || null);
+      } catch {
+        setTrialStatus(null);
+      }
+    };
+    loadTrialStatus();
+  }, [getAuthHeaders]);
 
   const handleSignOut = () => {
     logout();
@@ -115,6 +133,36 @@ const Dashboard = () => {
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* Trial Status Banner */}
+        {trialStatus?.isInTrial && (
+          <Alert
+            severity={trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod ? 'warning' : 'info'}
+            icon={<Schedule />}
+            sx={{ mb: 3 }}
+            action={
+              trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod ? (
+                <Button color="inherit" size="small" onClick={() => navigate('/dashboard/billing')}>
+                  Add payment method
+                </Button>
+              ) : null
+            }
+          >
+            <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
+              <Typography variant="body1">
+                {trialStatus.daysRemaining > 0
+                  ? `${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? '' : 's'} remaining in your free trial`
+                  : 'Your free trial has ended'}
+              </Typography>
+              <Chip label="Free Trial" size="small" color="info" variant="outlined" />
+              {trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod && (
+                <Typography variant="body2">
+                  Add a payment method to ensure your subscription continues.
+                </Typography>
+              )}
+            </Stack>
+          </Alert>
+        )}
+
         {/* Stats Overview */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {stats.map((stat, index) => (

@@ -27,6 +27,27 @@ export async function storePaymentMethod(paymentMethodId, authHeaders) {
 }
 
 /**
+ * Get trial status for the current company.
+ * Requires authentication.
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, data?: {isInTrial, trialStartDate, trialEndDate, daysRemaining, hasPaymentMethod, subscriptionTier}}>}
+ */
+export async function getTrialStatus(authHeaders) {
+  const response = await fetch(`${config.apiUrl}/billing/trial-status`, {
+    method: 'GET',
+    headers: authHeaders,
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to retrieve trial status');
+  }
+
+  return result;
+}
+
+/**
  * Get payment methods for the current company.
  * Requires authentication.
  * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
