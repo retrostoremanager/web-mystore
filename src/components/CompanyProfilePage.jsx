@@ -26,6 +26,8 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   getCompanyProfile,
   updateCompanyProfile,
+  uploadLogo,
+  deleteLogo,
   createLocation,
   updateLocation,
   deleteLocation,
@@ -61,6 +63,7 @@ export default function CompanyProfilePage() {
     companyZipCode: '',
     companyPhone: '',
     locale: 'en-US',
+    logoUrl: '',
   });
   const [locations, setLocations] = useState([]);
   const [companyDialog, setCompanyDialog] = useState(false);
@@ -85,6 +88,7 @@ export default function CompanyProfilePage() {
     isPrimary: false,
   });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [logoRemoveConfirm, setLogoRemoveConfirm] = useState(false);
 
   const loadProfile = async () => {
     try {
@@ -101,6 +105,7 @@ export default function CompanyProfilePage() {
         companyZipCode: p.companyZipCode || '',
         companyPhone: p.companyPhone || '',
         locale: p.locale || 'en-US',
+        logoUrl: p.logoUrl || '',
       });
       setLocations(locs);
     } catch (err) {
@@ -143,6 +148,54 @@ export default function CompanyProfilePage() {
       await loadProfile();
     } catch (err) {
       setError(err.message || 'Failed to update company');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+    if (!allowed.includes(file.type)) {
+      setError('Invalid format. Use PNG, JPG, or SVG.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File too large. Maximum 5MB.');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      setError(null);
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result?.split(',')[1] || '');
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await uploadLogo(
+        { file: base64, fileName: file.name, contentType: file.type },
+        getAuthHeaders()
+      );
+      await loadProfile();
+    } catch (err) {
+      setError(err.message || 'Failed to upload logo');
+    } finally {
+      setSubmitting(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    try {
+      setSubmitting(true);
+      setError(null);
+      await deleteLogo(getAuthHeaders());
+      setLogoRemoveConfirm(false);
+      await loadProfile();
+    } catch (err) {
+      setError(err.message || 'Failed to remove logo');
     } finally {
       setSubmitting(false);
     }
@@ -270,6 +323,16 @@ export default function CompanyProfilePage() {
           </Typography>
           <Card variant="outlined">
             <CardContent>
+              <Stack direction="row" spacing={2} alignItems="flex-start">
+                {profile.logoUrl && (
+                  <Box
+                    component="img"
+                    src={profile.logoUrl}
+                    alt="Company logo"
+                    sx={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 1 }}
+                  />
+                )}
+                <Box sx={{ flex: 1 }}>
               <Typography variant="subtitle1" fontWeight={600}>
                 {profile.companyName || '—'}
               </Typography>
@@ -288,6 +351,8 @@ export default function CompanyProfilePage() {
                   {COMMON_LOCALES.find((l) => l.value === profile.locale)?.label || profile.locale}
                 </Typography>
               )}
+                </Box>
+              </Stack>
             </CardContent>
           </Card>
         </Paper>
@@ -296,6 +361,35 @@ export default function CompanyProfilePage() {
           <DialogTitle>Edit Company</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  Company Logo (PNG, JPG, SVG, max 5MB)
+                </Typography>
+                {profile.logoUrl ? (
+                  <Stack direction="row" alignItems="center" spacing={2}>
+                    <Box
+                      component="img"
+                      src={profile.logoUrl}
+                      alt="Company logo"
+                      sx={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}
+                    />
+                    <Stack direction="row" spacing={1}>
+                      <Button variant="outlined" size="small" component="label" disabled={submitting}>
+                        Change
+                        <input type="file" hidden accept="image/png,image/jpeg,image/jpg,image/svg+xml" onChange={handleLogoUpload} />
+                      </Button>
+                      <Button variant="outlined" size="small" color="error" onClick={() => setLogoRemoveConfirm(true)} disabled={submitting}>
+                        Remove
+                      </Button>
+                    </Stack>
+                  </Stack>
+                ) : (
+                  <Button variant="outlined" size="small" component="label" disabled={submitting}>
+                    Upload Logo
+                    <input type="file" hidden accept="image/png,image/jpeg,image/jpg,image/svg+xml" onChange={handleLogoUpload} />
+                  </Button>
+                )}
+              </Box>
               <TextField
                 fullWidth
                 label="Company Name"
@@ -505,6 +599,21 @@ export default function CompanyProfilePage() {
             <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
             <Button onClick={handleDeleteLocation} color="error" variant="contained" disabled={submitting}>
               Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={logoRemoveConfirm} onClose={() => setLogoRemoveConfirm(false)}>
+          <DialogTitle>Remove Logo?</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to remove the company logo?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setLogoRemoveConfirm(false)}>Cancel</Button>
+            <Button onClick={handleLogoRemove} color="error" variant="contained" disabled={submitting}>
+              Remove
             </Button>
           </DialogActions>
         </Dialog>

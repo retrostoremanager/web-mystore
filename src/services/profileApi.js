@@ -100,6 +100,51 @@ export async function updateLocation(id, location, authHeaders) {
 }
 
 /**
+ * Upload company logo (base64-encoded file).
+ * @param {Object} payload - { file: base64string, fileName: string, contentType: string }
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, data?: {profile}}>}
+ */
+export async function uploadLogo(payload, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/company/profile/logo`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to upload logo');
+  }
+
+  return result;
+}
+
+/**
+ * Delete company logo.
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, data?: {profile}}>}
+ */
+export async function deleteLogo(authHeaders) {
+  const response = await fetch(`${config.apiUrl}/company/profile/logo`, {
+    method: 'DELETE',
+    headers: authHeaders,
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to remove logo');
+  }
+
+  return result;
+}
+
+/**
  * Delete a location.
  * @param {number} id - Location ID
  * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
