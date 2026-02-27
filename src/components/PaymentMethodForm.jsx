@@ -44,7 +44,7 @@ function PaymentMethodFormInner({ onSuccess, onCancel, disabled = false }) {
         });
 
       if (stripeError) {
-        setError(stripeError.message || 'Card validation failed');
+        setError(stripeError.message || 'Your card could not be verified. Please check your details and try again.');
         setLoading(false);
         return;
       }
@@ -53,7 +53,10 @@ function PaymentMethodFormInner({ onSuccess, onCancel, disabled = false }) {
         onSuccess({ paymentMethodId: paymentMethod.id });
       }
     } catch (err) {
-      setError(err.message || 'An unexpected error occurred');
+      const isNetwork = err?.message?.toLowerCase?.().includes('fetch') || err?.name === 'TypeError';
+      setError(isNetwork
+        ? "We couldn't connect. Please check your internet connection and try again."
+        : (err.message || 'An unexpected error occurred. Please try again.'));
     } finally {
       setLoading(false);
     }

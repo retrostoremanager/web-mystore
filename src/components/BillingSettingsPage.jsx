@@ -29,6 +29,7 @@ import {
   setDefaultPaymentMethod,
   deletePaymentMethod,
 } from '../services/billingApi';
+import { getBillingErrorMessage } from '../utils/billingErrorUtils';
 import PaymentMethodForm from './PaymentMethodForm';
 
 /**
@@ -47,15 +48,22 @@ export default function BillingSettingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [actionInProgress, setActionInProgress] = useState(null);
+  const [errorRetryable, setErrorRetryable] = useState(false);
+  const [pendingRetryAction, setPendingRetryAction] = useState(null);
 
   const loadPaymentMethods = async () => {
     try {
       setLoading(true);
       setError(null);
+      setErrorRetryable(false);
+      setPendingRetryAction(null);
       const result = await getPaymentMethods(getAuthHeaders());
       setPaymentMethods(result.data || []);
     } catch (err) {
-      setError(err.message || 'Failed to load payment methods');
+      const { message, isRetryable } = getBillingErrorMessage(err);
+      setError(message);
+      setErrorRetryable(isRetryable);
+      setPendingRetryAction(isRetryable ? loadPaymentMethods : null);
       setPaymentMethods([]);
     } finally {
       setLoading(false);
@@ -70,11 +78,16 @@ export default function BillingSettingsPage() {
     try {
       setSubmitting(true);
       setError(null);
+      setErrorRetryable(false);
+      setPendingRetryAction(null);
       await storePaymentMethod(paymentMethodId, getAuthHeaders());
       setShowAddForm(false);
       await loadPaymentMethods();
     } catch (err) {
-      setError(err.message || 'Failed to add payment method');
+      const { message, isRetryable } = getBillingErrorMessage(err);
+      setError(message);
+      setErrorRetryable(isRetryable);
+      setPendingRetryAction(isRetryable ? () => storePaymentMethod(paymentMethodId, getAuthHeaders()).then(() => loadPaymentMethods()).then(() => setShowAddForm(false)) : null);
     } finally {
       setSubmitting(false);
     }
@@ -90,10 +103,15 @@ export default function BillingSettingsPage() {
     try {
       setActionInProgress(pm.id);
       setError(null);
+      setErrorRetryable(false);
+      setPendingRetryAction(null);
       await setDefaultPaymentMethod(pm.id, getAuthHeaders());
       await loadPaymentMethods();
     } catch (err) {
-      setError(err.message || 'Failed to set default payment method');
+      const { message, isRetryable } = getBillingErrorMessage(err);
+      setError(message);
+      setErrorRetryable(isRetryable);
+      setPendingRetryAction(isRetryable ? () => setDefaultPaymentMethod(pm.id, getAuthHeaders()).then(loadPaymentMethods) : null);
     } finally {
       setActionInProgress(null);
     }
@@ -105,14 +123,20 @@ export default function BillingSettingsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm) return;
+    const pmToDelete = deleteConfirm;
     try {
-      setActionInProgress(deleteConfirm.id);
+      setActionInProgress(pmToDelete.id);
       setError(null);
-      await deletePaymentMethod(deleteConfirm.id, getAuthHeaders());
+      setErrorRetryable(false);
+      setPendingRetryAction(null);
+      await deletePaymentMethod(pmToDelete.id, getAuthHeaders());
       setDeleteConfirm(null);
       await loadPaymentMethods();
     } catch (err) {
-      setError(err.message || 'Failed to delete payment method');
+      const { message, isRetryable } = getBillingErrorMessage(err);
+      setError(message);
+      setErrorRetryable(isRetryable);
+      setPendingRetryAction(isRetryable ? () => deletePaymentMethod(pmToDelete.id, getAuthHeaders()).then(() => { setDeleteConfirm(null); loadPaymentMethods(); }) : null);
     } finally {
       setActionInProgress(null);
     }
@@ -149,7 +173,33 @@ export default function BillingSettingsPage() {
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => { setError(null); setErrorRetryable(false); setPendingRetryAction(null); }}
+          action={
+            errorRetryable && (
+              <Button
+                color="inherit"
+                size="small"
+                onClick={async () => {
+                  setError(null);
+                  setErrorRetryable(false);
+                  const retry = pendingRetryAction || loadPaymentMethods;
+                  try {
+                    await retry();
+                  } catch (e) {
+                    const { message, isRetryable } = getBillingErrorMessage(e);
+                    setError(message);
+                    setErrorRetryable(isRetryable);
+                  }
+                }}
+              >
+                Retry
+              </Button>
+            )
+          }
+        >
           {error}
         </Alert>
       )}
