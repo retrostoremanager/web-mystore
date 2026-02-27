@@ -109,7 +109,7 @@ const Dashboard = () => {
       route: '/dashboard/sales-history',
     },
     {
-      title: 'Store Profile',
+      title: 'Company Profile',
       description: 'Configure store information, locations, and settings',
       icon: <Store sx={{ fontSize: 48 }} />,
       color: 'info',

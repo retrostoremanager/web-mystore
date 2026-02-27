@@ -32,12 +32,6 @@ import {
   deleteLocation,
 } from '../services/profileApi';
 
-const STORE_TYPES = [
-  { value: 'retro_game_store', label: 'Retro Game Store' },
-  { value: 'card_store', label: 'Card Store' },
-  { value: 'both', label: 'Both' },
-];
-
 const COMMON_TIMEZONES = [
   'America/New_York',
   'America/Chicago',
@@ -62,19 +56,25 @@ export default function CompanyProfilePage() {
   const [error, setError] = useState(null);
   const [profile, setProfile] = useState({
     companyName: '',
-    storeName: '',
-    storeType: '',
-    storeAddress: '',
-    storeCity: '',
-    storeState: '',
-    storeZipCode: '',
-    storePhone: '',
-    timezone: '',
-    locale: '',
+    companyAddress: '',
+    companyCity: '',
+    companyState: '',
+    companyZipCode: '',
+    companyPhone: '',
+    locale: 'en-US',
   });
   const [locations, setLocations] = useState([]);
   const [locationDialog, setLocationDialog] = useState(null);
-  const [locationForm, setLocationForm] = useState({ name: '', address: '', city: '', state: '', zipCode: '', phone: '', isPrimary: false });
+  const [locationForm, setLocationForm] = useState({
+    name: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    phone: '',
+    timezone: 'America/New_York',
+    isPrimary: false,
+  });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const loadProfile = async () => {
@@ -84,18 +84,13 @@ export default function CompanyProfilePage() {
       const result = await getCompanyProfile(getAuthHeaders());
       const p = result.data?.profile || {};
       const locs = result.data?.locations || [];
-      const companyName = p.companyName || '';
-      const storeName = p.storeName || companyName;
       setProfile({
-        companyName: companyName,
-        storeName: storeName,
-        storeType: p.storeType || '',
-        storeAddress: p.storeAddress || '',
-        storeCity: p.storeCity || '',
-        storeState: p.storeState || '',
-        storeZipCode: p.storeZipCode || '',
-        storePhone: p.storePhone || '',
-        timezone: p.timezone || 'America/New_York',
+        companyName: p.companyName || '',
+        companyAddress: p.companyAddress || '',
+        companyCity: p.companyCity || '',
+        companyState: p.companyState || '',
+        companyZipCode: p.companyZipCode || '',
+        companyPhone: p.companyPhone || '',
         locale: p.locale || 'en-US',
       });
       setLocations(locs);
@@ -119,11 +114,7 @@ export default function CompanyProfilePage() {
     try {
       setSubmitting(true);
       setError(null);
-      const payload = {
-        ...profile,
-        storeName: profile.storeName || profile.companyName || '',
-      };
-      await updateCompanyProfile(payload, getAuthHeaders());
+      await updateCompanyProfile(profile, getAuthHeaders());
       await loadProfile();
     } catch (err) {
       setError(err.message || 'Failed to update profile');
@@ -133,7 +124,16 @@ export default function CompanyProfilePage() {
   };
 
   const handleOpenAddLocation = () => {
-    setLocationForm({ name: '', address: '', city: '', state: '', zipCode: '', phone: '', isPrimary: locations.length === 0 });
+    setLocationForm({
+      name: '',
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      phone: '',
+      timezone: 'America/New_York',
+      isPrimary: locations.length === 0,
+    });
     setLocationDialog({ mode: 'add' });
   };
 
@@ -145,6 +145,7 @@ export default function CompanyProfilePage() {
       state: loc.state || '',
       zipCode: loc.zipCode || '',
       phone: loc.phone || '',
+      timezone: loc.timezone || 'America/New_York',
       isPrimary: loc.isPrimary || false,
     });
     setLocationDialog({ mode: 'edit', location: loc });
@@ -159,33 +160,20 @@ export default function CompanyProfilePage() {
     try {
       setSubmitting(true);
       setError(null);
+      const payload = {
+        name: locationForm.name.trim(),
+        address: locationForm.address || undefined,
+        city: locationForm.city || undefined,
+        state: locationForm.state || undefined,
+        zipCode: locationForm.zipCode || undefined,
+        phone: locationForm.phone || undefined,
+        timezone: locationForm.timezone || undefined,
+        isPrimary: locationForm.isPrimary,
+      };
       if (locationDialog.mode === 'add') {
-        await createLocation(
-          {
-            name: locationForm.name.trim(),
-            address: locationForm.address || undefined,
-            city: locationForm.city || undefined,
-            state: locationForm.state || undefined,
-            zipCode: locationForm.zipCode || undefined,
-            phone: locationForm.phone || undefined,
-            isPrimary: locationForm.isPrimary,
-          },
-          getAuthHeaders()
-        );
+        await createLocation(payload, getAuthHeaders());
       } else {
-        await updateLocation(
-          locationDialog.location.id,
-          {
-            name: locationForm.name.trim(),
-            address: locationForm.address || undefined,
-            city: locationForm.city || undefined,
-            state: locationForm.state || undefined,
-            zipCode: locationForm.zipCode || undefined,
-            phone: locationForm.phone || undefined,
-            isPrimary: locationForm.isPrimary,
-          },
-          getAuthHeaders()
-        );
+        await updateLocation(locationDialog.location.id, payload, getAuthHeaders());
       }
       setLocationDialog(null);
       await loadProfile();
@@ -227,16 +215,16 @@ export default function CompanyProfilePage() {
             Back
           </Button>
           <Typography variant="h6" sx={{ flexGrow: 1, ml: 2 }}>
-            Store Profile
+            Company Profile
           </Typography>
         </Toolbar>
       </AppBar>
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Store Profile
+          Company Profile
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Configure your company information, store details, and locations.
+          Your company information and locations. Company address/phone can differ from location addresses (e.g. mailing address or PO box).
         </Typography>
 
         {error && (
@@ -247,107 +235,62 @@ export default function CompanyProfilePage() {
 
         <Paper component="form" onSubmit={handleProfileSubmit} sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Company Profile
+            Company
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Your company name as entered when you registered. This is used to identify your business.
-          </Typography>
-          <TextField
-            fullWidth
-            label="Company Name"
-            value={profile.companyName}
-            onChange={(e) => handleProfileChange('companyName', e.target.value)}
-            helperText="The business name you entered at registration."
-            sx={{ maxWidth: 400, mb: 3 }}
-          />
-
-          <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-            Company Information
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Store details and contact information. Store Name is prepopulated from your company name when empty.
+            Company name and contact info. Use for mailing address, PO box, or headquarters if different from store locations.
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Store Name"
-                value={profile.storeName || profile.companyName}
-                onChange={(e) => handleProfileChange('storeName', e.target.value)}
+                label="Company Name"
+                value={profile.companyName}
+                onChange={(e) => handleProfileChange('companyName', e.target.value)}
                 required
-                helperText="Required. Prepopulated from company name. Displayed throughout the system."
+                helperText="The business name you entered at registration."
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                select
-                label="Store Type"
-                value={profile.storeType || ''}
-                onChange={(e) => handleProfileChange('storeType', e.target.value)}
-              >
-                <MenuItem value="">Select store type</MenuItem>
-                {STORE_TYPES.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </TextField>
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Address"
-                value={profile.storeAddress}
-                onChange={(e) => handleProfileChange('storeAddress', e.target.value)}
+                value={profile.companyAddress}
+                onChange={(e) => handleProfileChange('companyAddress', e.target.value)}
+                placeholder="Street, PO box, etc."
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
                 label="City"
-                value={profile.storeCity}
-                onChange={(e) => handleProfileChange('storeCity', e.target.value)}
+                value={profile.companyCity}
+                onChange={(e) => handleProfileChange('companyCity', e.target.value)}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
                 label="State"
-                value={profile.storeState}
-                onChange={(e) => handleProfileChange('storeState', e.target.value)}
+                value={profile.companyState}
+                onChange={(e) => handleProfileChange('companyState', e.target.value)}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
                 label="Zip Code"
-                value={profile.storeZipCode}
-                onChange={(e) => handleProfileChange('storeZipCode', e.target.value)}
+                value={profile.companyZipCode}
+                onChange={(e) => handleProfileChange('companyZipCode', e.target.value)}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Phone"
-                value={profile.storePhone}
-                onChange={(e) => handleProfileChange('storePhone', e.target.value)}
+                value={profile.companyPhone}
+                onChange={(e) => handleProfileChange('companyPhone', e.target.value)}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                select
-                label="Timezone"
-                value={profile.timezone}
-                onChange={(e) => handleProfileChange('timezone', e.target.value)}
-              >
-                {COMMON_TIMEZONES.map((tz) => (
-                  <MenuItem key={tz} value={tz}>
-                    {tz}
-                  </MenuItem>
-                ))}
-              </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -366,8 +309,8 @@ export default function CompanyProfilePage() {
             </Grid>
           </Grid>
           <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-            <Button type="submit" variant="contained" disabled={submitting || !(profile.storeName || profile.companyName || '').trim()}>
-              {submitting ? 'Saving...' : 'Save Profile'}
+            <Button type="submit" variant="contained" disabled={submitting || !profile.companyName.trim()}>
+              {submitting ? 'Saving...' : 'Save Company'}
             </Button>
           </Stack>
         </Paper>
@@ -379,9 +322,12 @@ export default function CompanyProfilePage() {
               Add Location
             </Button>
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Physical store locations. Each can have its own address, phone, and timezone.
+          </Typography>
           {locations.length === 0 ? (
             <Typography color="text.secondary">
-              No locations yet. Add at least one location for your store.
+              No locations yet. Add at least one location.
             </Typography>
           ) : (
             <Stack spacing={2}>
@@ -406,6 +352,11 @@ export default function CompanyProfilePage() {
                         {loc.phone && (
                           <Typography variant="body2" color="text.secondary">
                             {loc.phone}
+                          </Typography>
+                        )}
+                        {loc.timezone && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {loc.timezone}
                           </Typography>
                         )}
                       </Box>
@@ -468,6 +419,19 @@ export default function CompanyProfilePage() {
                 onChange={(e) => handleLocationFormChange('phone', e.target.value)}
                 fullWidth
               />
+              <TextField
+                fullWidth
+                select
+                label="Timezone"
+                value={locationForm.timezone}
+                onChange={(e) => handleLocationFormChange('timezone', e.target.value)}
+              >
+                {COMMON_TIMEZONES.map((tz) => (
+                  <MenuItem key={tz} value={tz}>
+                    {tz}
+                  </MenuItem>
+                ))}
+              </TextField>
               <Button
                 variant={locationForm.isPrimary ? 'contained' : 'outlined'}
                 size="small"
