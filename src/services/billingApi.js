@@ -97,6 +97,33 @@ export async function setDefaultPaymentMethod(paymentMethodId, authHeaders) {
 }
 
 /**
+ * Change subscription tier (upgrade/downgrade).
+ * Requires authentication.
+ * @param {string} tier - Target tier: Basic, Premium, or Enterprise
+ * @param {number} locationCount - Current location count (for downgrade validation)
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, data?: {success, message, effectiveDate}, message?: string}>}
+ */
+export async function changeSubscriptionTier(tier, locationCount, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/billing/subscription/tier`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify({ tier, locationCount }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to change subscription tier');
+  }
+
+  return result;
+}
+
+/**
  * Delete a payment method.
  * Requires authentication. Cannot delete the last payment method.
  * @param {number} paymentMethodId - Database ID of the payment method

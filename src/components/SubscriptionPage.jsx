@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTrialStatus } from '../contexts/TrialStatusContext';
 import { useFormatting } from '../contexts/FormattingContext';
-import { getTrialStatus } from '../services/billingApi';
+import { getTrialStatus, changeSubscriptionTier } from '../services/billingApi';
 import { getCompanyProfile } from '../services/profileApi';
 
 const TIER_LABELS = {
@@ -37,6 +37,14 @@ const TIER_LOCATION_LIMITS = {
   Enterprise: null, // unlimited
 };
 
+const TIER_ORDER = { Basic: 1, Premium: 2, Enterprise: 3 };
+
+const AVAILABLE_TIERS = [
+  { id: 'Basic', label: 'Basic', locations: 1, description: '1 location' },
+  { id: 'Premium', label: 'Premium', locations: 3, description: 'Up to 3 locations' },
+  { id: 'Enterprise', label: 'Enterprise', locations: null, description: 'Unlimited locations' },
+];
+
 /**
  * SubscriptionPage - View subscription status, tier, billing cycle, and usage limits.
  * EPIC-0-009-001: Subscription Status Display UI
@@ -50,6 +58,8 @@ export default function SubscriptionPage() {
   const [error, setError] = useState(null);
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [locationCount, setLocationCount] = useState(0);
+  const [changingTier, setChangingTier] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -77,11 +87,49 @@ export default function SubscriptionPage() {
 
   const data = subscriptionData || contextTrialStatus;
   const tier = data?.subscriptionTier || 'Trial';
+  // Derive trial status: API uses TrialEndDate > now (backend fix). Fallback: compute from trialEndDate if API missed it
+  const trialEnd = data?.trialEndDate ? new Date(data.trialEndDate) : null;
+  const isInTrial =
+    data?.isInTrial ??
+    (trialEnd && trialEnd > new Date());
+  const daysRemaining =
+    data?.daysRemaining ?? (isInTrial && trialEnd ? Math.max(0, Math.ceil((trialEnd - new Date()) / (1000 * 60 * 60 * 24))) : 0);
   const locationLimit = TIER_LOCATION_LIMITS[tier] ?? 1;
   const locationUsage =
     locationLimit === null
       ? `${locationCount} (unlimited)`
       : `${locationCount} / ${locationLimit}`;
+
+  const effectiveTierForOrder = tier === 'Trial' ? 'Basic' : tier;
+  const currentTierOrder = TIER_ORDER[effectiveTierForOrder] ?? 0;
+
+  const canDowngradeTo = (targetTier) => {
+    const limit = TIER_LOCATION_LIMITS[targetTier];
+    if (limit === null) return true;
+    return locationCount <= limit;
+  };
+
+  const handleChangeTier = async (targetTier) => {
+    if (targetTier === tier) return;
+    try {
+      setChangingTier(targetTier);
+      setError(null);
+      const result = await changeSubscriptionTier(targetTier, locationCount, getAuthHeaders());
+      setSuccessMessage(result?.data?.message || 'Plan updated successfully.');
+      const [trialResult, profileResult] = await Promise.all([
+        getTrialStatus(getAuthHeaders()),
+        getCompanyProfile(getAuthHeaders()).catch(() => ({ data: null })),
+      ]);
+      setSubscriptionData(trialResult.data || null);
+      const locs = profileResult?.data?.locations || [];
+      setLocationCount(locs.length);
+      await refreshTrialStatus();
+    } catch (err) {
+      setError(err.message || 'Failed to change tier');
+    } finally {
+      setChangingTier(null);
+    }
+  };
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -107,6 +155,11 @@ export default function SubscriptionPage() {
             {error}
           </Alert>
         )}
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
+            {successMessage}
+          </Alert>
+        )}
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -124,8 +177,8 @@ export default function SubscriptionPage() {
                       Current Plan
                     </Typography>
                     <Chip
-                      label={TIER_LABELS[tier] || tier}
-                      color={data?.isInTrial ? 'info' : 'primary'}
+                      label={isInTrial ? `${TIER_LABELS[tier] || tier} (Trial)` : (TIER_LABELS[tier] || tier)}
+                      color={isInTrial ? 'info' : 'primary'}
                       size="small"
                       sx={{ mt: 0.5 }}
                     />
@@ -133,14 +186,14 @@ export default function SubscriptionPage() {
                 </Stack>
 
                 <Grid container spacing={2}>
-                  {data?.isInTrial && (
+                  {isInTrial && (
                     <>
                       <Grid item xs={12} sm={6}>
                         <Typography variant="body2" color="text.secondary">
                           Trial Ends
                         </Typography>
                         <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          {data.trialEndDate ? formatDate(data.trialEndDate) : '—'}
+                          {data?.trialEndDate ? formatDate(data.trialEndDate) : '—'}
                         </Typography>
                       </Grid>
                       <Grid item xs={12} sm={6}>
@@ -148,12 +201,12 @@ export default function SubscriptionPage() {
                           Days Remaining
                         </Typography>
                         <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          {data.daysRemaining ?? '—'}
+                          {daysRemaining}
                         </Typography>
                       </Grid>
                     </>
                   )}
-                  {!data?.isInTrial && (
+                  {!isInTrial && (
                     <>
                       <Grid item xs={12} sm={6}>
                         <Typography variant="body2" color="text.secondary">
@@ -173,6 +226,68 @@ export default function SubscriptionPage() {
                       </Grid>
                     </>
                   )}
+                </Grid>
+              </CardContent>
+            </Card>
+
+            {/* Change Plan - EPIC-0-009-002 */}
+            <Card elevation={2}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                  Change Plan
+                </Typography>
+                <Grid container spacing={2}>
+                  {AVAILABLE_TIERS.map((t) => {
+                    const effectiveTier = tier === 'Trial' ? 'Basic' : tier;
+                    const isCurrent = effectiveTier === t.id;
+                    const targetOrder = TIER_ORDER[t.id] ?? 0;
+                    const isUpgrade = targetOrder > currentTierOrder;
+                    const isDowngrade = targetOrder < currentTierOrder;
+                    const downgradeBlocked = isDowngrade && !canDowngradeTo(t.id);
+                    const actionLabel = isCurrent
+                      ? 'Current'
+                      : isUpgrade
+                        ? 'Upgrade'
+                        : isDowngrade
+                          ? 'Downgrade'
+                          : 'Select';
+                    return (
+                      <Grid item xs={12} sm={4} key={t.id}>
+                        <Paper
+                          variant="outlined"
+                          sx={{
+                            p: 2,
+                            height: '100%',
+                            borderColor: isCurrent ? 'primary.main' : 'divider',
+                            borderWidth: isCurrent ? 2 : 1,
+                          }}
+                        >
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            {t.label}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {t.description}
+                          </Typography>
+                          <Button
+                            variant={isCurrent ? 'outlined' : 'contained'}
+                            size="small"
+                            fullWidth
+                            disabled={isCurrent || changingTier !== null || downgradeBlocked}
+                            onClick={() => handleChangeTier(t.id)}
+                            sx={{ mt: 2 }}
+                          >
+                            {changingTier === t.id ? (
+                              <CircularProgress size={20} />
+                            ) : downgradeBlocked ? (
+                              `Remove locations first`
+                            ) : (
+                              actionLabel
+                            )}
+                          </Button>
+                        </Paper>
+                      </Grid>
+                    );
+                  })}
                 </Grid>
               </CardContent>
             </Card>
