@@ -133,14 +133,14 @@ const Dashboard = () => {
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Trial Status Banner */}
-        {trialStatus?.isInTrial && (
+        {/* Trial Status Banner - show when in trial OR when trial expired (access restricted) */}
+        {(trialStatus?.isInTrial || trialStatus?.accessRestricted) && (
           <Alert
-            severity={trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod ? 'warning' : 'info'}
+            severity={trialStatus.accessRestricted || (trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod) ? 'warning' : 'info'}
             icon={<Schedule />}
             sx={{ mb: 3 }}
             action={
-              trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod ? (
+              (trialStatus.accessRestricted || (trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod)) ? (
                 <Button color="inherit" size="small" onClick={() => navigate('/dashboard/billing')}>
                   Add payment method
                 </Button>
@@ -149,12 +149,14 @@ const Dashboard = () => {
           >
             <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
               <Typography variant="body1">
-                {trialStatus.daysRemaining > 0
-                  ? `${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? '' : 's'} remaining in your free trial`
-                  : 'Your free trial has ended'}
+                {trialStatus.accessRestricted
+                  ? 'Your free trial has ended. Add a payment method to continue.'
+                  : trialStatus.daysRemaining > 0
+                    ? `${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? '' : 's'} remaining in your free trial`
+                    : 'Your free trial has ended'}
               </Typography>
               <Chip label="Free Trial" size="small" color="info" variant="outlined" />
-              {trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod && (
+              {(trialStatus.accessRestricted || (trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod)) && (
                 <Typography variant="body2">
                   Add a payment method to ensure your subscription continues.
                 </Typography>

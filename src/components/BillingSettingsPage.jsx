@@ -23,6 +23,7 @@ import {
 import { CreditCard, Add, ArrowBack, Delete, Star, StarBorder } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTrialStatus } from '../contexts/TrialStatusContext';
 import {
   getPaymentMethods,
   storePaymentMethod,
@@ -41,6 +42,7 @@ import PaymentMethodForm from './PaymentMethodForm';
 export default function BillingSettingsPage() {
   const navigate = useNavigate();
   const { getAuthHeaders } = useAuth();
+  const { refreshTrialStatus } = useTrialStatus();
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -83,6 +85,7 @@ export default function BillingSettingsPage() {
       await storePaymentMethod(paymentMethodId, getAuthHeaders());
       setShowAddForm(false);
       await loadPaymentMethods();
+      await refreshTrialStatus();
     } catch (err) {
       const { message, isRetryable } = getBillingErrorMessage(err);
       setError(message);

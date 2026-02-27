@@ -2,6 +2,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { InventoryProvider } from './contexts/InventoryContext';
+import { TrialStatusProvider } from './contexts/TrialStatusContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthRedirect from './components/AuthRedirect';
 import LandingPage from './components/LandingPage';
@@ -21,6 +22,8 @@ import TradeInPage from './components/TradeInPage';
 import CheckoutPage from './components/CheckoutPage';
 import SalesHistoryPage from './components/SalesHistoryPage';
 import BillingSettingsPage from './components/BillingSettingsPage';
+import AccountSuspendedPage from './components/AccountSuspendedPage';
+import TrialExpiredPrompt from './components/TrialExpiredPrompt';
 
 const theme = createTheme({
   palette: {
@@ -66,6 +69,7 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <InventoryProvider>
+          <TrialStatusProvider>
           <Router>
             <AuthRedirect>
             <Routes>
@@ -89,6 +93,7 @@ function App() {
             </Routes>
             </AuthRedirect>
           </Router>
+          </TrialStatusProvider>
         </InventoryProvider>
       </ThemeProvider>
     </ErrorBoundary>
