@@ -3,6 +3,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { InventoryProvider } from './contexts/InventoryContext';
 import { TrialStatusProvider } from './contexts/TrialStatusContext';
+import { FormattingProvider } from './contexts/FormattingContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthRedirect from './components/AuthRedirect';
 import LandingPage from './components/LandingPage';
@@ -71,6 +72,7 @@ function App() {
         <CssBaseline />
         <InventoryProvider>
           <TrialStatusProvider>
+          <FormattingProvider>
           <Router>
             <AuthRedirect>
             <Routes>
@@ -95,6 +97,7 @@ function App() {
             </Routes>
             </AuthRedirect>
           </Router>
+          </FormattingProvider>
           </TrialStatusProvider>
         </InventoryProvider>
       </ThemeProvider>

@@ -32,11 +32,13 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useInventory } from '../contexts/InventoryContext';
+import { useFormatting } from '../contexts/FormattingContext';
 
 const InventoryItemDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { inventory, updateInventoryItem } = useInventory();
+  const { formatDate } = useFormatting();
   const [isEditMode, setIsEditMode] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -469,7 +471,7 @@ const InventoryItemDetail = () => {
                                 Release Date
                               </Typography>
                               <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                {new Date(item.game.releaseDate).toLocaleDateString()}
+                                {formatDate(item.game.releaseDate)}
                               </Typography>
                             </>
                           )}
@@ -604,7 +606,7 @@ const InventoryItemDetail = () => {
                           Added Date
                         </Typography>
                         <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
-                          {new Date(item.addedDate).toLocaleDateString()}
+                          {formatDate(item.addedDate)}
                         </Typography>
                       </Grid>
                     )}

@@ -33,10 +33,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { searchGames, getMarketPrices } from '../services/gameApi';
 import { useInventory } from '../contexts/InventoryContext';
+import { useFormatting } from '../contexts/FormattingContext';
 
 const AddInventoryItem = () => {
   const navigate = useNavigate();
   const { addInventoryItem } = useInventory();
+  const { formatYear } = useFormatting();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -261,7 +263,7 @@ const AddInventoryItem = () => {
                   Selected: {selectedGame.title}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {selectedGame.console} • Released: {new Date(selectedGame.releaseDate).getFullYear()}
+                  {selectedGame.console} • Released: {formatYear(selectedGame.releaseDate)}
                 </Typography>
               </Box>
             )}

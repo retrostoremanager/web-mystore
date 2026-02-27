@@ -30,15 +30,18 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../contexts/InventoryContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useFormatting } from '../contexts/FormattingContext';
 import { getTrialStatus } from '../services/billingApi';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { inventory } = useInventory();
-  const { logout, getAuthHeaders } = useAuth();
+  const { logout, isAuthenticated, getAuthHeaders } = useAuth();
+  const { formatNumber } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);
 
   useEffect(() => {
+    if (!isAuthenticated || !getAuthHeaders().Authorization) return;
     const loadTrialStatus = async () => {
       try {
         const result = await getTrialStatus(getAuthHeaders());
@@ -48,7 +51,7 @@ const Dashboard = () => {
       }
     };
     loadTrialStatus();
-  }, [getAuthHeaders]);
+  }, [isAuthenticated, getAuthHeaders]);
 
   const handleSignOut = () => {
     logout();
@@ -59,7 +62,7 @@ const Dashboard = () => {
   const totalQuantity = inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   const stats = [
-    { label: 'Total Inventory Items', value: inventory.length.toLocaleString(), icon: <Inventory />, color: 'primary' },
+    { label: 'Total Inventory Items', value: formatNumber(inventory.length), icon: <Inventory />, color: 'primary' },
     { label: 'Active Customers', value: '156', icon: <People />, color: 'success' },
     { label: 'Employees', value: '4', icon: <Badge />, color: 'info' },
     { label: 'Today\'s Sales', value: '$2,450.00', icon: <PointOfSale />, color: 'warning' },

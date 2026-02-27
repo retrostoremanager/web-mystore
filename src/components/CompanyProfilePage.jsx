@@ -23,6 +23,7 @@ import {
 import { ArrowBack, Add, Edit, Delete } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useFormatting } from '../contexts/FormattingContext';
 import {
   getCompanyProfile,
   updateCompanyProfile,
@@ -52,6 +53,7 @@ const COMMON_LOCALES = [
 export default function CompanyProfilePage() {
   const navigate = useNavigate();
   const { isAuthenticated, getAuthHeaders } = useAuth();
+  const { refresh: refreshFormatting } = useFormatting();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -146,6 +148,7 @@ export default function CompanyProfilePage() {
       await updateCompanyProfile(companyForm, getAuthHeaders());
       setCompanyDialog(false);
       await loadProfile();
+      refreshFormatting();
     } catch (err) {
       setError(err.message || 'Failed to update company');
     } finally {
@@ -255,6 +258,7 @@ export default function CompanyProfilePage() {
       }
       setLocationDialog(null);
       await loadProfile();
+      refreshFormatting();
     } catch (err) {
       setError(err.message || 'Failed to save location');
     } finally {
@@ -270,6 +274,7 @@ export default function CompanyProfilePage() {
       await deleteLocation(deleteConfirm.id, getAuthHeaders());
       setDeleteConfirm(null);
       await loadProfile();
+      refreshFormatting();
     } catch (err) {
       setError(err.message || 'Failed to delete location');
     } finally {
