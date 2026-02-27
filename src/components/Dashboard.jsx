@@ -25,6 +25,7 @@ import {
   History,
   CreditCard,
   Schedule,
+  Store,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from '../contexts/InventoryContext';
@@ -106,6 +107,13 @@ const Dashboard = () => {
       icon: <History sx={{ fontSize: 48 }} />,
       color: 'primary',
       route: '/dashboard/sales-history',
+    },
+    {
+      title: 'Store Profile',
+      description: 'Configure store information, locations, and settings',
+      icon: <Store sx={{ fontSize: 48 }} />,
+      color: 'info',
+      route: '/dashboard/profile',
     },
     {
       title: 'Billing & Payment',

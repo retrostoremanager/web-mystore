@@ -22,6 +22,7 @@ import TradeInPage from './components/TradeInPage';
 import CheckoutPage from './components/CheckoutPage';
 import SalesHistoryPage from './components/SalesHistoryPage';
 import BillingSettingsPage from './components/BillingSettingsPage';
+import CompanyProfilePage from './components/CompanyProfilePage';
 import AccountSuspendedPage from './components/AccountSuspendedPage';
 import TrialExpiredPrompt from './components/TrialExpiredPrompt';
 
@@ -90,6 +91,7 @@ function App() {
               <Route path="/dashboard/checkout" element={<CheckoutPage />} />
               <Route path="/dashboard/sales-history" element={<SalesHistoryPage />} />
               <Route path="/dashboard/billing" element={<BillingSettingsPage />} />
+              <Route path="/dashboard/profile" element={<CompanyProfilePage />} />
             </Routes>
             </AuthRedirect>
           </Router>
