@@ -41,7 +41,8 @@ export const inventoryApi = createApi({
       query: (arg) => {
         const params = {};
         if (arg != null && typeof arg === 'object') {
-          if (arg.locationId != null) params.locationId = arg.locationId;
+          if (arg.q != null && arg.q !== '') params.q = arg.q;
+          if (arg.locationId != null && arg.locationId > 0) params.locationId = arg.locationId;
         } else if (arg != null) {
           params.locationId = arg;
         }
@@ -73,26 +74,6 @@ export const inventoryApi = createApi({
         return response.data;
       },
       providesTags: (result, error, id) => [{ type: 'Inventory', id }],
-    }),
-    searchInventory: builder.query({
-      query: ({ q = '', locationId }) => {
-        const params = { q: q || '' };
-        if (locationId != null && locationId > 0) params.locationId = locationId;
-        return { url: 'inventory/search', params };
-      },
-      transformResponse: (response) => {
-        if (!response?.success) {
-          throw new Error(response?.message || 'Failed to search inventory');
-        }
-        return response.data ?? [];
-      },
-      providesTags: (result) =>
-        Array.isArray(result)
-          ? [
-              ...result.map(({ id }) => ({ type: 'Inventory', id })),
-              { type: 'Inventory', id: 'LIST' },
-            ]
-          : [{ type: 'Inventory', id: 'LIST' }],
     }),
     getInventoryItemLocations: builder.query({
       query: (id) => `inventory/${id}/locations`,
@@ -157,7 +138,6 @@ export const inventoryApi = createApi({
 export const {
   useGetInventoryQuery,
   useGetInventoryItemQuery,
-  useSearchInventoryQuery,
   useGetInventoryItemLocationsQuery,
   useCreateInventoryItemMutation,
   useUpdateInventoryItemMutation,

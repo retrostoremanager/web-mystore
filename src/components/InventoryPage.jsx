@@ -41,7 +41,7 @@ import {
   LocationOn,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useSearchInventoryQuery } from '../store/inventoryApi';
+import { useGetInventoryQuery } from '../store/inventoryApi';
 import { getCompanyProfile } from '../services/profileApi';
 import { useAuth } from '../contexts/AuthContext';
 import { CircularProgress, Alert } from '@mui/material';
@@ -53,9 +53,9 @@ const InventoryPage = () => {
   const [locationFilter, setLocationFilter] = useState('');
   const [locations, setLocations] = useState([]);
 
-  const { data: inventory = [], isLoading, isError, error } = useSearchInventoryQuery(
+  const { data: inventory = [], isLoading, isError, error } = useGetInventoryQuery(
     {
-      q: searchQuery,
+      q: searchQuery || undefined,
       locationId: locationFilter ? Number(locationFilter) : undefined,
     },
     { pollingInterval: 30000 }
