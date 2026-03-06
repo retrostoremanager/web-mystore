@@ -18,6 +18,7 @@ import {
   Inventory,
   People,
   Badge,
+  Security,
   SwapHoriz,
   PointOfSale,
   ExitToApp,
@@ -33,6 +34,7 @@ import { useInventory } from '../contexts/InventoryContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useFormatting } from '../contexts/FormattingContext';
 import { getTrialStatus } from '../services/billingApi';
+import { getUsers } from '../services/usersApi';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -40,6 +42,7 @@ const Dashboard = () => {
   const { logout, isAuthenticated, getAuthHeaders } = useAuth();
   const { formatNumber } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);
+  const [userCount, setUserCount] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated || !getAuthHeaders().Authorization) return;
@@ -54,6 +57,19 @@ const Dashboard = () => {
     loadTrialStatus();
   }, [isAuthenticated, getAuthHeaders]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !getAuthHeaders().Authorization) return;
+    const loadUserCount = async () => {
+      try {
+        const result = await getUsers(getAuthHeaders());
+        setUserCount(result.data?.length ?? 0);
+      } catch {
+        setUserCount(null);
+      }
+    };
+    loadUserCount();
+  }, [isAuthenticated, getAuthHeaders]);
+
   const handleSignOut = () => {
     logout();
     navigate('/login');
@@ -65,7 +81,7 @@ const Dashboard = () => {
   const stats = [
     { label: 'Total Inventory Items', value: formatNumber(inventory.length), icon: <Inventory />, color: 'primary' },
     { label: 'Active Customers', value: '156', icon: <People />, color: 'success' },
-    { label: 'Employees', value: '4', icon: <Badge />, color: 'info' },
+    { label: 'Users', value: userCount != null ? String(userCount) : '—', icon: <Badge />, color: 'info' },
     { label: 'Today\'s Sales', value: '$2,450.00', icon: <PointOfSale />, color: 'warning' },
   ];
 
@@ -85,11 +101,18 @@ const Dashboard = () => {
       route: '/dashboard/customers',
     },
     {
-      title: 'Employees',
-      description: 'View and manage employee information',
+      title: 'Users',
+      description: 'View and manage user accounts and roles',
       icon: <Badge sx={{ fontSize: 48 }} />,
       color: 'info',
-      route: '/dashboard/employees',
+      route: '/dashboard/users',
+    },
+    {
+      title: 'Roles',
+      description: 'View roles and permissions',
+      icon: <Security sx={{ fontSize: 48 }} />,
+      color: 'secondary',
+      route: '/dashboard/roles',
     },
     {
       title: 'Trade-in',

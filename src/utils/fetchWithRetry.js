@@ -24,3 +24,27 @@ export async function fetchWithRetry(url, options = {}, maxRetries = 3, delayMs 
   }
   throw lastError;
 }
+
+/**
+ * Safely parse JSON from a fetch response. Handles empty or invalid bodies.
+ * @param {Response} response - Fetch response
+ * @param {string} fallbackError - Error message when body is empty/invalid
+ * @returns {Promise<Object>}
+ */
+export async function parseJsonResponse(response, fallbackError) {
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    throw new Error(
+      response.ok
+        ? `${fallbackError} (empty response)`
+        : `${fallbackError} (${response.status} ${response.statusText})`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      `${fallbackError} (invalid response: ${text.substring(0, 80)}${text.length > 80 ? '…' : ''})`
+    );
+  }
+}

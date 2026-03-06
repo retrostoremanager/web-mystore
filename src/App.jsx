@@ -18,7 +18,8 @@ import AddInventoryItem from './components/AddInventoryItem';
 import InventoryItemDetail from './components/InventoryItemDetail';
 import BulkImportInventory from './components/BulkImportInventory';
 import CustomersPage from './components/CustomersPage';
-import EmployeesPage from './components/EmployeesPage';
+import UsersPage from './components/UsersPage';
+import RolesPage from './components/RolesPage';
 import TradeInPage from './components/TradeInPage';
 import CheckoutPage from './components/CheckoutPage';
 import SalesHistoryPage from './components/SalesHistoryPage';
@@ -89,7 +90,8 @@ function App() {
               <Route path="/dashboard/inventory/bulk-import" element={<BulkImportInventory />} />
               <Route path="/dashboard/inventory/:id" element={<InventoryItemDetail />} />
               <Route path="/dashboard/customers" element={<CustomersPage />} />
-              <Route path="/dashboard/employees" element={<EmployeesPage />} />
+              <Route path="/dashboard/users" element={<UsersPage />} />
+              <Route path="/dashboard/roles" element={<RolesPage />} />
               <Route path="/dashboard/trade-in" element={<TradeInPage />} />
               <Route path="/dashboard/checkout" element={<CheckoutPage />} />
               <Route path="/dashboard/sales-history" element={<SalesHistoryPage />} />
