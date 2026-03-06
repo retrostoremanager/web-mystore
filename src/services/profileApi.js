@@ -145,13 +145,41 @@ export async function deleteLogo(authHeaders) {
 }
 
 /**
+ * Get location deletion info (inventory count, other locations).
+ * @param {number} id - Location ID
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, data?: {hasInventory, inventoryCount, otherLocations}}>}
+ */
+export async function getLocationDeletionInfo(id, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/company/locations/${id}/deletion-info`, {
+    method: 'GET',
+    headers: authHeaders,
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to get deletion info');
+  }
+
+  return result;
+}
+
+/**
  * Delete a location.
  * @param {number} id - Location ID
+ * @param {Object} options - { action?: 'delete_inventory' | 'reassign', targetLocationId?: number }
  * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
  * @returns {Promise<{success: boolean}>}
  */
-export async function deleteLocation(id, authHeaders) {
-  const response = await fetch(`${config.apiUrl}/company/locations/${id}`, {
+export async function deleteLocation(id, options, authHeaders) {
+  const params = new URLSearchParams();
+  if (options?.action) params.set('action', options.action);
+  if (options?.targetLocationId != null) params.set('targetLocationId', String(options.targetLocationId));
+  const query = params.toString();
+  const url = `${config.apiUrl}/company/locations/${id}${query ? `?${query}` : ''}`;
+
+  const response = await fetch(url, {
     method: 'DELETE',
     headers: authHeaders,
   });

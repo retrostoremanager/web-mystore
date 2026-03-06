@@ -32,13 +32,13 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useInventory } from '../contexts/InventoryContext';
+import { useGetInventoryQuery } from '../store/inventoryApi';
 
 const steps = ['Select Customer', 'Add Items', 'Review & Complete'];
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { inventory } = useInventory();
+  const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 30000 });
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

@@ -30,7 +30,7 @@ import {
   WorkspacePremium,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useInventory } from '../contexts/InventoryContext';
+import { useGetInventoryQuery } from '../store/inventoryApi';
 import { useAuth } from '../contexts/AuthContext';
 import { useFormatting } from '../contexts/FormattingContext';
 import { getTrialStatus } from '../services/billingApi';
@@ -38,7 +38,7 @@ import { getUsers } from '../services/usersApi';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { inventory } = useInventory();
+  const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
   const { logout, isAuthenticated, getAuthHeaders } = useAuth();
   const { formatNumber } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);

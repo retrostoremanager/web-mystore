@@ -31,46 +31,56 @@ import {
   Close,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useInventory } from '../contexts/InventoryContext';
+import {
+  useGetInventoryItemQuery,
+  useGetInventoryItemLocationsQuery,
+  useUpdateInventoryItemMutation,
+} from '../store/inventoryApi';
 import { useFormatting } from '../contexts/FormattingContext';
+import { CircularProgress } from '@mui/material';
+import { LocationOn } from '@mui/icons-material';
 
 const InventoryItemDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { inventory, updateInventoryItem } = useInventory();
+  const { data: item, isLoading, isError, error } = useGetInventoryItemQuery(Number(id), {
+    skip: !id || isNaN(Number(id)),
+  });
+  const { data: itemLocations = [] } = useGetInventoryItemLocationsQuery(Number(id), {
+    skip: !id || isNaN(Number(id)) || !item,
+  });
+  const [updateInventoryItem, { isLoading: isUpdating }] = useUpdateInventoryItemMutation();
   const { formatDate } = useFormatting();
   const [isEditMode, setIsEditMode] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const item = inventory.find((i) => i.id === Number(id));
+  const [formData, setFormData] = useState(null);
 
-  // Initialize form data from item
-  const [formData, setFormData] = useState(() => {
-    const currentItem = inventory.find((i) => i.id === Number(id));
-    if (!currentItem) return null;
-    return {
-      name: currentItem.name || '',
-      category: currentItem.category || '',
-      condition: currentItem.condition || 'New',
-      quantity: currentItem.quantity || 1,
-      buyPrice: currentItem.buyPrice || '',
-      sellPrice: currentItem.sellPrice || '0',
-      notes: currentItem.notes || '',
-      completeness: currentItem.completeness || {
-        box: false,
-        instructions: false,
-        game: false,
-        inserts: false,
-        other: false,
-      },
-      game: currentItem.game ? { ...currentItem.game } : null,
-    };
-  });
+  useEffect(() => {
+    if (item) {
+      setFormData({
+        name: item.name || '',
+        category: item.category || '',
+        condition: item.condition || 'New',
+        quantity: item.quantity || 1,
+        buyPrice: item.buyPrice ?? '',
+        sellPrice: item.sellPrice != null ? String(item.sellPrice) : '0',
+        notes: item.notes || '',
+        completeness: item.completeness || {
+          box: false,
+          instructions: false,
+          game: false,
+          inserts: false,
+          other: false,
+        },
+        game: item.game ? { ...item.game } : null,
+      });
+    }
+  }, [item]);
 
   const conditionOptions = ['New', 'Like New', 'Very Good', 'Good', 'Fair', 'Poor'];
 
-  // Show loading state if inventory is still being loaded
-  if (inventory.length === 0 && !item) {
+  if (isLoading || (item && !formData)) {
     return (
       <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
         <AppBar 
@@ -103,7 +113,7 @@ const InventoryItemDetail = () => {
     );
   }
 
-  if (!item) {
+  if (isError || (!isLoading && !item)) {
     return (
       <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
         <AppBar 
@@ -205,7 +215,7 @@ const InventoryItemDetail = () => {
   const handleSave = () => {
     if (!formData) return;
 
-    // Validate that at least the game is checked
+    if (!formData) return;
     if (!formData.completeness.game) {
       alert('Please check at least "Game" in the completeness section.');
       return;
@@ -237,10 +247,27 @@ const InventoryItemDetail = () => {
       updates.game = null;
     }
 
-    updateInventoryItem(Number(id), updates);
-    setIsEditMode(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    updateInventoryItem({
+      id: Number(id),
+      name: updates.name,
+      category: updates.category,
+      condition: updates.condition,
+      quantity: updates.quantity,
+      sellPrice: parseFloat(updates.sellPrice || 0),
+      buyPrice: updates.buyPrice ? parseFloat(updates.buyPrice) : null,
+      notes: updates.notes || null,
+      completeness: updates.completeness,
+      gameId: formData.game?.id ?? null,
+    })
+      .unwrap()
+      .then(() => {
+        setIsEditMode(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      })
+      .catch((err) => {
+        alert(err?.data?.message || err?.message || 'Failed to update item');
+      });
   };
 
   const handleCancel = () => {
@@ -482,6 +509,58 @@ const InventoryItemDetail = () => {
                 )}
 
                 {item.game && <Divider sx={{ mb: 3 }} />}
+
+                {/* Location & Availability */}
+                {(item.locationName || itemLocations.length > 0) && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LocationOn color="primary" /> Location
+                      </Box>
+                    </Typography>
+                    {!isEditMode && (
+                      <Grid container spacing={2}>
+                        {item.locationName && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary">
+                              This item
+                            </Typography>
+                            <Chip
+                              label={`${item.locationName} (qty ${item.quantity}, ${item.condition})`}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              icon={<LocationOn sx={{ fontSize: 14 }} />}
+                              sx={{ mt: 0.5 }}
+                            />
+                          </Grid>
+                        )}
+                        {itemLocations.length > 1 && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                              Also available at
+                            </Typography>
+                            <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 0.5 }}>
+                              {itemLocations
+                                .filter((loc) => loc.locationId !== item.locationId)
+                                .map((loc) => (
+                                  <Chip
+                                    key={loc.locationId}
+                                    label={`${loc.locationName}: ${loc.quantity} (${loc.condition})`}
+                                    size="small"
+                                    variant="outlined"
+                                    icon={<LocationOn sx={{ fontSize: 14 }} />}
+                                  />
+                                ))}
+                            </Stack>
+                          </Grid>
+                        )}
+                      </Grid>
+                    )}
+                  </Box>
+                )}
+
+                {(item.locationName || itemLocations.length > 0) && <Divider sx={{ mb: 3 }} />}
 
                 {/* Item Details */}
                 <Box sx={{ mb: 3 }}>

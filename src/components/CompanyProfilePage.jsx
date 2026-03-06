@@ -32,7 +32,9 @@ import {
   createLocation,
   updateLocation,
   deleteLocation,
+  getLocationDeletionInfo,
 } from '../services/profileApi';
+import { getTrialStatus } from '../services/billingApi';
 
 const COMMON_TIMEZONES = [
   'America/New_York',
@@ -90,7 +92,10 @@ export default function CompanyProfilePage() {
     isPrimary: false,
   });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deletionInfo, setDeletionInfo] = useState(null);
+  const [deleteAction, setDeleteAction] = useState(null);
   const [logoRemoveConfirm, setLogoRemoveConfirm] = useState(false);
+  const [trialStatus, setTrialStatus] = useState(null);
 
   const loadProfile = async () => {
     try {
@@ -120,8 +125,16 @@ export default function CompanyProfilePage() {
   useEffect(() => {
     if (isAuthenticated && getAuthHeaders().Authorization) {
       loadProfile();
+      getTrialStatus(getAuthHeaders())
+        .then((res) => setTrialStatus(res.data || null))
+        .catch(() => setTrialStatus(null));
     }
   }, [isAuthenticated, getAuthHeaders]);
+
+  const TIER_LOCATION_LIMITS = { Basic: 1, Trial: 1, Premium: 3, Enterprise: null };
+  const tier = (trialStatus?.subscriptionTier || 'Basic').replace(/^trial$/i, 'Basic');
+  const locationLimit = TIER_LOCATION_LIMITS[tier] ?? TIER_LOCATION_LIMITS.Basic;
+  const canAddLocation = locationLimit == null || locations.length < locationLimit;
 
   const handleOpenEditCompany = () => {
     setCompanyForm({
@@ -266,13 +279,44 @@ export default function CompanyProfilePage() {
     }
   };
 
+  const handleDeleteClick = async (loc) => {
+    try {
+      const info = await getLocationDeletionInfo(loc.id, getAuthHeaders());
+      const data = info.data || null;
+      setDeletionInfo(data);
+      setDeleteConfirm(loc);
+      setDeleteAction(
+        data?.hasInventory && (!data.otherLocations?.length)
+          ? { action: 'delete_inventory' }
+          : null
+      );
+    } catch (err) {
+      setError(err.message || 'Failed to load deletion info');
+    }
+  };
+
   const handleDeleteLocation = async () => {
     if (!deleteConfirm) return;
+    if (deletionInfo?.hasInventory && !deleteAction) {
+      setError('Please choose how to handle inventory: delete it or move to another location.');
+      return;
+    }
+    if (deleteAction?.action === 'reassign' && (!deletionInfo?.otherLocations?.length || !deleteAction.targetId)) {
+      setError('Please select a location to move inventory to.');
+      return;
+    }
     try {
       setSubmitting(true);
       setError(null);
-      await deleteLocation(deleteConfirm.id, getAuthHeaders());
+      const options = deletionInfo?.hasInventory
+        ? deleteAction?.action === 'reassign'
+          ? { action: 'reassign', targetLocationId: deleteAction.targetId }
+          : { action: 'delete_inventory' }
+        : {};
+      await deleteLocation(deleteConfirm.id, options, getAuthHeaders());
       setDeleteConfirm(null);
+      setDeletionInfo(null);
+      setDeleteAction(null);
       await loadProfile();
       refreshFormatting();
     } catch (err) {
@@ -462,7 +506,14 @@ export default function CompanyProfilePage() {
         <Paper sx={{ p: 3 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
             <Typography variant="h6">Locations</Typography>
-            <Button startIcon={<Add />} onClick={handleOpenAddLocation} variant="outlined" size="small">
+            <Button
+              startIcon={<Add />}
+              onClick={handleOpenAddLocation}
+              variant="outlined"
+              size="small"
+              disabled={!canAddLocation}
+              title={!canAddLocation ? `Your ${tier} plan allows ${locationLimit} location(s). Upgrade to Premium or Enterprise for more.` : ''}
+            >
               Add Location
             </Button>
           </Stack>
@@ -508,7 +559,7 @@ export default function CompanyProfilePage() {
                         <IconButton size="small" onClick={() => handleOpenEditLocation(loc)} aria-label="Edit location">
                           <Edit />
                         </IconButton>
-                        <IconButton size="small" color="error" onClick={() => setDeleteConfirm(loc)} aria-label="Delete location">
+                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(loc)} aria-label="Delete location">
                           <Delete />
                         </IconButton>
                       </Stack>
@@ -593,16 +644,62 @@ export default function CompanyProfilePage() {
           </DialogActions>
         </Dialog>
 
-        <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
+        <Dialog open={!!deleteConfirm} onClose={() => { setDeleteConfirm(null); setDeletionInfo(null); setDeleteAction(null); }} maxWidth="sm" fullWidth>
           <DialogTitle>Delete Location?</DialogTitle>
           <DialogContent>
-            <Typography>
-              Are you sure you want to delete &quot;{deleteConfirm?.name}&quot;? This cannot be undone.
+            <Typography sx={{ mb: 2 }}>
+              Are you sure you want to delete &quot;{deleteConfirm?.name}&quot;?
             </Typography>
+            {deletionInfo?.hasInventory ? (
+              <Stack spacing={2}>
+                <Typography color="text.secondary">
+                  This location has {deletionInfo.inventoryCount} inventory item(s). Choose how to proceed:
+                </Typography>
+                <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                  <Button
+                    variant={deleteAction?.action === 'delete_inventory' ? 'contained' : 'outlined'}
+                    size="small"
+                    color="error"
+                    onClick={() => setDeleteAction({ action: 'delete_inventory' })}
+                  >
+                    Delete all inventory
+                  </Button>
+                  {deletionInfo.otherLocations?.length > 0 && (
+                    <>
+                      <Typography variant="body2" color="text.secondary">or</Typography>
+                      <Button
+                        variant={deleteAction?.action === 'reassign' ? 'contained' : 'outlined'}
+                        size="small"
+                        onClick={() => setDeleteAction({ action: 'reassign', targetId: deletionInfo.otherLocations[0].id })}
+                      >
+                        Move to another location
+                      </Button>
+                    </>
+                  )}
+                </Stack>
+                {deleteAction?.action === 'reassign' && deletionInfo.otherLocations?.length > 0 && (
+                  <TextField
+                    select
+                    fullWidth
+                    label="Move inventory to"
+                    value={deleteAction.targetId || ''}
+                    onChange={(e) => setDeleteAction((a) => ({ ...a, targetId: parseInt(e.target.value, 10) }))}
+                  >
+                    {deletionInfo.otherLocations.map((loc) => (
+                      <MenuItem key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              </Stack>
+            ) : (
+              <Typography color="text.secondary">This cannot be undone.</Typography>
+            )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button onClick={handleDeleteLocation} color="error" variant="contained" disabled={submitting}>
+            <Button onClick={() => { setDeleteConfirm(null); setDeletionInfo(null); setDeleteAction(null); }}>Cancel</Button>
+            <Button onClick={handleDeleteLocation} color="error" variant="contained" disabled={submitting || (deletionInfo?.hasInventory && !deleteAction)}>
               Delete
             </Button>
           </DialogActions>

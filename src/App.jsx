@@ -1,7 +1,6 @@
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { InventoryProvider } from './contexts/InventoryContext';
 import { TrialStatusProvider } from './contexts/TrialStatusContext';
 import { FormattingProvider } from './contexts/FormattingContext';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -72,8 +71,7 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <InventoryProvider>
-          <TrialStatusProvider>
+        <TrialStatusProvider>
           <FormattingProvider>
           <Router>
             <AuthRedirect>
@@ -103,7 +101,6 @@ function App() {
           </Router>
           </FormattingProvider>
           </TrialStatusProvider>
-        </InventoryProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

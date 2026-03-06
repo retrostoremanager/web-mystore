@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -23,6 +23,10 @@ import {
   TableSortLabel,
   Popover,
   Badge,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Inventory,
@@ -33,19 +37,41 @@ import {
   ArrowUpward,
   ArrowDownward,
   UnfoldMore,
+  Search,
+  LocationOn,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useInventory } from '../contexts/InventoryContext';
+import { useSearchInventoryQuery } from '../store/inventoryApi';
+import { getCompanyProfile } from '../services/profileApi';
+import { useAuth } from '../contexts/AuthContext';
+import { CircularProgress, Alert } from '@mui/material';
 
 const InventoryPage = () => {
   const navigate = useNavigate();
-  const { inventory } = useInventory();
+  const { getAuthHeaders } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [locations, setLocations] = useState([]);
+
+  const { data: inventory = [], isLoading, isError, error } = useSearchInventoryQuery(
+    {
+      q: searchQuery,
+      locationId: locationFilter ? Number(locationFilter) : undefined,
+    },
+    { pollingInterval: 30000 }
+  );
+
+  useEffect(() => {
+    getCompanyProfile(getAuthHeaders())
+      .then((res) => setLocations(res?.data?.locations ?? []))
+      .catch(() => {});
+  }, [getAuthHeaders]);
   
   // Sorting state
   const [orderBy, setOrderBy] = useState('');
   const [order, setOrder] = useState('asc');
   
-  // Filtering state
+  // Client-side column filters (in addition to server search/location)
   const [filters, setFilters] = useState({
     name: '',
     category: '',
@@ -108,29 +134,39 @@ const InventoryPage = () => {
     });
   };
 
+  // Normalize items for display (API returns sellPrice, we use price for display)
+  const normalizedInventory = useMemo(
+    () =>
+      inventory.map((item) => ({
+        ...item,
+        price: item.sellPrice != null ? `$${Number(item.sellPrice).toFixed(2)}` : '$0.00',
+      })),
+    [inventory]
+  );
+
   // Sort and filter inventory
   const sortedAndFilteredInventory = useMemo(() => {
-    let filtered = [...inventory];
+    let filtered = [...normalizedInventory];
 
     // Apply filters
     if (filters.name) {
       filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(filters.name.toLowerCase())
+        item.name?.toLowerCase().includes(filters.name.toLowerCase())
       );
     }
     if (filters.category) {
       filtered = filtered.filter((item) =>
-        item.category.toLowerCase().includes(filters.category.toLowerCase())
+        item.category?.toLowerCase().includes(filters.category.toLowerCase())
       );
     }
     if (filters.quantity) {
       filtered = filtered.filter((item) =>
-        String(item.quantity).includes(filters.quantity)
+        String(item.quantity ?? '').includes(filters.quantity)
       );
     }
     if (filters.price) {
       filtered = filtered.filter((item) =>
-        item.price.toLowerCase().includes(filters.price.toLowerCase())
+        (item.price ?? '').toLowerCase().includes(filters.price.toLowerCase())
       );
     }
 
@@ -141,21 +177,20 @@ const InventoryPage = () => {
 
         switch (orderBy) {
           case 'name':
-            aValue = a.name.toLowerCase();
-            bValue = b.name.toLowerCase();
+            aValue = a.name?.toLowerCase() ?? '';
+            bValue = b.name?.toLowerCase() ?? '';
             break;
           case 'category':
-            aValue = a.category.toLowerCase();
-            bValue = b.category.toLowerCase();
+            aValue = a.category?.toLowerCase() ?? '';
+            bValue = b.category?.toLowerCase() ?? '';
             break;
           case 'quantity':
-            aValue = a.quantity || 0;
-            bValue = b.quantity || 0;
+            aValue = a.quantity ?? 0;
+            bValue = b.quantity ?? 0;
             break;
           case 'price':
-            // Extract numeric value from price string (e.g., "$149.99" -> 149.99)
-            aValue = parseFloat(a.price.replace(/[^0-9.]/g, '')) || 0;
-            bValue = parseFloat(b.price.replace(/[^0-9.]/g, '')) || 0;
+            aValue = a.sellPrice ?? 0;
+            bValue = b.sellPrice ?? 0;
             break;
           default:
             return 0;
@@ -172,7 +207,7 @@ const InventoryPage = () => {
     }
 
     return filtered;
-  }, [inventory, filters, orderBy, order]);
+  }, [normalizedInventory, filters, orderBy, order]);
 
   const hasActiveFilters = Object.values(filters).some((filter) => filter !== '');
 
@@ -192,19 +227,53 @@ const InventoryPage = () => {
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Card elevation={2}>
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: 2, mb: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                 <Inventory sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
                   Inventory Items
                 </Typography>
-                {sortedAndFilteredInventory.length !== inventory.length && (
+                {sortedAndFilteredInventory.length !== normalizedInventory.length && (
                   <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                    ({sortedAndFilteredInventory.length} of {inventory.length})
+                    ({sortedAndFilteredInventory.length} of {normalizedInventory.length})
                   </Typography>
                 )}
               </Box>
-              <Stack direction="row" spacing={2}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
+                <TextField
+                  size="small"
+                  placeholder="Search by name, category..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search fontSize="small" color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ minWidth: 200 }}
+                />
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                  <InputLabel id="location-filter-label">
+                    <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <LocationOn fontSize="small" /> Location
+                    </Box>
+                  </InputLabel>
+                  <Select
+                    labelId="location-filter-label"
+                    value={locationFilter}
+                    label="Location"
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Locations</MenuItem>
+                    {locations.map((loc) => (
+                      <MenuItem key={loc.id} value={String(loc.id)}>
+                        {loc.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 <Button
                   variant="outlined"
                   onClick={() => navigate('/dashboard/inventory/bulk-import')}
@@ -234,6 +303,17 @@ const InventoryPage = () => {
               </Box>
             )}
 
+            {isLoading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            )}
+            {isError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error?.data?.message || error?.message || 'Failed to load inventory'}
+              </Alert>
+            )}
+            {!isLoading && (
             <TableContainer component={Paper} variant="outlined">
               <Table>
                 <TableHead>
@@ -318,6 +398,13 @@ const InventoryPage = () => {
                         </Badge>
                       </Box>
                     </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontWeight: 600 }}>
+                        <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <LocationOn fontSize="small" /> Location
+                        </Box>
+                      </Typography>
+                    </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
                         <Box
@@ -401,9 +488,9 @@ const InventoryPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {inventory.length === 0 ? (
+                  {normalizedInventory.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
                           No inventory items yet. Click "Add Item" to get started.
                         </Typography>
@@ -411,7 +498,7 @@ const InventoryPage = () => {
                     </TableRow>
                   ) : sortedAndFilteredInventory.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
                           No items match your filters. Try adjusting your search criteria.
                         </Typography>
@@ -429,6 +516,14 @@ const InventoryPage = () => {
                         <TableCell>
                           <Chip label={item.category} size="small" color="primary" variant="outlined" />
                         </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.locationName || `Location ${item.locationId}`}
+                            size="small"
+                            variant="outlined"
+                            icon={<LocationOn sx={{ fontSize: 14 }} />}
+                          />
+                        </TableCell>
                         <TableCell align="right">{item.quantity}</TableCell>
                         <TableCell align="right">{item.price}</TableCell>
                       </TableRow>
@@ -437,6 +532,7 @@ const InventoryPage = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            )}
 
             {/* Filter Popover */}
             {filterAnchor && activeFilterField && (

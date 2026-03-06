@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -32,13 +32,17 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { searchGames, getMarketPrices } from '../services/gameApi';
-import { useInventory } from '../contexts/InventoryContext';
+import { useCreateInventoryItemMutation } from '../store/inventoryApi';
+import { useAuth } from '../contexts/AuthContext';
 import { useFormatting } from '../contexts/FormattingContext';
+import { getCompanyProfile } from '../services/profileApi';
 
 const AddInventoryItem = () => {
   const navigate = useNavigate();
-  const { addInventoryItem } = useInventory();
+  const [createInventoryItem, { isLoading: isCreating }] = useCreateInventoryItemMutation();
+  const { getAuthHeaders } = useAuth();
   const { formatYear } = useFormatting();
+  const [locationId, setLocationId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -59,6 +63,16 @@ const AddInventoryItem = () => {
     notes: '',
   });
   const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    getCompanyProfile(getAuthHeaders())
+      .then((res) => {
+        const locations = res?.data?.locations ?? [];
+        const primary = locations.find((l) => l.isPrimary) ?? locations[0];
+        if (primary) setLocationId(primary.id);
+      })
+      .catch(() => {});
+  }, [getAuthHeaders]);
 
   const conditionOptions = ['New', 'Like New', 'Very Good', 'Good', 'Fair', 'Poor'];
   const completenessItems = [
@@ -157,35 +171,43 @@ const AddInventoryItem = () => {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    
-    // Validate that at least the game is checked
+
+    if (!locationId) {
+      alert('Please wait for locations to load, or add a location in your company profile.');
+      return;
+    }
+
     if (!formData.completeness.game) {
       alert('Please check at least "Game" in the completeness section.');
       return;
     }
-    
-    // Add item to inventory
-    const newItem = {
-      game: selectedGame,
-      condition: formData.condition,
-      completeness: formData.completeness,
-      quantity: parseInt(formData.quantity, 10),
-      buyPrice: formData.buyPrice || '',
-      sellPrice: formData.sellPrice || '0',
-      notes: formData.notes || '',
-    };
 
-    addInventoryItem(newItem);
+    const name = selectedGame
+      ? `${selectedGame.title} (${selectedGame.console})`
+      : formData.name || 'Unknown Item';
+    const category = selectedGame?.console || 'Video Games';
 
-    // Show success message
-    setShowSuccess(true);
-    
-    // Reset form after a delay and navigate back
-    setTimeout(() => {
-      navigate('/dashboard/inventory');
-    }, 2000);
+    try {
+      await createInventoryItem({
+        locationId,
+        name,
+        category,
+        quantity: parseInt(formData.quantity, 10),
+        sellPrice: parseFloat(formData.sellPrice || 0),
+        buyPrice: formData.buyPrice ? parseFloat(formData.buyPrice) : null,
+        condition: formData.condition,
+        gameId: selectedGame?.id ?? null,
+        completeness: formData.completeness,
+        notes: formData.notes || null,
+      }).unwrap();
+
+      setShowSuccess(true);
+      setTimeout(() => navigate('/dashboard/inventory'), 2000);
+    } catch (err) {
+      alert(err?.data?.message || err?.message || 'Failed to add item');
+    }
   };
 
   return (
