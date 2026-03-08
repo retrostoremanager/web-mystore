@@ -199,6 +199,16 @@ const AddInventoryItem = () => {
         buyPrice: formData.buyPrice ? parseFloat(formData.buyPrice) : null,
         condition: formData.condition,
         gameId: selectedGame?.id ?? null,
+        game: selectedGame
+          ? {
+              id: selectedGame.id,
+              title: selectedGame.title,
+              console: selectedGame.console,
+              releaseDate: selectedGame.releaseDate || null,
+              publisher: selectedGame.publisher || null,
+              genre: selectedGame.genre || null,
+            }
+          : null,
         completeness: formData.completeness,
         notes: formData.notes || null,
       }).unwrap();
