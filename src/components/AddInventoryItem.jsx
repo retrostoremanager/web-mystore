@@ -91,7 +91,7 @@ const AddInventoryItem = () => {
 
     setIsSearching(true);
     try {
-      const results = await searchGames(searchQuery);
+      const results = await searchGames(searchQuery, getAuthHeaders());
       setSearchResults(results);
     } catch (error) {
       console.error('Search error:', error);
@@ -207,6 +207,7 @@ const AddInventoryItem = () => {
               releaseDate: selectedGame.releaseDate || null,
               publisher: selectedGame.publisher || null,
               genre: selectedGame.genre || null,
+              imageUrl: selectedGame.imageUrl || null,
             }
           : null,
         completeness: formData.completeness,

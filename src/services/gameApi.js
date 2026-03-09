@@ -1,147 +1,56 @@
-// Mock game API service
-// This simulates calls to Price Charting or GameEye API
-// Replace with actual API calls when ready
-
-const MOCK_GAMES = [
-  {
-    id: 'pc-001',
-    title: 'The Legend of Zelda: Breath of the Wild',
-    console: 'Nintendo Switch',
-    releaseDate: '2017-03-03',
-    publisher: 'Nintendo',
-    genre: 'Action-Adventure',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-002',
-    title: 'Super Mario Odyssey',
-    console: 'Nintendo Switch',
-    releaseDate: '2017-10-27',
-    publisher: 'Nintendo',
-    genre: 'Platform',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-003',
-    title: 'Elden Ring',
-    console: 'PlayStation 5',
-    releaseDate: '2022-02-25',
-    publisher: 'Bandai Namco',
-    genre: 'Action RPG',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-004',
-    title: 'God of War Ragnarök',
-    console: 'PlayStation 5',
-    releaseDate: '2022-11-09',
-    publisher: 'Sony Interactive Entertainment',
-    genre: 'Action-Adventure',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-005',
-    title: 'Halo Infinite',
-    console: 'Xbox Series X',
-    releaseDate: '2021-12-08',
-    publisher: 'Xbox Game Studios',
-    genre: 'First-Person Shooter',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-006',
-    title: 'Pokémon Scarlet',
-    console: 'Nintendo Switch',
-    releaseDate: '2022-11-18',
-    publisher: 'Nintendo',
-    genre: 'RPG',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-007',
-    title: 'Mario Kart 8 Deluxe',
-    console: 'Nintendo Switch',
-    releaseDate: '2017-04-28',
-    publisher: 'Nintendo',
-    genre: 'Racing',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-008',
-    title: 'Call of Duty: Modern Warfare II',
-    console: 'PlayStation 5',
-    releaseDate: '2022-10-28',
-    publisher: 'Activision',
-    genre: 'First-Person Shooter',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-009',
-    title: 'Animal Crossing: New Horizons',
-    console: 'Nintendo Switch',
-    releaseDate: '2020-03-20',
-    publisher: 'Nintendo',
-    genre: 'Simulation',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-010',
-    title: 'Horizon Forbidden West',
-    console: 'PlayStation 5',
-    releaseDate: '2022-02-18',
-    publisher: 'Sony Interactive Entertainment',
-    genre: 'Action RPG',
-    imageUrl: null,
-  },
-];
-
-// Simulate API search delay
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// Game API - uses backend so all games exist in DB (avoids FK violation on inventory create)
+import config from '../config';
 
 /**
- * Search for games by title
+ * Search for games by title, console, or publisher.
+ * Uses backend API - all returned games exist in the game table.
  * @param {string} query - Search query
- * @returns {Promise<Array>} Array of matching games
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<Array>} Array of matching games from database
  */
-export const searchGames = async (query) => {
-  // Simulate API delay
-  await delay(500);
-
+export const searchGames = async (query, authHeaders = {}) => {
   if (!query || query.trim().length === 0) {
     return [];
   }
 
-  const searchTerm = query.toLowerCase();
-  const results = MOCK_GAMES.filter(
-    (game) =>
-      game.title.toLowerCase().includes(searchTerm) ||
-      game.console.toLowerCase().includes(searchTerm) ||
-      game.publisher.toLowerCase().includes(searchTerm)
-  );
+  const url = `${config.apiUrl}/games/search?q=${encodeURIComponent(query.trim())}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+  });
 
-  return results;
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result?.message || result?.errors?.[0] || 'Failed to search games');
+  }
+
+  return result?.data ?? [];
 };
 
 /**
- * Get game details by ID
+ * Get game details by ID (from selected search result - no API call needed)
  * @param {string} gameId - Game ID
- * @returns {Promise<Object|null>} Game details or null if not found
+ * @param {Array} searchResults - Current search results to look up in
+ * @returns {Object|null} Game details or null if not found
  */
-export const getGameById = async (gameId) => {
-  await delay(300);
-  return MOCK_GAMES.find((game) => game.id === gameId) || null;
+export const getGameById = (gameId, searchResults = []) => {
+  return searchResults.find((game) => game.id === gameId) || null;
 };
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Get market prices for a game (from Price Charting API)
- * This would normally call: https://www.pricecharting.com/api/product?t=TOKEN&id=GAME_ID
+ * TODO: Replace with actual Price Charting API when ready
  * @param {string} gameId - Game ID
  * @returns {Promise<Object>} Market price data
  */
 export const getMarketPrices = async (gameId) => {
   await delay(400);
-  
-  // Mock market price data
   return {
     loose: 29.99,
     complete: 39.99,
