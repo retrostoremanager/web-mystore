@@ -361,87 +361,155 @@ const LandingPage = () => {
       </Container>
 
       {/* Pricing Section */}
-      <Box ref={pricingRef} sx={{ bgcolor: 'grey.50', py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
+      <Box ref={pricingRef} sx={{ bgcolor: 'grey.50', py: { xs: 6, md: 12 }, scrollMarginTop: 80 }}>
         <Container maxWidth="lg">
-          <Box sx={{ textAlign: 'center', mb: 8 }}>
-            <Typography variant="h3" component="h2" gutterBottom sx={{ fontWeight: 700, mb: 2 }}>
+          <Box sx={{ textAlign: 'center', mb: { xs: 6, md: 8 } }}>
+            <Typography variant="h3" component="h2" gutterBottom sx={{ fontWeight: 700, mb: 2, fontSize: { xs: '1.75rem', md: '2.5rem' } }}>
               Simple, Transparent Pricing
             </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
-              Start free. Scale as you grow. No hidden fees.
+            <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto', fontSize: { xs: '1rem', md: '1.25rem' } }}>
+              Scale as you grow. No hidden fees.
             </Typography>
           </Box>
 
-          <Grid container justifyContent="center" spacing={4}>
-            <Grid item xs={12} md={6} lg={4}>
-              <Card
-                elevation={2}
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  border: '2px solid',
-                  borderColor: 'primary.main',
-                  position: 'relative',
-                }}
-              >
-                <Box
+          <Grid container spacing={{ xs: 3, md: 4 }} justifyContent="center" alignItems="stretch">
+            {[
+              {
+                name: 'Basic',
+                price: 99.99,
+                locations: '1 location',
+                description: 'Perfect for single-store operations.',
+                recommended: false,
+              },
+              {
+                name: 'Pro',
+                price: 149.99,
+                locations: 'Up to 3 locations',
+                description: 'Ideal for growing retailers with multiple stores.',
+                recommended: true,
+              },
+              {
+                name: 'Enterprise',
+                price: 199.99,
+                locations: 'Unlimited locations',
+                description: 'For retail chains and enterprise operations.',
+                recommended: false,
+              },
+            ].map((tier) => (
+              <Grid item xs={12} sm={6} md={4} key={tier.name}>
+                <Card
+                  elevation={2}
                   sx={{
-                    position: 'absolute',
-                    top: -12,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    px: 2,
-                    py: 0.5,
-                    borderRadius: 2,
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    border: tier.recommended ? '2px solid' : '1px solid',
+                    borderColor: tier.recommended ? 'primary.main' : 'grey.200',
+                    position: 'relative',
+                    overflow: 'hidden',
                   }}
                 >
-                  RECOMMENDED
-                </Box>
-                <CardContent sx={{ p: 4, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="h5" gutterBottom sx={{ fontWeight: 700, mt: 2 }}>
-                    Pro
-                  </Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography component="span" variant="h3" sx={{ fontWeight: 700 }}>
-                      $49
-                    </Typography>
-                    <Typography component="span" color="text.secondary">
-                      /month
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Everything you need to run your store. Unlimited inventory, customers, and users.
-                  </Typography>
-                  <Stack spacing={1.5} sx={{ mb: 3, flex: 1 }}>
-                    {['Unlimited inventory items', 'Unlimited customers', 'Point of sale & checkout', 'Sales history & analytics', 'Trade-in management', 'Multi-user support', 'Email support'].map((item, i) => (
-                      <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, borderRadius: '50%', bgcolor: 'success.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Typography variant="caption" sx={{ color: 'white', fontWeight: 700 }}>✓</Typography>
-                        </Box>
-                        <Typography variant="body2">{item}</Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    fullWidth
-                    onClick={() => navigate('/signup')}
-                    sx={{ py: 1.5, fontWeight: 600 }}
+                  {tier.recommended && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        py: 0.75,
+                        textAlign: 'center',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      RECOMMENDED
+                    </Box>
+                  )}
+                  <CardContent
+                    sx={{
+                      p: { xs: 3, md: 4 },
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      pt: tier.recommended ? { xs: 4, md: 5 } : undefined,
+                    }}
                   >
-                    Start Free Trial
-                  </Button>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
-                    14-day free trial • No credit card required
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+                    <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
+                      {tier.name}
+                    </Typography>
+                    <Box sx={{ mb: 2, display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 0.5 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                        ${tier.price.toFixed(2)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'flex-end', pb: 0.5 }}>
+                        /month
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 600,
+                        color: 'primary.main',
+                        mb: 1,
+                      }}
+                    >
+                      {tier.locations}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                      {tier.description}
+                    </Typography>
+                    <Stack spacing={1.5} sx={{ mb: 3, flex: 1 }}>
+                      {[
+                        'Unlimited inventory items',
+                        'Unlimited customers',
+                        'Point of sale & checkout',
+                        'Sales history & analytics',
+                        'Trade-in management',
+                        'Multi-user support',
+                        'Email support',
+                      ].map((item, i) => (
+                        <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box
+                            sx={{
+                              width: 20,
+                              height: 20,
+                              minWidth: 20,
+                              borderRadius: '50%',
+                              bgcolor: 'success.main',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Typography variant="caption" sx={{ color: 'white', fontWeight: 700, fontSize: '0.7rem' }}>
+                              ✓
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ fontSize: { xs: '0.8125rem', md: '0.875rem' } }}>
+                            {item}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                    <Button
+                      variant={tier.recommended ? 'contained' : 'outlined'}
+                      size="large"
+                      fullWidth
+                      onClick={() => navigate('/signup')}
+                      sx={{ py: 1.5, fontWeight: 600 }}
+                    >
+                      Start Free Trial
+                    </Button>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
+                      14-day free trial • No credit card required
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
           </Grid>
         </Container>
       </Box>
