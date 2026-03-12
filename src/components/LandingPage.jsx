@@ -20,12 +20,9 @@ import {
   People,
   Security,
   Speed,
-  Dashboard as DashboardIcon,
-  Store,
-  SwapHoriz,
-  History,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import DashboardPreview from './DashboardPreview';
 
 const CONTACT_EMAIL = 'contact@retrostoremanager.com';
 
@@ -195,125 +192,7 @@ const LandingPage = () => {
                   minHeight: { xs: 300, md: 400 },
                 }}
               >
-                {/* Dashboard Mockup - CSS only, no external images */}
-                <Box
-                  sx={{
-                    width: '100%',
-                    maxWidth: 480,
-                    borderRadius: 3,
-                    overflow: 'hidden',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    bgcolor: 'background.paper',
-                  }}
-                >
-                  {/* Mock app bar */}
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      px: 2,
-                      py: 1.5,
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                    }}
-                  >
-                    <Store sx={{ fontSize: 20 }} />
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      RetroStore Manager
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', minHeight: 280 }}>
-                    {/* Mock sidebar */}
-                    <Box
-                      sx={{
-                        width: 56,
-                        bgcolor: 'grey.100',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        py: 1.5,
-                        gap: 0.5,
-                      }}
-                    >
-                      <DashboardIcon sx={{ fontSize: 22, color: 'primary.main' }} />
-                      <Inventory sx={{ fontSize: 22, color: 'grey.500' }} />
-                      <People sx={{ fontSize: 22, color: 'grey.500' }} />
-                      <SwapHoriz sx={{ fontSize: 22, color: 'grey.500' }} />
-                      <History sx={{ fontSize: 22, color: 'grey.500' }} />
-                    </Box>
-                    {/* Mock main content */}
-                    <Box sx={{ flex: 1, p: 2 }}>
-                      <Typography variant="caption" sx={{ color: 'grey.500', fontWeight: 600, mb: 1, display: 'block' }}>
-                        Dashboard
-                      </Typography>
-                      <Grid container spacing={1} sx={{ mb: 2 }}>
-                        {[
-                          { label: 'Inventory', value: '1,247', color: '#1976d2' },
-                          { label: 'Customers', value: '892', color: '#2e7d32' },
-                          { label: "Today's Sales", value: '$2.4k', color: '#ed6c02' },
-                        ].map((stat, i) => (
-                          <Grid item xs={4} key={i}>
-                            <Box
-                              sx={{
-                                p: 1,
-                                borderRadius: 1,
-                                bgcolor: 'grey.50',
-                                border: '1px solid',
-                                borderColor: 'grey.200',
-                              }}
-                            >
-                              <Typography variant="caption" sx={{ color: 'grey.600', display: 'block' }}>
-                                {stat.label}
-                              </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 700, color: stat.color }}>
-                                {stat.value}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                        ))}
-                      </Grid>
-                      <Box
-                        sx={{
-                          border: '1px solid',
-                          borderColor: 'grey.200',
-                          borderRadius: 1,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', gap: 0.5, p: 0.5, bgcolor: 'grey.50', borderBottom: '1px solid', borderColor: 'grey.200' }}>
-                          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#ff5f56' }} />
-                          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#ffbd2e' }} />
-                          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#27ca40' }} />
-                        </Box>
-                        {[
-                          ['The Legend of Zelda', 'Video Game', '12', '$49.99'],
-                          ['Pokémon Scarlet', 'Video Game', '8', '$59.99'],
-                          ['Magic: The Gathering Booster', 'TCG', '24', '$4.99'],
-                        ].map((row, i) => (
-                          <Box
-                            key={i}
-                            sx={{
-                              display: 'flex',
-                              fontSize: '10px',
-                              py: 0.5,
-                              px: 1,
-                              borderBottom: i < 2 ? '1px solid' : 'none',
-                              borderColor: 'grey.100',
-                              '& > *': { flex: 1 },
-                            }}
-                          >
-                            <span style={{ fontWeight: 500 }}>{row[0]}</span>
-                            <span style={{ color: '#666' }}>{row[1]}</span>
-                            <span>{row[2]}</span>
-                            <span style={{ color: '#2e7d32', fontWeight: 600 }}>{row[3]}</span>
-                          </Box>
-                        ))}
-                      </Box>
-                    </Box>
-                  </Box>
-                </Box>
+                <DashboardPreview />
               </Box>
             </Grid>
           </Grid>
