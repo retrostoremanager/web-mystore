@@ -8,8 +8,10 @@ import TrialExpiredPrompt from './TrialExpiredPrompt';
 const PUBLIC_PATHS = ['/', '/signup', '/verify', '/forgot-password', '/reset-password', '/set-password'];
 const isPublicPath = (path) => {
   if (PUBLIC_PATHS.includes(path)) return true;
-  // Path-based login: /c/:slug/login
+  // Company landing and auth: /c/:slug, /c/:slug/login, /c/:slug/customer
+  if (/^\/c\/[^/]+$/.test(path)) return true;
   if (/^\/c\/[^/]+\/login$/.test(path)) return true;
+  if (/^\/c\/[^/]+\/customer$/.test(path)) return true;
   return false;
 };
 const BILLING_PATH = '/dashboard/billing';

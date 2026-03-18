@@ -6,7 +6,9 @@ import { FormattingProvider } from './contexts/FormattingContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthRedirect from './components/AuthRedirect';
 import LandingPage from './components/LandingPage';
+import CompanyLandingPage from './components/CompanyLandingPage';
 import CompanyLoginPage from './components/CompanyLoginPage';
+import CompanyCustomerPage from './components/CompanyCustomerPage';
 import SignUpForm from './components/SignUpForm';
 import VerifyEmailPage from './components/VerifyEmailPage';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
@@ -79,6 +81,8 @@ function App() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/c/:slug/login" element={<CompanyLoginPage />} />
+              <Route path="/c/:slug/customer" element={<CompanyCustomerPage />} />
+              <Route path="/c/:slug" element={<CompanyLandingPage />} />
               <Route path="/signup" element={<SignUpForm />} />
               <Route path="/verify" element={<VerifyEmailPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
