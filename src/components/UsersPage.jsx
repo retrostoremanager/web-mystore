@@ -177,20 +177,22 @@ const UsersPage = () => {
           <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
             Users
           </Typography>
-          <Button color="inherit" startIcon={<Add />} onClick={openAddDialog}>
-            Add User
-          </Button>
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Card elevation={2}>
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-              <Badge sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
-              <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                User List
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Badge sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
+                <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  User List
+                </Typography>
+              </Box>
+              <Button variant="contained" startIcon={<Add />} onClick={openAddDialog}>
+                Add User
+              </Button>
             </Box>
 
             {error && (

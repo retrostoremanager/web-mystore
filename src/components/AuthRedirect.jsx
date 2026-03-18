@@ -5,7 +5,7 @@ import { useTrialStatus } from '../contexts/TrialStatusContext';
 import AccountSuspendedPage from './AccountSuspendedPage';
 import TrialExpiredPrompt from './TrialExpiredPrompt';
 
-const PUBLIC_PATHS = ['/', '/signup', '/verify', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = ['/', '/signup', '/verify', '/forgot-password', '/reset-password', '/set-password'];
 const isPublicPath = (path) => {
   if (PUBLIC_PATHS.includes(path)) return true;
   // Path-based login: /c/:slug/login

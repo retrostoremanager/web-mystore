@@ -470,15 +470,17 @@ const LandingPage = () => {
                   variant="body2"
                   component="button"
                   onClick={() => scrollTo(featuresRef)}
-                  sx={{
+                  sx={(theme) => ({
                     cursor: 'pointer',
                     border: 'none',
                     background: 'none',
                     color: 'inherit',
                     p: 0,
-                    font: 'inherit',
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.body2.fontSize,
+                    fontWeight: theme.typography.body2.fontWeight,
                     '&:hover': { color: 'white' },
-                  }}
+                  })}
                 >
                   Features
                 </Typography>
@@ -486,15 +488,17 @@ const LandingPage = () => {
                   variant="body2"
                   component="button"
                   onClick={() => scrollTo(pricingRef)}
-                  sx={{
+                  sx={(theme) => ({
                     cursor: 'pointer',
                     border: 'none',
                     background: 'none',
                     color: 'inherit',
                     p: 0,
-                    font: 'inherit',
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.body2.fontSize,
+                    fontWeight: theme.typography.body2.fontWeight,
                     '&:hover': { color: 'white' },
-                  }}
+                  })}
                 >
                   Pricing
                 </Typography>
@@ -502,11 +506,14 @@ const LandingPage = () => {
                   variant="body2"
                   component="a"
                   href={`mailto:${CONTACT_EMAIL}`}
-                  sx={{
+                  sx={(theme) => ({
                     color: 'inherit',
                     textDecoration: 'none',
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.body2.fontSize,
+                    fontWeight: theme.typography.body2.fontWeight,
                     '&:hover': { color: 'white' },
-                  }}
+                  })}
                 >
                   Contact
                 </Typography>
@@ -514,15 +521,17 @@ const LandingPage = () => {
                   variant="body2"
                   component="button"
                   onClick={() => navigate('/signup')}
-                  sx={{
+                  sx={(theme) => ({
                     cursor: 'pointer',
                     border: 'none',
                     background: 'none',
                     color: 'inherit',
                     p: 0,
-                    font: 'inherit',
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.body2.fontSize,
+                    fontWeight: theme.typography.body2.fontWeight,
                     '&:hover': { color: 'white' },
-                  }}
+                  })}
                 >
                   Sign Up
                 </Typography>

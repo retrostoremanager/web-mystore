@@ -11,6 +11,7 @@ import SignUpForm from './components/SignUpForm';
 import VerifyEmailPage from './components/VerifyEmailPage';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
+import SetPasswordPage from './components/SetPasswordPage';
 import Dashboard from './components/Dashboard';
 import InventoryPage from './components/InventoryPage';
 import AddInventoryItem from './components/AddInventoryItem';
@@ -82,6 +83,7 @@ function App() {
               <Route path="/verify" element={<VerifyEmailPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/set-password" element={<SetPasswordPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/dashboard/inventory" element={<InventoryPage />} />
               <Route path="/dashboard/inventory/add" element={<AddInventoryItem />} />
