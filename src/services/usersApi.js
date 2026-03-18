@@ -75,6 +75,27 @@ export async function updateUser(id, user, authHeaders) {
 }
 
 /**
+ * Resend invite email for a user with pending_invitation status.
+ * @param {number} id - User ID
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, message?: string}>}
+ */
+export async function resendInvite(id, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/users/${id}/resend-invite`, {
+    method: 'POST',
+    headers: authHeaders,
+  });
+
+  const result = await parseJsonResponse(response, 'Failed to resend invite');
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to resend invite');
+  }
+
+  return result;
+}
+
+/**
  * Delete a user.
  * @param {number} id - User ID
  * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()

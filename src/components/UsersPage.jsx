@@ -31,11 +31,12 @@ import {
   FormControlLabel,
   Checkbox,
   ListItemText,
+  Tooltip,
 } from '@mui/material';
-import { Badge, ArrowBack, Add, Edit, Delete } from '@mui/icons-material';
+import { Badge, ArrowBack, Add, Edit, Block, PersonAdd, Email } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getUsers, createUser, updateUser, deleteUser } from '../services/usersApi';
+import { getUsers, createUser, updateUser, resendInvite } from '../services/usersApi';
 import { getRoles } from '../services/rolesApi';
 
 const emptyUserForm = {
@@ -56,7 +57,8 @@ const UsersPage = () => {
   const [userDialog, setUserDialog] = useState(null); // { mode: 'add' | 'edit', user?: {} }
   const [userForm, setUserForm] = useState(emptyUserForm);
   const [submitting, setSubmitting] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [disableConfirm, setDisableConfirm] = useState(null); // { user, action: 'disable' | 'enable' }
+  const [resendingId, setResendingId] = useState(null);
 
   const loadUsers = async () => {
     try {
@@ -152,16 +154,30 @@ const UsersPage = () => {
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!deleteConfirm) return;
+  const handleResendInvite = async (user) => {
+    try {
+      setResendingId(user.id);
+      setError(null);
+      await resendInvite(user.id, getAuthHeaders());
+      await loadUsers();
+    } catch (err) {
+      setError(err.message || 'Failed to resend invite');
+    } finally {
+      setResendingId(null);
+    }
+  };
+
+  const handleDisableOrEnable = async () => {
+    if (!disableConfirm) return;
+    const isEnabling = disableConfirm.action === 'enable';
     try {
       setSubmitting(true);
       setError(null);
-      await deleteUser(deleteConfirm.id, getAuthHeaders());
-      setDeleteConfirm(null);
+      await updateUser(disableConfirm.user.id, { isActive: isEnabling }, getAuthHeaders());
+      setDisableConfirm(null);
       await loadUsers();
     } catch (err) {
-      setError(err.message || 'Failed to delete user');
+      setError(err.message || `Failed to ${isEnabling ? 'enable' : 'disable'} user`);
     } finally {
       setSubmitting(false);
     }
@@ -251,12 +267,46 @@ const UsersPage = () => {
                             />
                           </TableCell>
                           <TableCell align="right">
+                            {user.status === 'pending_invitation' && (
+                              <Tooltip title="Resend invite email">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleResendInvite(user)}
+                                    disabled={resendingId === user.id}
+                                    aria-label="Resend invite"
+                                  >
+                                    <Email fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
                             <IconButton size="small" onClick={() => openEditDialog(user)} aria-label="Edit user">
                               <Edit fontSize="small" />
                             </IconButton>
-                            <IconButton size="small" onClick={() => setDeleteConfirm(user)} aria-label="Delete user" color="error">
-                              <Delete fontSize="small" />
-                            </IconButton>
+                            {user.status === 'removed' ? (
+                              <Tooltip title="Enable user">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setDisableConfirm({ user, action: 'enable' })}
+                                  aria-label="Enable user"
+                                  color="success"
+                                >
+                                  <PersonAdd fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip title="Disable user">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setDisableConfirm({ user, action: 'disable' })}
+                                  aria-label="Disable user"
+                                  color="warning"
+                                >
+                                  <Block fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
@@ -345,24 +395,41 @@ const UsersPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
-        <DialogTitle>Delete User</DialogTitle>
+      {/* Disable/Enable Confirmation Dialog */}
+      <Dialog open={!!disableConfirm} onClose={() => setDisableConfirm(null)}>
+        <DialogTitle>{disableConfirm?.action === 'enable' ? 'Enable User' : 'Disable User'}</DialogTitle>
         <DialogContent>
-          {deleteConfirm && (
+          {disableConfirm && (
             <Typography>
-              Are you sure you want to remove{' '}
-              <strong>
-                {[deleteConfirm.firstName, deleteConfirm.lastName].filter(Boolean).join(' ') || deleteConfirm.email}
-              </strong>
-              ? They will lose access to the system.
+              {disableConfirm.action === 'enable' ? (
+                <>
+                  Are you sure you want to enable{' '}
+                  <strong>
+                    {[disableConfirm.user.firstName, disableConfirm.user.lastName].filter(Boolean).join(' ') || disableConfirm.user.email}
+                  </strong>
+                  ? They will regain access to the system.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to disable{' '}
+                  <strong>
+                    {[disableConfirm.user.firstName, disableConfirm.user.lastName].filter(Boolean).join(' ') || disableConfirm.user.email}
+                  </strong>
+                  ? They will lose access to the system.
+                </>
+              )}
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleDeleteUser} disabled={submitting}>
-            {submitting ? 'Deleting...' : 'Delete'}
+          <Button onClick={() => setDisableConfirm(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={disableConfirm?.action === 'enable' ? 'success' : 'warning'}
+            onClick={handleDisableOrEnable}
+            disabled={submitting}
+          >
+            {submitting ? (disableConfirm?.action === 'enable' ? 'Enabling...' : 'Disabling...') : disableConfirm?.action === 'enable' ? 'Enable' : 'Disable'}
           </Button>
         </DialogActions>
       </Dialog>
