@@ -41,7 +41,7 @@ const TrialExpiredPrompt = () => {
           >
             Add Payment Method
           </Button>
-          <Button variant="outlined" onClick={() => { logout(); navigate('/login'); }}>
+          <Button variant="outlined" onClick={() => { logout(); navigate('/'); }}>
             Sign Out
           </Button>
         </Paper>

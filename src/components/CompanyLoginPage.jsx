@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -13,18 +13,51 @@ import {
   Stack,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import config from '../config';
 import { useAuth } from '../contexts/AuthContext';
 
-const LoginPage = () => {
+const CompanyLoginPage = () => {
   const navigate = useNavigate();
+  const { slug } = useParams();
   const { login, isAuthenticated } = useAuth();
+  const [companyName, setCompanyName] = useState('');
+  const [companyLoading, setCompanyLoading] = useState(true);
+  const [companyError, setCompanyError] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Fetch company by slug to validate and display name
+  useEffect(() => {
+    if (!slug) {
+      setCompanyError('Invalid login link. Please use the link provided by your company.');
+      setCompanyLoading(false);
+      return;
+    }
+
+    const fetchCompany = async () => {
+      try {
+        const response = await fetch(`${config.apiUrl}/accounts/company-by-slug/${encodeURIComponent(slug)}`);
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok && data.data) {
+          setCompanyName(data.data.companyName || slug);
+        } else {
+          setCompanyError('Company not found. Please check your login link.');
+        }
+      } catch (err) {
+        console.error('Error fetching company:', err);
+        setCompanyError('Unable to load company. Please try again.');
+      } finally {
+        setCompanyLoading(false);
+      }
+    };
+
+    fetchCompany();
+  }, [slug]);
 
   if (isAuthenticated) {
     navigate('/dashboard', { replace: true });
@@ -40,6 +73,11 @@ const LoginPage = () => {
       return;
     }
 
+    if (!slug) {
+      setError('Invalid login link.');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(`${config.apiUrl}/accounts/login`, {
@@ -48,6 +86,7 @@ const LoginPage = () => {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
+          slug,
         }),
       });
 
@@ -71,6 +110,47 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
+
+  if (companyLoading) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (companyError) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          py: 4,
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <Container maxWidth="sm">
+          <Paper elevation={24} sx={{ p: 4, borderRadius: 3 }}>
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {companyError}
+            </Alert>
+            <Button variant="contained" onClick={() => navigate('/')}>
+              Back to Home
+            </Button>
+          </Paper>
+        </Container>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -98,7 +178,7 @@ const LoginPage = () => {
               ← Back to Home
             </Button>
             <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
-              Sign in to MyStore
+              Sign in to {companyName || slug}
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Enter your email and password to access your store.
@@ -148,7 +228,11 @@ const LoginPage = () => {
               <Typography
                 variant="body2"
                 color="primary"
-                sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' }, alignSelf: 'flex-start' }}
+                sx={{
+                  cursor: 'pointer',
+                  '&:hover': { textDecoration: 'underline' },
+                  alignSelf: 'flex-start',
+                }}
                 onClick={() => navigate('/forgot-password')}
               >
                 Forgot password?
@@ -183,4 +267,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default CompanyLoginPage;

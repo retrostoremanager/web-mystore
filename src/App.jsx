@@ -6,7 +6,7 @@ import { FormattingProvider } from './contexts/FormattingContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthRedirect from './components/AuthRedirect';
 import LandingPage from './components/LandingPage';
-import LoginPage from './components/LoginPage';
+import CompanyLoginPage from './components/CompanyLoginPage';
 import SignUpForm from './components/SignUpForm';
 import VerifyEmailPage from './components/VerifyEmailPage';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
@@ -77,7 +77,7 @@ function App() {
             <AuthRedirect>
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<LoginPage />} />
+              <Route path="/c/:slug/login" element={<CompanyLoginPage />} />
               <Route path="/signup" element={<SignUpForm />} />
               <Route path="/verify" element={<VerifyEmailPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />

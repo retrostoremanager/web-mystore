@@ -137,7 +137,7 @@ const ResetPasswordPage = () => {
           variant="contained"
           fullWidth
           size="large"
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/')}
           sx={{ py: 1.5, textTransform: 'none' }}
         >
           Sign In
@@ -177,7 +177,7 @@ const ResetPasswordPage = () => {
     <>
       <Box sx={{ mb: 4 }}>
         <Button
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/')}
           sx={{ mb: 3, textTransform: 'none' }}
         >
           ← Back to Sign In
@@ -260,7 +260,7 @@ const ResetPasswordPage = () => {
               Remember your password?{' '}
               <Button
                 variant="text"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/')}
                 sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
               >
                 Sign In

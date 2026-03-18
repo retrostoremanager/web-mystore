@@ -259,7 +259,7 @@ const AccountWizard = () => {
           <Stack spacing={3} alignItems="center" sx={{ py: 4 }}>
             <CheckCircle sx={{ fontSize: 80, color: 'success.main' }} />
             <Typography variant="h4" sx={{ fontWeight: 700, textAlign: 'center' }}>
-              Welcome to MyStore!
+              Welcome to Retro Store Manager!
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 500 }}>
               Your account has been created successfully. You can now start managing your store.

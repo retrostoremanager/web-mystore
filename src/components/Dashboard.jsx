@@ -33,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGetInventoryQuery } from '../store/inventoryApi';
 import { useAuth } from '../contexts/AuthContext';
 import { useFormatting } from '../contexts/FormattingContext';
+import { getCompanyProfile } from '../services/profileApi';
 import { getTrialStatus } from '../services/billingApi';
 import { getUsers } from '../services/usersApi';
 
@@ -43,6 +44,20 @@ const Dashboard = () => {
   const { formatNumber } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);
   const [userCount, setUserCount] = useState(null);
+  const [companyName, setCompanyName] = useState('');
+
+  useEffect(() => {
+    if (!isAuthenticated || !getAuthHeaders().Authorization) return;
+    const loadProfile = async () => {
+      try {
+        const result = await getCompanyProfile(getAuthHeaders());
+        setCompanyName(result.data?.profile?.companyName || '');
+      } catch {
+        setCompanyName('');
+      }
+    };
+    loadProfile();
+  }, [isAuthenticated, getAuthHeaders]);
 
   useEffect(() => {
     if (!isAuthenticated || !getAuthHeaders().Authorization) return;
@@ -72,7 +87,7 @@ const Dashboard = () => {
 
   const handleSignOut = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   // Calculate total quantity of all inventory items
@@ -164,7 +179,7 @@ const Dashboard = () => {
       <AppBar position="sticky" elevation={1}>
         <Toolbar>
           <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
-            MyStore Dashboard
+            {companyName ? `${companyName} Dashboard` : 'Dashboard'}
           </Typography>
           <Stack direction="row" spacing={2}>
             <Button color="inherit" startIcon={<ExitToApp />} onClick={handleSignOut}>

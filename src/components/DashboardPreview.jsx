@@ -60,7 +60,7 @@ const DashboardPreview = () => {
       <AppBar position="static" elevation={0}>
         <Toolbar sx={{ minHeight: 48, px: 2 }}>
           <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 700, fontSize: '0.95rem' }}>
-            MyStore Dashboard
+            Your Store Dashboard
           </Typography>
           <Button color="inherit" size="small" startIcon={<ExitToApp sx={{ fontSize: 18 }} />} sx={{ fontSize: '0.75rem' }}>
             Sign Out

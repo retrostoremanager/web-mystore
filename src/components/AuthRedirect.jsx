@@ -5,7 +5,13 @@ import { useTrialStatus } from '../contexts/TrialStatusContext';
 import AccountSuspendedPage from './AccountSuspendedPage';
 import TrialExpiredPrompt from './TrialExpiredPrompt';
 
-const PUBLIC_PATHS = ['/', '/login', '/signup', '/verify', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = ['/', '/signup', '/verify', '/forgot-password', '/reset-password'];
+const isPublicPath = (path) => {
+  if (PUBLIC_PATHS.includes(path)) return true;
+  // Path-based login: /c/:slug/login
+  if (/^\/c\/[^/]+\/login$/.test(path)) return true;
+  return false;
+};
 const BILLING_PATH = '/dashboard/billing';
 
 /**
@@ -23,12 +29,12 @@ const AuthRedirect = ({ children }) => {
     if (loading) return;
 
     const path = location.pathname;
-    const isPublicPath = PUBLIC_PATHS.includes(path);
+    const pathIsPublic = isPublicPath(path);
 
-    if (isAuthenticated && isPublicPath) {
+    if (isAuthenticated && pathIsPublic) {
       navigate('/dashboard', { replace: true });
-    } else if (!isAuthenticated && !isPublicPath) {
-      navigate('/login', { replace: true, state: { from: path } });
+    } else if (!isAuthenticated && !pathIsPublic) {
+      navigate('/', { replace: true, state: { from: path } });
     }
   }, [isAuthenticated, loading, location.pathname, navigate]);
 

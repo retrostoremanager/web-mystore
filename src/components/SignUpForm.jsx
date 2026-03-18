@@ -409,8 +409,12 @@ function SignUpFormInner() {
         return;
       }
 
-      // Success - account created, navigate to verification page
-      navigate(`/verify?email=${encodeURIComponent(formData.email.trim())}`);
+      // Success - account created, navigate to verification page (include slug for login URL)
+      const slug = data.data?.slug;
+      const verifyUrl = slug
+        ? `/verify?email=${encodeURIComponent(formData.email.trim())}&slug=${encodeURIComponent(slug)}`
+        : `/verify?email=${encodeURIComponent(formData.email.trim())}`;
+      navigate(verifyUrl);
       
     } catch (err) {
       // Network errors, JSON parsing errors, or other exceptions
@@ -639,7 +643,7 @@ function SignUpFormInner() {
                   Already have an account?{' '}
                   <Button
                     variant="text"
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate('/')}
                     sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
                   >
                     Sign In

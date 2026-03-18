@@ -20,6 +20,7 @@ import {
 
 const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
+  const slug = searchParams.get('slug');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
@@ -99,7 +100,11 @@ const VerifyEmailPage = () => {
   }, [searchParams]);
 
   const handleGoToLogin = () => {
-    navigate('/login');
+    if (slug) {
+      navigate(`/c/${slug}/login`);
+    } else {
+      navigate('/');
+    }
   };
 
   const handleResendVerification = async () => {
@@ -172,6 +177,9 @@ const VerifyEmailPage = () => {
               textAlign: 'center',
             }}
           >
+            <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 600, mb: 2 }}>
+              Retro Store Manager
+            </Typography>
             <CircularProgress size={60} sx={{ mb: 3 }} />
             <Typography variant="h5" gutterBottom>
               Verifying your email...
@@ -208,10 +216,13 @@ const VerifyEmailPage = () => {
               <Box sx={{ mb: 4 }}>
                 <Button
                   onClick={() => navigate('/')}
-                  sx={{ mb: 3, textTransform: 'none' }}
+                  sx={{ mb: 2, textTransform: 'none' }}
                 >
                   ← Back to Home
                 </Button>
+                <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Retro Store Manager
+                </Typography>
               </Box>
               <Stack spacing={3} alignItems="center">
                 <EmailIcon sx={{ fontSize: 80, color: 'primary.main' }} />
@@ -264,10 +275,13 @@ const VerifyEmailPage = () => {
               <Box sx={{ mb: 4 }}>
                 <Button
                   onClick={() => navigate('/')}
-                  sx={{ mb: 3, textTransform: 'none' }}
+                  sx={{ mb: 2, textTransform: 'none' }}
                 >
                   ← Back to Home
                 </Button>
+                <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Retro Store Manager
+                </Typography>
               </Box>
               <Stack spacing={3} alignItems="center">
                 <SuccessIcon sx={{ fontSize: 80, color: 'success.main' }} />
@@ -300,10 +314,13 @@ const VerifyEmailPage = () => {
               <Box sx={{ mb: 4 }}>
                 <Button
                   onClick={() => navigate('/')}
-                  sx={{ mb: 3, textTransform: 'none' }}
+                  sx={{ mb: 2, textTransform: 'none' }}
                 >
                   ← Back to Home
                 </Button>
+                <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Retro Store Manager
+                </Typography>
               </Box>
               <Stack spacing={3} alignItems="center">
                 {isExpired ? (

@@ -13,7 +13,7 @@ const AccountSuspendedPage = () => {
 
   const handleSignOut = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   return (

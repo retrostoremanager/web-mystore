@@ -90,9 +90,6 @@ const LandingPage = () => {
             <Button color="inherit" sx={{ display: { xs: 'none', sm: 'block' } }} onClick={() => scrollTo(pricingRef)}>
               Pricing
             </Button>
-            <Button variant="outlined" color="primary" onClick={() => navigate('/login')}>
-              Sign In
-            </Button>
             <Button variant="contained" color="primary" onClick={() => navigate('/signup')}>
               Get Started
             </Button>
@@ -182,6 +179,9 @@ const LandingPage = () => {
                   See Features
                 </Button>
               </Stack>
+              <Typography variant="body2" sx={{ mt: 2, opacity: 0.9 }}>
+                Returning user? Use the link from your company to sign in.
+              </Typography>
             </Grid>
             <Grid item xs={12} md={5}>
               <Box
