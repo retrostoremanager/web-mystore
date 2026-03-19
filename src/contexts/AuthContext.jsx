@@ -45,10 +45,12 @@ export const AuthProvider = ({ children }) => {
 
   const getAuthHeaders = useCallback(() => {
     if (!auth?.token) return {};
-    return {
+    const headers = {
       Authorization: `Bearer ${auth.token}`,
       'X-Company-Id': String(auth.companyId),
     };
+    if (auth.email) headers['X-User-Email'] = auth.email;
+    return headers;
   }, [auth]);
 
   const value = {
