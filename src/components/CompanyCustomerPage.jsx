@@ -13,7 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import config from '../config';
 
 /**
- * Customer portal/sign-in page at /c/:slug/customer
+ * Customer portal/sign-in page at /:slug/customer
  * Placeholder for future customer loyalty/rewards login.
  */
 const CompanyCustomerPage = () => {
@@ -110,7 +110,7 @@ const CompanyCustomerPage = () => {
         >
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <Button
-              onClick={() => navigate(`/c/${slug}`)}
+              onClick={() => navigate(`/${slug}`)}
               sx={{ mb: 3, textTransform: 'none' }}
             >
               ← Back to {companyName}
@@ -133,7 +133,7 @@ const CompanyCustomerPage = () => {
             variant="contained"
             fullWidth
             size="large"
-            onClick={() => navigate(`/c/${slug}`)}
+            onClick={() => navigate(`/${slug}`)}
             sx={{ py: 1.5 }}
           >
             Return to Store

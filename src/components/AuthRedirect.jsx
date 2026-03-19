@@ -6,13 +6,21 @@ import AccountSuspendedPage from './AccountSuspendedPage';
 import TrialExpiredPrompt from './TrialExpiredPrompt';
 
 const PUBLIC_PATHS = ['/', '/signup', '/verify', '/forgot-password', '/reset-password', '/set-password'];
+const RESERVED_SLUGS = new Set(['dashboard', 'signup', 'verify', 'forgot-password', 'reset-password', 'set-password', 'login', 'c', 'api', 'admin']);
+
+const isCompanyPath = (path) => {
+  const m = path.match(/^\/([^/]+)(?:\/(login|customer))?$/);
+  if (!m) return false;
+  const slug = m[1]?.toLowerCase();
+  const sub = m[2];
+  if (sub && sub !== 'login' && sub !== 'customer') return false;
+  if (!slug || RESERVED_SLUGS.has(slug)) return false;
+  return true;
+};
+
 const isPublicPath = (path) => {
   if (PUBLIC_PATHS.includes(path)) return true;
-  // Company landing and auth: /c/:slug, /c/:slug/login, /c/:slug/customer
-  if (/^\/c\/[^/]+$/.test(path)) return true;
-  if (/^\/c\/[^/]+\/login$/.test(path)) return true;
-  if (/^\/c\/[^/]+\/customer$/.test(path)) return true;
-  return false;
+  return isCompanyPath(path);
 };
 const BILLING_PATH = '/dashboard/billing';
 

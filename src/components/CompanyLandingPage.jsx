@@ -16,7 +16,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import config from '../config';
 
 /**
- * Company store landing page at /c/:slug
+ * Company store landing page at /:slug
  * Displayed when a company is created. Provides links to staff sign-in, customer sign-in, etc.
  */
 const CompanyLandingPage = () => {
@@ -140,7 +140,7 @@ const CompanyLandingPage = () => {
                   boxShadow: 2,
                 },
               }}
-              onClick={() => navigate(`/c/${slug}/login`)}
+              onClick={() => navigate(`/${slug}/login`)}
             >
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 3 }}>
                 <Login sx={{ fontSize: 40, color: 'primary.main' }} />
@@ -169,7 +169,7 @@ const CompanyLandingPage = () => {
                   boxShadow: 2,
                 },
               }}
-              onClick={() => navigate(`/c/${slug}/customer`)}
+              onClick={() => navigate(`/${slug}/customer`)}
             >
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 3 }}>
                 <Person sx={{ fontSize: 40, color: 'primary.main' }} />

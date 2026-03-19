@@ -101,7 +101,7 @@ const VerifyEmailPage = () => {
 
   const handleGoToLogin = () => {
     if (slug) {
-      navigate(`/c/${slug}/login`);
+      navigate(`/${slug}/login`);
     } else {
       navigate('/');
     }

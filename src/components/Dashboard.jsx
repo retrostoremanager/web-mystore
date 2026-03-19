@@ -32,6 +32,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useGetInventoryQuery } from '../store/inventoryApi';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../contexts/PermissionsContext';
 import { useFormatting } from '../contexts/FormattingContext';
 import { getCompanyProfile } from '../services/profileApi';
 import { getTrialStatus } from '../services/billingApi';
@@ -41,6 +42,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
   const { logout, isAuthenticated, getAuthHeaders } = useAuth();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
   const { formatNumber } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);
   const [userCount, setUserCount] = useState(null);
@@ -94,84 +96,24 @@ const Dashboard = () => {
   const totalQuantity = inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   const stats = [
-    { label: 'Total Inventory Items', value: formatNumber(inventory.length), icon: <Inventory />, color: 'primary' },
-    { label: 'Active Customers', value: '156', icon: <People />, color: 'success' },
-    { label: 'Users', value: userCount != null ? String(userCount) : '—', icon: <Badge />, color: 'info' },
-    { label: 'Today\'s Sales', value: '$2,450.00', icon: <PointOfSale />, color: 'warning' },
-  ];
+    { label: 'Total Inventory Items', value: formatNumber(inventory.length), icon: <Inventory />, color: 'primary', permission: 'inventory.view' },
+    { label: 'Active Customers', value: '156', icon: <People />, color: 'success', permission: 'customers.view' },
+    { label: 'Users', value: userCount != null ? String(userCount) : '—', icon: <Badge />, color: 'info', permission: 'users.view' },
+    { label: 'Today\'s Sales', value: '$2,450.00', icon: <PointOfSale />, color: 'warning', permission: 'sales.view' },
+  ].filter((s) => !s.permission || permissionsLoading || hasPermission(s.permission));
 
   const sections = [
-    {
-      title: 'Store Inventory',
-      description: 'View and manage your store inventory items',
-      icon: <Inventory sx={{ fontSize: 48 }} />,
-      color: 'primary',
-      route: '/dashboard/inventory',
-    },
-    {
-      title: 'Customers',
-      description: 'Manage customer information and purchase history',
-      icon: <People sx={{ fontSize: 48 }} />,
-      color: 'success',
-      route: '/dashboard/customers',
-    },
-    {
-      title: 'Users',
-      description: 'View and manage user accounts and roles',
-      icon: <Badge sx={{ fontSize: 48 }} />,
-      color: 'info',
-      route: '/dashboard/users',
-    },
-    {
-      title: 'Roles',
-      description: 'View roles and permissions',
-      icon: <Security sx={{ fontSize: 48 }} />,
-      color: 'secondary',
-      route: '/dashboard/roles',
-    },
-    {
-      title: 'Trade-in',
-      description: 'Process trade-in requests and offers',
-      icon: <SwapHoriz sx={{ fontSize: 48 }} />,
-      color: 'warning',
-      route: '/dashboard/trade-in',
-    },
-    {
-      title: 'Checkout',
-      description: 'Process new customer transactions and checkout',
-      icon: <PointOfSale sx={{ fontSize: 48 }} />,
-      color: 'secondary',
-      route: '/dashboard/checkout',
-    },
-    {
-      title: 'Historical Sales Records',
-      description: 'View transaction history and sales records',
-      icon: <History sx={{ fontSize: 48 }} />,
-      color: 'primary',
-      route: '/dashboard/sales-history',
-    },
-    {
-      title: 'Company Profile',
-      description: 'Configure store information, locations, and settings',
-      icon: <Store sx={{ fontSize: 48 }} />,
-      color: 'info',
-      route: '/dashboard/profile',
-    },
-    {
-      title: 'Subscription',
-      description: 'View subscription tier, billing cycle, and usage limits',
-      icon: <WorkspacePremium sx={{ fontSize: 48 }} />,
-      color: 'success',
-      route: '/dashboard/subscription',
-    },
-    {
-      title: 'Billing & Payment',
-      description: 'Manage payment methods for your subscription',
-      icon: <CreditCard sx={{ fontSize: 48 }} />,
-      color: 'success',
-      route: '/dashboard/billing',
-    },
-  ];
+    { title: 'Store Inventory', description: 'View and manage your store inventory items', icon: <Inventory sx={{ fontSize: 48 }} />, color: 'primary', route: '/dashboard/inventory', permission: 'inventory.view' },
+    { title: 'Customers', description: 'Manage customer information and purchase history', icon: <People sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/customers', permission: 'customers.view' },
+    { title: 'Users', description: 'View and manage user accounts and roles', icon: <Badge sx={{ fontSize: 48 }} />, color: 'info', route: '/dashboard/users', permission: 'users.view' },
+    { title: 'Roles', description: 'View roles and permissions', icon: <Security sx={{ fontSize: 48 }} />, color: 'secondary', route: '/dashboard/roles', permission: 'users.view' },
+    { title: 'Trade-in', description: 'Process trade-in requests and offers', icon: <SwapHoriz sx={{ fontSize: 48 }} />, color: 'warning', route: '/dashboard/trade-in', permission: 'inventory.create' },
+    { title: 'Checkout', description: 'Process new customer transactions and checkout', icon: <PointOfSale sx={{ fontSize: 48 }} />, color: 'secondary', route: '/dashboard/checkout', permission: 'sales.create' },
+    { title: 'Historical Sales Records', description: 'View transaction history and sales records', icon: <History sx={{ fontSize: 48 }} />, color: 'primary', route: '/dashboard/sales-history', permission: 'sales.view' },
+    { title: 'Company Profile', description: 'Configure store information, locations, and settings', icon: <Store sx={{ fontSize: 48 }} />, color: 'info', route: '/dashboard/profile', permission: 'settings.manage' },
+    { title: 'Subscription', description: 'View subscription tier, billing cycle, and usage limits', icon: <WorkspacePremium sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/subscription', permission: 'billing.view' },
+    { title: 'Billing & Payment', description: 'Manage payment methods for your subscription', icon: <CreditCard sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/billing', permission: 'billing.view' },
+  ].filter((s) => permissionsLoading || hasPermission(s.permission));
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>

@@ -87,7 +87,15 @@ const UsersPage = () => {
   const getStatusColor = (status) => {
     if (status === 'active') return 'success';
     if (status === 'pending_invitation') return 'warning';
+    if (status === 'invitation_expired') return 'error';
     return 'default';
+  };
+
+  const getStatusDisplayLabel = (status) => {
+    if (status === 'pending_invitation') return 'Pending invitation';
+    if (status === 'invitation_expired') return 'Invitation expired';
+    if (status === 'removed') return 'Disabled';
+    return status === 'active' ? 'Active' : status || 'Active';
   };
 
   const openAddDialog = () => {
@@ -260,15 +268,15 @@ const UsersPage = () => {
                           <TableCell>{user.userType || 'employee'}</TableCell>
                           <TableCell>
                             <Chip
-                              label={user.status || 'active'}
+                              label={getStatusDisplayLabel(user.status)}
                               size="small"
                               color={getStatusColor(user.status)}
                               variant="outlined"
                             />
                           </TableCell>
                           <TableCell align="right">
-                            {user.status === 'pending_invitation' && (
-                              <Tooltip title="Resend invite email">
+                            {(user.status === 'pending_invitation' || user.status === 'invitation_expired') && (
+                              <Tooltip title={user.status === 'invitation_expired' ? 'Resend invite (link expired)' : 'Resend invite email'}>
                                 <span>
                                   <IconButton
                                     size="small"

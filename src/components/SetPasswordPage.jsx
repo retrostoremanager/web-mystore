@@ -81,7 +81,7 @@ const SetPasswordPage = () => {
         if (slug && slug.trim()) {
           // Redirect to company login after a brief delay so user sees success
           setTimeout(() => {
-            navigate(`/c/${slug}/login`, { replace: true });
+            navigate(`/${slug}/login`, { replace: true });
           }, 2000);
         }
       } else {

@@ -3,6 +3,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { TrialStatusProvider } from './contexts/TrialStatusContext';
 import { FormattingProvider } from './contexts/FormattingContext';
+import { PermissionsProvider } from './contexts/PermissionsContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthRedirect from './components/AuthRedirect';
 import LandingPage from './components/LandingPage';
@@ -30,6 +31,7 @@ import SubscriptionPage from './components/SubscriptionPage';
 import CompanyProfilePage from './components/CompanyProfilePage';
 import AccountSuspendedPage from './components/AccountSuspendedPage';
 import TrialExpiredPrompt from './components/TrialExpiredPrompt';
+import PermissionRoute from './components/PermissionRoute';
 
 const theme = createTheme({
   palette: {
@@ -76,35 +78,38 @@ function App() {
         <CssBaseline />
         <TrialStatusProvider>
           <FormattingProvider>
+          <PermissionsProvider>
           <Router>
             <AuthRedirect>
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              <Route path="/c/:slug/login" element={<CompanyLoginPage />} />
-              <Route path="/c/:slug/customer" element={<CompanyCustomerPage />} />
-              <Route path="/c/:slug" element={<CompanyLandingPage />} />
               <Route path="/signup" element={<SignUpForm />} />
               <Route path="/verify" element={<VerifyEmailPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/set-password" element={<SetPasswordPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/inventory" element={<InventoryPage />} />
-              <Route path="/dashboard/inventory/add" element={<AddInventoryItem />} />
-              <Route path="/dashboard/inventory/bulk-import" element={<BulkImportInventory />} />
-              <Route path="/dashboard/inventory/:id" element={<InventoryItemDetail />} />
-              <Route path="/dashboard/customers" element={<CustomersPage />} />
-              <Route path="/dashboard/users" element={<UsersPage />} />
-              <Route path="/dashboard/roles" element={<RolesPage />} />
-              <Route path="/dashboard/trade-in" element={<TradeInPage />} />
-              <Route path="/dashboard/checkout" element={<CheckoutPage />} />
-              <Route path="/dashboard/sales-history" element={<SalesHistoryPage />} />
-              <Route path="/dashboard/billing" element={<BillingSettingsPage />} />
-              <Route path="/dashboard/subscription" element={<SubscriptionPage />} />
-              <Route path="/dashboard/profile" element={<CompanyProfilePage />} />
+              <Route path="/dashboard/inventory" element={<PermissionRoute permission="inventory.view" element={<InventoryPage />} />} />
+              <Route path="/dashboard/inventory/add" element={<PermissionRoute permission="inventory.create" element={<AddInventoryItem />} />} />
+              <Route path="/dashboard/inventory/bulk-import" element={<PermissionRoute permission="inventory.create" element={<BulkImportInventory />} />} />
+              <Route path="/dashboard/inventory/:id" element={<PermissionRoute permission="inventory.view" element={<InventoryItemDetail />} />} />
+              <Route path="/dashboard/customers" element={<PermissionRoute permission="customers.view" element={<CustomersPage />} />} />
+              <Route path="/dashboard/users" element={<PermissionRoute permission="users.view" element={<UsersPage />} />} />
+              <Route path="/dashboard/roles" element={<PermissionRoute permission="users.view" element={<RolesPage />} />} />
+              <Route path="/dashboard/trade-in" element={<PermissionRoute permission="inventory.create" element={<TradeInPage />} />} />
+              <Route path="/dashboard/checkout" element={<PermissionRoute permission="sales.create" element={<CheckoutPage />} />} />
+              <Route path="/dashboard/sales-history" element={<PermissionRoute permission="sales.view" element={<SalesHistoryPage />} />} />
+              <Route path="/dashboard/billing" element={<PermissionRoute permission="billing.view" element={<BillingSettingsPage />} />} />
+              <Route path="/dashboard/subscription" element={<PermissionRoute permission="billing.view" element={<SubscriptionPage />} />} />
+              <Route path="/dashboard/profile" element={<PermissionRoute permission="settings.manage" element={<CompanyProfilePage />} />} />
+              {/* Company store routes - must be last so system routes take precedence */}
+              <Route path="/:slug/login" element={<CompanyLoginPage />} />
+              <Route path="/:slug/customer" element={<CompanyCustomerPage />} />
+              <Route path="/:slug" element={<CompanyLandingPage />} />
             </Routes>
             </AuthRedirect>
           </Router>
+          </PermissionsProvider>
           </FormattingProvider>
           </TrialStatusProvider>
       </ThemeProvider>
