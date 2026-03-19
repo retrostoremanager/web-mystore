@@ -9,11 +9,12 @@ import { useAuth } from '../contexts/AuthContext';
  */
 const AccountSuspendedPage = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { auth, logout } = useAuth();
 
   const handleSignOut = () => {
+    const slug = auth?.slug;
     logout();
-    navigate('/');
+    navigate(slug ? `/${slug}` : '/');
   };
 
   return (

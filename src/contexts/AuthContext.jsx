@@ -32,8 +32,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const login = useCallback((token, companyId, email) => {
-    const authData = { token, companyId, email };
+  const login = useCallback((token, companyId, email, slug) => {
+    const authData = { token, companyId, email, slug };
     setAuth(authData);
     sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
   }, []);

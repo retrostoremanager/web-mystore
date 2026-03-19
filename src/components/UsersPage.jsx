@@ -44,7 +44,7 @@ const emptyUserForm = {
   lastName: '',
   email: '',
   phone: '',
-  roleIds: [],
+  roleId: null,
 };
 
 const UsersPage = () => {
@@ -105,15 +105,13 @@ const UsersPage = () => {
 
   const openEditDialog = (user) => {
     const roleNames = (user.roles || []).map((r) => r.toLowerCase());
-    const roleIds = roles
-      .filter((r) => roleNames.includes(r.name?.toLowerCase()))
-      .map((r) => r.id);
+    const matchedRole = roles.find((r) => roleNames.includes(r.name?.toLowerCase()));
     setUserForm({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       email: user.email || '',
       phone: user.phone || '',
-      roleIds,
+      roleId: matchedRole?.id ?? null,
       isActive: user.status === 'active',
     });
     setUserDialog({ mode: 'edit', user });
@@ -135,7 +133,7 @@ const UsersPage = () => {
             lastName: userForm.lastName.trim(),
             email: userForm.email.trim().toLowerCase(),
             phone: userForm.phone?.trim() || undefined,
-            roleIds: userForm.roleIds || [],
+            roleIds: userForm.roleId ? [userForm.roleId] : [],
           },
           headers
         );
@@ -147,7 +145,7 @@ const UsersPage = () => {
             lastName: userForm.lastName.trim(),
             email: userForm.email.trim().toLowerCase(),
             phone: userForm.phone?.trim() || undefined,
-            roleIds: userForm.roleIds || [],
+            roleIds: userForm.roleId ? [userForm.roleId] : [],
             isActive: userForm.isActive,
           },
           headers
@@ -235,7 +233,7 @@ const UsersPage = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Roles</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
@@ -361,22 +359,17 @@ const UsersPage = () => {
               fullWidth
             />
             <FormControl fullWidth>
-              <InputLabel>Roles</InputLabel>
+              <InputLabel>Role</InputLabel>
               <Select
-                multiple
-                value={userForm.roleIds || []}
-                onChange={(e) => setUserForm((f) => ({ ...f, roleIds: e.target.value }))}
-                renderValue={(selected) =>
-                  roles
-                    .filter((r) => selected.includes(r.id))
-                    .map((r) => r.name)
-                    .join(', ')
-                }
-                label="Roles"
+                value={userForm.roleId ?? ''}
+                onChange={(e) => setUserForm((f) => ({ ...f, roleId: e.target.value || null }))}
+                label="Role"
               >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
                 {roles.map((role) => (
                   <MenuItem key={role.id} value={role.id}>
-                    <Checkbox checked={(userForm.roleIds || []).indexOf(role.id) > -1} />
                     <ListItemText primary={role.name} secondary={role.description} />
                   </MenuItem>
                 ))}

@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
  */
 const TrialExpiredPrompt = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { auth, logout } = useAuth();
 
   return (
     <Box
@@ -41,7 +41,7 @@ const TrialExpiredPrompt = () => {
           >
             Add Payment Method
           </Button>
-          <Button variant="outlined" onClick={() => { logout(); navigate('/'); }}>
+          <Button variant="outlined" onClick={() => { const slug = auth?.slug; logout(); navigate(slug ? `/${slug}` : '/'); }}>
             Sign Out
           </Button>
         </Paper>

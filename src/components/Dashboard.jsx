@@ -41,7 +41,7 @@ import { getUsers } from '../services/usersApi';
 const Dashboard = () => {
   const navigate = useNavigate();
   const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
-  const { logout, isAuthenticated, getAuthHeaders } = useAuth();
+  const { auth, logout, isAuthenticated, getAuthHeaders } = useAuth();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const { formatNumber } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);
@@ -79,7 +79,10 @@ const Dashboard = () => {
     const loadUserCount = async () => {
       try {
         const result = await getUsers(getAuthHeaders());
-        setUserCount(result.data?.length ?? 0);
+        const users = result.data || [];
+        // Only count active users (password set, not disabled, not pending invitation)
+        const activeCount = users.filter((u) => u.status === 'active').length;
+        setUserCount(activeCount);
       } catch {
         setUserCount(null);
       }
@@ -88,8 +91,9 @@ const Dashboard = () => {
   }, [isAuthenticated, getAuthHeaders]);
 
   const handleSignOut = () => {
+    const slug = auth?.slug;
     logout();
-    navigate('/');
+    navigate(slug ? `/${slug}` : '/');
   };
 
   // Calculate total quantity of all inventory items

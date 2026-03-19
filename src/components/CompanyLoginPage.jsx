@@ -98,7 +98,7 @@ const CompanyLoginPage = () => {
       }
 
       if (data.data?.token && data.data?.companyId) {
-        login(data.data.token, data.data.companyId, data.data.email);
+        login(data.data.token, data.data.companyId, data.data.email, slug);
         navigate('/dashboard', { replace: true });
       } else {
         setError('Invalid response from server. Please try again.');
