@@ -168,24 +168,24 @@ const RolesPage = () => {
           <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
             Roles
           </Typography>
-          {canManageRoles && (
-            <Button variant="contained" startIcon={<Add />} onClick={openAddDialog}>
-              Create Role
-            </Button>
-          )}
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Card elevation={2}>
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Security sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
                   Role List
                 </Typography>
               </Box>
+              {canManageRoles && (
+                <Button variant="contained" startIcon={<Add />} onClick={openAddDialog}>
+                  Create Role
+                </Button>
+              )}
             </Box>
 
             {error && (

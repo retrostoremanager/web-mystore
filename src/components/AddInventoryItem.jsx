@@ -83,6 +83,19 @@ const AddInventoryItem = () => {
     { key: 'other', label: 'Other' },
   ];
 
+  const gameSearchSubtitle = (game) => {
+    const parts = [];
+    if (game.console?.trim()) parts.push(game.console.trim());
+    if (game.publisher?.trim()) parts.push(game.publisher.trim());
+    if (game.genre?.trim()) parts.push(game.genre.trim());
+    if (game.region?.trim()) parts.push(game.region.trim());
+    if (game.releaseDate) {
+      const y = formatYear(game.releaseDate);
+      if (y) parts.push(y);
+    }
+    return parts.length > 0 ? parts.join(' • ') : 'Video game';
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -196,6 +209,12 @@ const AddInventoryItem = () => {
       : formData.name || 'Unknown Item';
     const category = selectedGame?.console || 'Video Games';
 
+    // MyStore API expects gameId / game.id as strings (C# string?). Numeric JSON breaks deserialization.
+    const catalogGameId =
+      selectedGame?.id != null && selectedGame.id !== ''
+        ? String(selectedGame.id)
+        : null;
+
     try {
       await createInventoryItem({
         locationId,
@@ -205,18 +224,19 @@ const AddInventoryItem = () => {
         sellPrice: parseFloat(formData.sellPrice || 0),
         buyPrice: formData.buyPrice ? parseFloat(formData.buyPrice) : null,
         condition: formData.condition,
-        gameId: selectedGame?.id ?? null,
-        game: selectedGame
-          ? {
-              id: selectedGame.id,
-              title: selectedGame.title,
-              console: selectedGame.console,
-              releaseDate: selectedGame.releaseDate || null,
-              publisher: selectedGame.publisher || null,
-              genre: selectedGame.genre || null,
-              imageUrl: selectedGame.imageUrl || null,
-            }
-          : null,
+        gameId: catalogGameId,
+        game:
+          selectedGame && catalogGameId
+            ? {
+                id: catalogGameId,
+                title: selectedGame.title,
+                console: selectedGame.console,
+                releaseDate: selectedGame.releaseDate || null,
+                publisher: selectedGame.publisher ?? null,
+                genre: selectedGame.genre ?? null,
+                imageUrl: selectedGame.imageUrl ?? null,
+              }
+            : null,
         completeness: formData.completeness,
         notes: formData.notes || null,
       }).unwrap();
@@ -286,7 +306,7 @@ const AddInventoryItem = () => {
                         <ListItemButton onClick={() => handleGameSelect(game)}>
                           <ListItemText
                             primary={game.title}
-                            secondary={`${game.console} • ${game.publisher} • ${game.genre}`}
+                            secondary={gameSearchSubtitle(game)}
                           />
                         </ListItemButton>
                       </ListItem>

@@ -10,13 +10,20 @@ export const normalizeGameFromGameDb = (raw) => {
   const publishers = (raw.gamePublishers ?? [])
     .map((gp) => gp?.publisher?.name)
     .filter(Boolean);
-  const publisherLabel = publishers.length > 0 ? publishers.join(', ') : '—';
+  const publisherLabel =
+    publishers.length > 0 ? publishers.join(', ') : null;
+  const genre =
+    raw.genre && String(raw.genre).trim() ? String(raw.genre).trim() : null;
+  const region =
+    raw.region && String(raw.region).trim() ? String(raw.region).trim() : null;
+
   return {
     id: raw.id,
     title: raw.title ?? '',
     console: raw.system?.name ?? '',
     publisher: publisherLabel,
-    genre: raw.genre ?? '—',
+    genre,
+    region,
     releaseDate: raw.releaseDate ?? null,
     imageUrl: raw.imageUrl ?? null,
     systemId: raw.systemId,
