@@ -72,6 +72,14 @@ export const mapPricingResponseToLegacyPrices = (pricing) => {
 const hasAnyMedian = (pricing) =>
   (pricing?.buckets ?? []).some((b) => b.latest?.medianCents != null);
 
+function requireGameDbBaseUrl() {
+  if (!config.gameDbApiUrl) {
+    throw new Error(
+      'Game catalog is not configured: VITE_GAMEDB_API_URL was empty at build time. Add it under GitHub → Settings → Secrets and variables → Actions → Variables (or Secrets), then redeploy. Note: Azure Static Web Apps application settings do not replace this for Vite.'
+    );
+  }
+}
+
 /**
  * Search games by title (optional filters on api-gamedb: systemId, genre, etc.).
  * @param {string} query
@@ -82,6 +90,8 @@ export const searchGames = async (query, authHeaders = {}) => {
   if (!query || query.trim().length === 0) {
     return [];
   }
+
+  requireGameDbBaseUrl();
 
   const params = new URLSearchParams({
     search: query.trim(),
@@ -136,6 +146,8 @@ export const getGameById = (gameId, searchResults = []) => {
  * @returns {Promise<Object|null>} { loose, complete, cib, new } in USD or null if unavailable
  */
 export const getMarketPrices = async (gameId, trendDays = 7) => {
+  requireGameDbBaseUrl();
+
   const params = new URLSearchParams({
     trendDays: String(Math.min(Math.max(Number(trendDays) || 7, 1), 90)),
   });

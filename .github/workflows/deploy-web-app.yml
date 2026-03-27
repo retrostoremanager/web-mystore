@@ -13,12 +13,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Verify VITE_GAMEDB_API_URL (required at build time)
+        env:
+          VITE_GAMEDB_API_URL: ${{ vars.VITE_GAMEDB_API_URL || secrets.VITE_GAMEDB_API_URL }}
+        run: |
+          if [ -z "${VITE_GAMEDB_API_URL:-}" ]; then
+            echo "::error::VITE_GAMEDB_API_URL is empty. Add it on GitHub: Settings → Secrets and variables → Actions → Variables (or Secrets), name exactly VITE_GAMEDB_API_URL, value e.g. https://gamedb-func-dev.azurewebsites.net/api. Azure SWA Configuration in the portal does NOT apply to this GitHub build."
+            exit 1
+          fi
+          echo "VITE_GAMEDB_API_URL is set (${#VITE_GAMEDB_API_URL} characters)."
+
       - name: Build And Deploy
         uses: Azure/static-web-apps-deploy@v1
         env:
           VITE_API_URL: https://mystore-func-dev.azurewebsites.net/api
-          # Repository variable: VITE_GAMEDB_API_URL (e.g. https://gamedb-func-dev.azurewebsites.net/api)
-          VITE_GAMEDB_API_URL: ${{ vars.VITE_GAMEDB_API_URL }}
+          VITE_GAMEDB_API_URL: ${{ vars.VITE_GAMEDB_API_URL || secrets.VITE_GAMEDB_API_URL }}
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
