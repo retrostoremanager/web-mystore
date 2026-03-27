@@ -1,19 +1,94 @@
-// Game API - uses backend so all games exist in DB (avoids FK violation on inventory create)
+// Game catalog + pricing from api-gamedb (separate from MyStore VITE_API_URL)
 import config from '../config';
 
 /**
- * Search for games by title, console, or publisher.
- * Uses backend API - all returned games exist in the game table.
- * @param {string} query - Search query
- * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
- * @returns {Promise<Array>} Array of matching games from database
+ * Map api-gamedb GET /games JSON (camelCase) into the shape the inventory UI expects.
+ * @param {object} raw
+ */
+export const normalizeGameFromGameDb = (raw) => {
+  if (!raw || typeof raw !== 'object') return null;
+  const publishers = (raw.gamePublishers ?? [])
+    .map((gp) => gp?.publisher?.name)
+    .filter(Boolean);
+  const publisherLabel = publishers.length > 0 ? publishers.join(', ') : '—';
+  return {
+    id: raw.id,
+    title: raw.title ?? '',
+    console: raw.system?.name ?? '',
+    publisher: publisherLabel,
+    genre: raw.genre ?? '—',
+    releaseDate: raw.releaseDate ?? null,
+    imageUrl: raw.imageUrl ?? null,
+    systemId: raw.systemId,
+    variantId: raw.variantId,
+    _source: 'gamedb',
+  };
+};
+
+/**
+ * Derive loose/complete/CIB/new hints from GET /games/:id/pricing buckets.
+ * @param {object} pricing - GamePricingResponse JSON
+ */
+export const mapPricingResponseToLegacyPrices = (pricing) => {
+  const buckets = pricing?.buckets ?? [];
+  const byCode = new Map(buckets.map((b) => [b.code, b]));
+  const medianDollars = (code) => {
+    const c = byCode.get(code)?.latest?.medianCents;
+    return c == null ? null : c / 100;
+  };
+
+  const complete = medianDollars('complete');
+  const loose = medianDollars('cart_disc_only');
+  const discAndCase = medianDollars('cart_disc_and_case');
+
+  const base =
+    complete ??
+    loose ??
+    discAndCase ??
+    medianDollars('cart_disc_and_manual') ??
+    medianDollars('manual_only') ??
+    medianDollars('case_only');
+
+  const looseOut = loose ?? (base != null ? base * 0.65 : null);
+  const completeOut = complete ?? base;
+  const cibOut = complete ?? base;
+
+  return {
+    loose: looseOut,
+    complete: completeOut ?? looseOut,
+    cib: cibOut ?? completeOut,
+    new:
+      completeOut != null
+        ? completeOut * 1.25
+        : looseOut != null
+          ? looseOut * 1.4
+          : base != null
+            ? base * 1.25
+            : null,
+    dataQuality: pricing?.dataQuality ?? null,
+  };
+};
+
+const hasAnyMedian = (pricing) =>
+  (pricing?.buckets ?? []).some((b) => b.latest?.medianCents != null);
+
+/**
+ * Search games by title (optional filters on api-gamedb: systemId, genre, etc.).
+ * @param {string} query
+ * @param {Object} authHeaders - Unused for gamedb (anonymous); kept for call-site compatibility.
+ * @returns {Promise<Array>} Normalized games for the inventory UI
  */
 export const searchGames = async (query, authHeaders = {}) => {
   if (!query || query.trim().length === 0) {
     return [];
   }
 
-  const url = `${config.apiUrl}/games/search?q=${encodeURIComponent(query.trim())}`;
+  const params = new URLSearchParams({
+    search: query.trim(),
+    limit: '50',
+    offset: '0',
+  });
+  const url = `${config.gameDbApiUrl}/games?${params.toString()}`;
   const response = await fetch(url, {
     method: 'GET',
     headers: {
@@ -22,52 +97,56 @@ export const searchGames = async (query, authHeaders = {}) => {
     },
   });
 
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result?.message || result?.errors?.[0] || 'Failed to search games');
+  const text = await response.text();
+  let payload = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    payload = null;
   }
 
-  return result?.data ?? [];
+  if (!response.ok) {
+    const msg =
+      payload?.message ||
+      payload?.error ||
+      payload?.errors?.[0] ||
+      response.statusText ||
+      'Failed to search games';
+    throw new Error(msg);
+  }
+
+  const list = Array.isArray(payload) ? payload : payload?.data ?? [];
+  return list.map(normalizeGameFromGameDb).filter(Boolean);
 };
 
 /**
  * Get game details by ID (from selected search result - no API call needed)
- * @param {string} gameId - Game ID
- * @param {Array} searchResults - Current search results to look up in
- * @returns {Object|null} Game details or null if not found
+ * @param {string|number} gameId
+ * @param {Array} searchResults
+ * @returns {Object|null}
  */
 export const getGameById = (gameId, searchResults = []) => {
-  return searchResults.find((game) => game.id === gameId) || null;
+  return searchResults.find((game) => String(game.id) === String(gameId)) || null;
 };
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Get market prices for a game (from Price Charting API)
- * TODO: Replace with actual Price Charting API when ready
- * @param {string} gameId - Game ID
- * @returns {Promise<Object>} Market price data
+ * Market reference prices from api-gamedb eBay snapshots (GET /games/:id/pricing).
+ * @param {string|number} gameId
+ * @param {number} [trendDays]
+ * @returns {Promise<Object|null>} { loose, complete, cib, new } in USD or null if unavailable
  */
-export const getMarketPrices = async (gameId) => {
-  await delay(400);
-  return {
-    loose: 29.99,
-    complete: 39.99,
-    new: 59.99,
-    cib: 39.99, // Complete in Box
-  };
+export const getMarketPrices = async (gameId, trendDays = 7) => {
+  const params = new URLSearchParams({
+    trendDays: String(Math.min(Math.max(Number(trendDays) || 7, 1), 90)),
+  });
+  const url = `${config.gameDbApiUrl}/games/${encodeURIComponent(String(gameId))}/pricing?${params}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    return null;
+  }
+  const pricing = await response.json();
+  if (!hasAnyMedian(pricing)) {
+    return null;
+  }
+  return mapPricingResponseToLegacyPrices(pricing);
 };
-
-// TODO: Replace with actual Price Charting API integration
-// Example implementation:
-/*
-export const searchGames = async (query, apiToken) => {
-  const response = await fetch(
-    `https://www.pricecharting.com/api/products?t=${apiToken}&q=${encodeURIComponent(query)}`
-  );
-  const data = await response.json();
-  return data.products || [];
-};
-*/
-

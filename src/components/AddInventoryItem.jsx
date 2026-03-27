@@ -103,18 +103,25 @@ const AddInventoryItem = () => {
 
   const getSuggestedPrice = (condition, prices) => {
     if (!prices) return null;
-    
-    // Map conditions to market price types
+    const complete = Number(prices.complete);
+    const loose = Number(prices.loose);
+    const newPrice = Number(prices.new);
+    const cib = Number.isFinite(complete) ? complete : Number(prices.cib);
+    const looseOk = Number.isFinite(loose) ? loose : Number.isFinite(cib) ? cib * 0.65 : NaN;
+    const newOk = Number.isFinite(newPrice) ? newPrice : Number.isFinite(cib) ? cib * 1.25 : NaN;
+    if (!Number.isFinite(cib) && !Number.isFinite(looseOk)) return null;
+
     const conditionMap = {
-      'New': prices.new,
-      'Like New': prices.new * 0.9,
-      'Very Good': prices.complete * 0.85,
-      'Good': prices.complete * 0.75,
-      'Fair': prices.loose * 0.9,
-      'Poor': prices.loose * 0.7,
+      New: newOk,
+      'Like New': Number.isFinite(newOk) ? newOk * 0.9 : cib * 0.95,
+      'Very Good': Number.isFinite(cib) ? cib * 0.85 : looseOk * 1.1,
+      Good: Number.isFinite(cib) ? cib * 0.75 : looseOk,
+      Fair: Number.isFinite(looseOk) ? looseOk * 0.9 : cib * 0.65,
+      Poor: Number.isFinite(looseOk) ? looseOk * 0.7 : cib * 0.55,
     };
-    
-    return conditionMap[condition] || prices.complete;
+
+    const fallback = Number.isFinite(cib) ? cib : looseOk;
+    return conditionMap[condition] ?? fallback;
   };
 
   const handleGameSelect = async (game) => {
