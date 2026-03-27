@@ -40,6 +40,29 @@ import { useFormatting } from '../contexts/FormattingContext';
 import { CircularProgress } from '@mui/material';
 import { LocationOn } from '@mui/icons-material';
 
+const defaultCompleteness = () => ({
+  box: false,
+  instructions: false,
+  game: false,
+  inserts: false,
+  other: false,
+});
+
+/** Safe value for MUI date input (API may return ISO string, Date, or epoch). */
+const releaseDateToInputValue = (val) => {
+  if (val == null || val === '') return '';
+  if (typeof val === 'string') {
+    return val.includes('T') ? val.split('T')[0] : val;
+  }
+  try {
+    const d = val instanceof Date ? val : new Date(val);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().split('T')[0];
+  } catch {
+    // ignore
+  }
+  return '';
+};
+
 const InventoryItemDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -55,28 +78,6 @@ const InventoryItemDetail = () => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const [formData, setFormData] = useState(null);
-
-  useEffect(() => {
-    if (item) {
-      setFormData({
-        name: item.name || '',
-        category: item.category || '',
-        condition: item.condition || 'New',
-        quantity: item.quantity || 1,
-        buyPrice: item.buyPrice ?? '',
-        sellPrice: item.sellPrice != null ? String(item.sellPrice) : '0',
-        notes: item.notes || '',
-        completeness: item.completeness || {
-          box: false,
-          instructions: false,
-          game: false,
-          inserts: false,
-          other: false,
-        },
-        game: item.game ? { ...item.game } : null,
-      });
-    }
-  }, [item]);
 
   const conditionOptions = ['New', 'Like New', 'Very Good', 'Good', 'Fair', 'Poor'];
 
@@ -154,7 +155,6 @@ const InventoryItemDetail = () => {
     { key: 'other', label: 'Other' },
   ];
 
-  // Update form data when item changes (but not when in edit mode)
   useEffect(() => {
     if (item && !isEditMode) {
       setFormData({
@@ -162,16 +162,10 @@ const InventoryItemDetail = () => {
         category: item.category || '',
         condition: item.condition || 'New',
         quantity: item.quantity || 1,
-        buyPrice: item.buyPrice || '',
-        sellPrice: item.sellPrice || '0',
+        buyPrice: item.buyPrice ?? '',
+        sellPrice: item.sellPrice != null ? String(item.sellPrice) : '0',
         notes: item.notes || '',
-        completeness: item.completeness || {
-          box: false,
-          instructions: false,
-          game: false,
-          inserts: false,
-          other: false,
-        },
+        completeness: item.completeness || defaultCompleteness(),
         game: item.game ? { ...item.game } : null,
       });
     }
@@ -257,7 +251,7 @@ const InventoryItemDetail = () => {
       buyPrice: updates.buyPrice ? parseFloat(updates.buyPrice) : null,
       notes: updates.notes || null,
       completeness: updates.completeness,
-      gameId: formData.game?.id ?? null,
+      gameId: formData.game?.id != null ? String(formData.game.id) : null,
     })
       .unwrap()
       .then(() => {
@@ -281,13 +275,7 @@ const InventoryItemDetail = () => {
         buyPrice: item.buyPrice || '',
         sellPrice: item.sellPrice || '0',
         notes: item.notes || '',
-        completeness: item.completeness || {
-          box: false,
-          instructions: false,
-          game: false,
-          inserts: false,
-          other: false,
-        },
+        completeness: item.completeness || defaultCompleteness(),
         game: item.game ? { ...item.game } : null,
       });
     }
@@ -413,7 +401,7 @@ const InventoryItemDetail = () => {
                               Title
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {item.game.title}
+                              {item.game?.title ?? '—'}
                             </Typography>
                           </>
                         )}
@@ -432,7 +420,7 @@ const InventoryItemDetail = () => {
                               Console
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {item.game.console}
+                              {item.game?.console ?? '—'}
                             </Typography>
                           </>
                         )}
@@ -451,7 +439,7 @@ const InventoryItemDetail = () => {
                               Publisher
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {item.game.publisher}
+                              {item.game?.publisher ?? '—'}
                             </Typography>
                           </>
                         )}
@@ -470,25 +458,22 @@ const InventoryItemDetail = () => {
                               Genre
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {item.game.genre}
+                              {item.game?.genre ?? '—'}
                             </Typography>
                           </>
                         )}
                       </Grid>
-                      {(item.game?.releaseDate || (isEditMode && formData?.game?.releaseDate)) && (
+                      {((isEditMode && formData?.game) ||
+                        (!isEditMode &&
+                          item.game?.releaseDate != null &&
+                          item.game.releaseDate !== '')) && (
                         <Grid item xs={12} sm={6}>
                           {isEditMode ? (
                             <TextField
                               fullWidth
                               label="Release Date"
                               type="date"
-                              value={
-                                formData?.game?.releaseDate
-                                  ? formData.game.releaseDate.includes('T')
-                                    ? formData.game.releaseDate.split('T')[0]
-                                    : formData.game.releaseDate
-                                  : ''
-                              }
+                              value={releaseDateToInputValue(formData?.game?.releaseDate)}
                               onChange={(e) => handleGameFieldChange('releaseDate')({ target: { value: e.target.value } })}
                               InputLabelProps={{ shrink: true }}
                             />
@@ -498,7 +483,7 @@ const InventoryItemDetail = () => {
                                 Release Date
                               </Typography>
                               <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                {formatDate(item.game.releaseDate)}
+                                {formatDate(item.game?.releaseDate)}
                               </Typography>
                             </>
                           )}
@@ -572,17 +557,27 @@ const InventoryItemDetail = () => {
                       {isEditMode ? (
                         <TextField
                           fullWidth
-                          label="Category"
+                          label="System"
                           value={formData?.category || ''}
                           onChange={handleInputChange('category')}
                         />
                       ) : (
                         <>
                           <Typography variant="body2" color="text.secondary">
-                            Category
+                            System
                           </Typography>
                           <Box sx={{ mt: 0.5 }}>
-                            <Chip label={item.category} size="small" color="primary" variant="outlined" />
+                            {(() => {
+                              const sys =
+                                item.category?.trim() || item.game?.console?.trim() || '';
+                              return sys ? (
+                                <Chip label={sys} size="small" color="primary" variant="outlined" />
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  —
+                                </Typography>
+                              );
+                            })()}
                           </Box>
                         </>
                       )}
@@ -727,10 +722,10 @@ const InventoryItemDetail = () => {
                               p: 1.5,
                               display: 'flex',
                               alignItems: 'center',
-                              bgcolor: item.completeness[compItem.key] ? 'success.light' : 'grey.100',
+                              bgcolor: item.completeness?.[compItem.key] ? 'success.light' : 'grey.100',
                             }}
                           >
-                            {item.completeness[compItem.key] ? (
+                            {item.completeness?.[compItem.key] ? (
                               <CheckCircle sx={{ color: 'success.main', mr: 1 }} />
                             ) : (
                               <Cancel sx={{ color: 'error.main', mr: 1 }} />

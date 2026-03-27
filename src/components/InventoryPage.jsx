@@ -46,6 +46,15 @@ import { getCompanyProfile } from '../services/profileApi';
 import { useAuth } from '../contexts/AuthContext';
 import { CircularProgress, Alert } from '@mui/material';
 
+/** Label for list / filters: stored category or linked game console. */
+const getItemSystemLabel = (item) => {
+  const fromCategory = item.category?.trim();
+  if (fromCategory) return fromCategory;
+  const fromGame = item.game?.console?.trim();
+  if (fromGame) return fromGame;
+  return '—';
+};
+
 const InventoryPage = () => {
   const navigate = useNavigate();
   const { getAuthHeaders } = useAuth();
@@ -155,8 +164,9 @@ const InventoryPage = () => {
       );
     }
     if (filters.category) {
+      const q = filters.category.toLowerCase();
       filtered = filtered.filter((item) =>
-        item.category?.toLowerCase().includes(filters.category.toLowerCase())
+        getItemSystemLabel(item).toLowerCase().includes(q)
       );
     }
     if (filters.quantity) {
@@ -181,8 +191,8 @@ const InventoryPage = () => {
             bValue = b.name?.toLowerCase() ?? '';
             break;
           case 'category':
-            aValue = a.category?.toLowerCase() ?? '';
-            bValue = b.category?.toLowerCase() ?? '';
+            aValue = getItemSystemLabel(a).toLowerCase();
+            bValue = getItemSystemLabel(b).toLowerCase();
             break;
           case 'quantity':
             aValue = a.quantity ?? 0;
@@ -242,7 +252,7 @@ const InventoryPage = () => {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
                 <TextField
                   size="small"
-                  placeholder="Search by name, category..."
+                  placeholder="Search by name, system..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   InputProps={{
@@ -369,7 +379,7 @@ const InventoryPage = () => {
                           }}
                           onClick={() => handleRequestSort('category')}
                         >
-                          <Typography sx={{ fontWeight: 600 }}>Category</Typography>
+                          <Typography sx={{ fontWeight: 600 }}>System</Typography>
                           {orderBy === 'category' ? (
                             order === 'asc' ? (
                               <ArrowUpward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
@@ -514,7 +524,18 @@ const InventoryPage = () => {
                       >
                         <TableCell>{item.name}</TableCell>
                         <TableCell>
-                          <Chip label={item.category} size="small" color="primary" variant="outlined" />
+                          {getItemSystemLabel(item) === '—' ? (
+                            <Typography variant="body2" color="text.secondary">
+                              —
+                            </Typography>
+                          ) : (
+                            <Chip
+                              label={getItemSystemLabel(item)}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          )}
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -555,7 +576,7 @@ const InventoryPage = () => {
                     {activeFilterField === 'name'
                       ? 'Item Name'
                       : activeFilterField === 'category'
-                      ? 'Category'
+                      ? 'System'
                       : activeFilterField === 'quantity'
                       ? 'Quantity'
                       : 'Price'}
@@ -569,7 +590,7 @@ const InventoryPage = () => {
                       activeFilterField === 'name'
                         ? 'item name'
                         : activeFilterField === 'category'
-                        ? 'category'
+                        ? 'system'
                         : activeFilterField === 'quantity'
                         ? 'quantity'
                         : 'price'

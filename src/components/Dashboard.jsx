@@ -37,6 +37,7 @@ import { useFormatting } from '../contexts/FormattingContext';
 import { getCompanyProfile } from '../services/profileApi';
 import { getTrialStatus } from '../services/billingApi';
 import { getUsers } from '../services/usersApi';
+import { getCustomers } from '../services/customersApi';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ const Dashboard = () => {
   const { formatNumber } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);
   const [userCount, setUserCount] = useState(null);
+  const [customerCount, setCustomerCount] = useState(null);
   const [companyName, setCompanyName] = useState('');
 
   useEffect(() => {
@@ -90,6 +92,19 @@ const Dashboard = () => {
     loadUserCount();
   }, [isAuthenticated, getAuthHeaders]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !getAuthHeaders().Authorization) return;
+    const loadCustomerCount = async () => {
+      try {
+        const result = await getCustomers(getAuthHeaders());
+        setCustomerCount((result.data || []).length);
+      } catch {
+        setCustomerCount(null);
+      }
+    };
+    loadCustomerCount();
+  }, [isAuthenticated, getAuthHeaders]);
+
   const handleSignOut = () => {
     const slug = auth?.slug;
     logout();
@@ -101,7 +116,13 @@ const Dashboard = () => {
 
   const stats = [
     { label: 'Total Inventory Items', value: formatNumber(inventory.length), icon: <Inventory />, color: 'primary', permission: 'inventory.view' },
-    { label: 'Active Customers', value: '156', icon: <People />, color: 'success', permission: 'customers.view' },
+    {
+      label: 'Customers',
+      value: customerCount != null ? formatNumber(customerCount) : '—',
+      icon: <People />,
+      color: 'success',
+      permission: 'customers.view',
+    },
     { label: 'Users', value: userCount != null ? String(userCount) : '—', icon: <Badge />, color: 'info', permission: 'users.view' },
     { label: 'Today\'s Sales', value: '$2,450.00', icon: <PointOfSale />, color: 'warning', permission: 'sales.view' },
   ].filter((s) => !s.permission || permissionsLoading || hasPermission(s.permission));
