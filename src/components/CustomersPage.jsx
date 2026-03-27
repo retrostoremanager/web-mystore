@@ -47,6 +47,7 @@ const CustomersPage = () => {
   const [form, setForm] = useState(emptyCustomerForm);
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState(null);
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -70,6 +71,7 @@ const CustomersPage = () => {
   const openAdd = () => {
     setForm(emptyCustomerForm);
     setFieldErrors({});
+    setSuccessMessage(null);
     setAddOpen(true);
   };
 
@@ -93,7 +95,7 @@ const CustomersPage = () => {
       setError(null);
       const email = form.email?.trim() || '';
       const phone = form.phone?.trim() || '';
-      await createCustomer(
+      const res = await createCustomer(
         {
           firstName: form.name.trim(),
           lastName: '',
@@ -102,6 +104,7 @@ const CustomersPage = () => {
         },
         getAuthHeaders()
       );
+      setSuccessMessage(res.message || 'Customer created.');
       setAddOpen(false);
       await loadCustomers();
     } catch (err) {
@@ -153,6 +156,11 @@ const CustomersPage = () => {
               )}
             </Box>
 
+            {successMessage && (
+              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage(null)}>
+                {successMessage}
+              </Alert>
+            )}
             {error && (
               <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
                 {error}

@@ -29,7 +29,7 @@ import {
   Store,
   WorkspacePremium,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetInventoryQuery } from '../store/inventoryApi';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
@@ -41,6 +41,7 @@ import { getCustomers } from '../services/customersApi';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
   const { auth, logout, isAuthenticated, getAuthHeaders } = useAuth();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
@@ -93,6 +94,7 @@ const Dashboard = () => {
   }, [isAuthenticated, getAuthHeaders]);
 
   useEffect(() => {
+    if (location.pathname !== '/dashboard') return;
     if (!isAuthenticated || !getAuthHeaders().Authorization) return;
     const loadCustomerCount = async () => {
       try {
@@ -103,7 +105,7 @@ const Dashboard = () => {
       }
     };
     loadCustomerCount();
-  }, [isAuthenticated, getAuthHeaders]);
+  }, [location.pathname, isAuthenticated, getAuthHeaders]);
 
   const handleSignOut = () => {
     const slug = auth?.slug;

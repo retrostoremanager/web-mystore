@@ -78,10 +78,11 @@ const SetPasswordPage = () => {
       if (response.ok && data.success) {
         setSuccess(true);
         const slug = data.data?.slug;
+        const userType = data.data?.userType || 'employee';
         if (slug && slug.trim()) {
-          // Redirect to company login after a brief delay so user sees success
+          const nextPath = userType === 'customer' ? `/${slug}/customer` : `/${slug}/login`;
           setTimeout(() => {
-            navigate(`/${slug}/login`, { replace: true });
+            navigate(nextPath, { replace: true });
           }, 2000);
         }
       } else {
