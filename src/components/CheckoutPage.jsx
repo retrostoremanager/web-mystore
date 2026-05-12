@@ -42,6 +42,7 @@ import { useGetInventoryQuery, inventoryApi } from '../store/inventoryApi';
 import { useAuth } from '../contexts/AuthContext';
 import { getCustomers, createCustomer } from '../services/customersApi';
 import { createSale } from '../services/salesApi';
+import { getCompanyProfile } from '../services/profileApi';
 
 const steps = ['Select Customer', 'Add Items', 'Review & Complete'];
 
@@ -96,7 +97,21 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-function openPrintableReceipt(sale, customerName, customerEmail) {
+function formatReceiptBranding(profile) {
+  if (!profile) {
+    return { companyName: '', addressLine: '', phone: '' };
+  }
+  const addressLine = [profile.companyAddress, profile.companyCity, profile.companyState, profile.companyZipCode]
+    .filter(Boolean)
+    .join(', ');
+  return {
+    companyName: profile.companyName || '',
+    addressLine: addressLine,
+    phone: profile.companyPhone || '',
+  };
+}
+
+function openPrintableReceipt(sale, customerName, customerEmail, storeBranding) {
   if (!sale) return;
   const fmt = (n) => Number(n ?? 0).toFixed(2);
   const rows = (sale.items || [])
@@ -106,6 +121,14 @@ function openPrintableReceipt(sale, customerName, customerEmail) {
     })
     .join('');
   const saleDate = sale.saleDate ? new Date(sale.saleDate).toLocaleString() : '';
+  const storeHeader =
+    storeBranding?.companyName ?
+      `<header style="margin-bottom:14px;border-bottom:1px solid #ddd;padding-bottom:10px">
+        <div style="font-weight:700;font-size:1.1rem">${escapeHtml(storeBranding.companyName)}</div>
+        ${storeBranding.addressLine ? `<div style="font-size:0.88rem;color:#444">${escapeHtml(storeBranding.addressLine)}</div>` : ''}
+        ${storeBranding.phone ? `<div style="font-size:0.88rem;color:#444">${escapeHtml(storeBranding.phone)}</div>` : ''}
+      </header>`
+      : '';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Receipt #${sale.id}</title>
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;padding:24px;max-width:420px;margin:0 auto;color:#111}
@@ -117,6 +140,7 @@ th{text-align:left;font-weight:600}
 .totals{margin-top:16px;text-align:right;font-size:0.95rem;line-height:1.6}
 @media print{body{padding:0}}
 </style></head><body>
+${storeHeader}
 <h1>Sale #${sale.id}</h1>
 <p class="meta">${escapeHtml(saleDate)}</p>
 <p class="customer">${escapeHtml(customerName)}<br/>${escapeHtml(customerEmail)}</p>
@@ -152,6 +176,11 @@ const CheckoutPage = () => {
   const [taxInput, setTaxInput] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [lastSale, setLastSale] = useState(null);
+  const [receiptBranding, setReceiptBranding] = useState({
+    companyName: '',
+    addressLine: '',
+    phone: '',
+  });
 
   const [checkoutData, setCheckoutData] = useState({
     customer: null,
@@ -177,6 +206,21 @@ const CheckoutPage = () => {
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
+
+  const loadReceiptBranding = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const result = await getCompanyProfile(headers);
+      setReceiptBranding(formatReceiptBranding(result.data?.profile));
+    } catch {
+      setReceiptBranding({ companyName: '', addressLine: '', phone: '' });
+    }
+  }, [getAuthHeaders]);
+
+  useEffect(() => {
+    loadReceiptBranding();
+  }, [loadReceiptBranding]);
 
   const handleCustomerSelect = (event, value) => {
     if (value) {
@@ -595,6 +639,11 @@ const CheckoutPage = () => {
             <Typography variant="h4" sx={{ fontWeight: 700, textAlign: 'center' }}>
               Transaction Complete!
             </Typography>
+            {receiptBranding.companyName ? (
+              <Typography variant="subtitle1" color="text.secondary" sx={{ textAlign: 'center' }}>
+                {receiptBranding.companyName}
+              </Typography>
+            ) : null}
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 500 }}>
               The sale was saved and inventory quantities were updated.
             </Typography>
@@ -613,7 +662,8 @@ const CheckoutPage = () => {
                   openPrintableReceipt(
                     lastSale,
                     checkoutData.customerName,
-                    checkoutData.customerEmail
+                    checkoutData.customerEmail,
+                    receiptBranding
                   )
                 }
               >
