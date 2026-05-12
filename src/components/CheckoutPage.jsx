@@ -24,6 +24,10 @@ import {
   TableHead,
   TableRow,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   PointOfSale,
@@ -31,6 +35,7 @@ import {
   Add,
   Delete,
   CheckCircle,
+  Print,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useGetInventoryQuery, inventoryApi } from '../store/inventoryApi';
@@ -65,6 +70,74 @@ function unitPriceFromLineItem(item) {
   return 0;
 }
 
+const PAYMENT_OPTIONS = [
+  { value: 'Cash', label: 'Cash' },
+  { value: 'Credit/debit card', label: 'Credit/debit card' },
+  { value: 'Other', label: 'Other' },
+];
+
+function parseTaxInput(str) {
+  const t = (str ?? '').trim();
+  if (t === '') {
+    return { ok: true, value: 0 };
+  }
+  const n = parseFloat(t);
+  if (Number.isNaN(n) || n < 0) {
+    return { ok: false, value: 0 };
+  }
+  return { ok: true, value: Math.round(n * 100) / 100 };
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function openPrintableReceipt(sale, customerName, customerEmail) {
+  if (!sale) return;
+  const fmt = (n) => Number(n ?? 0).toFixed(2);
+  const rows = (sale.items || [])
+    .map((line) => {
+      const name = line.inventoryItem?.name || `Item #${line.inventoryItemId}`;
+      return `<tr><td>${escapeHtml(name)}</td><td style="text-align:right">${line.quantity}</td><td style="text-align:right">$${fmt(line.unitPrice)}</td><td style="text-align:right">$${fmt(line.totalPrice)}</td></tr>`;
+    })
+    .join('');
+  const saleDate = sale.saleDate ? new Date(sale.saleDate).toLocaleString() : '';
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Receipt #${sale.id}</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;padding:24px;max-width:420px;margin:0 auto;color:#111}
+h1{font-size:1.15rem;margin:0 0 8px}
+.meta,.customer{font-size:0.9rem;color:#444;margin:0 0 12px}
+table{width:100%;border-collapse:collapse;font-size:0.9rem}
+th,td{padding:8px 4px;border-bottom:1px solid #ddd}
+th{text-align:left;font-weight:600}
+.totals{margin-top:16px;text-align:right;font-size:0.95rem;line-height:1.6}
+@media print{body{padding:0}}
+</style></head><body>
+<h1>Sale #${sale.id}</h1>
+<p class="meta">${escapeHtml(saleDate)}</p>
+<p class="customer">${escapeHtml(customerName)}<br/>${escapeHtml(customerEmail)}</p>
+<table>
+<thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Total</th></tr></thead>
+<tbody>${rows}</tbody>
+</table>
+<div class="totals">
+<div>Subtotal: $${fmt(sale.subtotal)}</div>
+<div>Tax: $${fmt(sale.tax)}</div>
+<div><strong>Total: $${fmt(sale.total)}</strong></div>
+<div>Payment: ${escapeHtml(sale.paymentMethod || '')}</div>
+</div>
+</body></html>`;
+  const w = window.open('', '_blank', 'noopener,noreferrer');
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+}
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -75,6 +148,10 @@ const CheckoutPage = () => {
   const [error, setError] = useState('');
   const [customerOptions, setCustomerOptions] = useState([]);
   const [customersLoadError, setCustomersLoadError] = useState(null);
+
+  const [taxInput, setTaxInput] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [lastSale, setLastSale] = useState(null);
 
   const [checkoutData, setCheckoutData] = useState({
     customer: null,
@@ -157,13 +234,14 @@ const CheckoutPage = () => {
     });
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return checkoutData.items.reduce(
       (total, item) => total + unitPriceFromLineItem(item) * item.quantity,
       0
     );
   };
 
+  const getTaxValue = () => parseTaxInput(taxInput);
   const validateStep1 = () => {
     if (!checkoutData.customerName.trim()) {
       setError('Customer name is required');
@@ -216,6 +294,18 @@ const CheckoutPage = () => {
     setLoading(true);
     setError('');
 
+    if (!validateStep2()) {
+      setLoading(false);
+      return;
+    }
+
+    const taxParsed = getTaxValue();
+    if (!taxParsed.ok) {
+      setError('Tax must be a valid non-negative number, or leave the field blank.');
+      setLoading(false);
+      return;
+    }
+
     const auth = getAuthHeaders();
     const email = checkoutData.customerEmail.trim().toLowerCase();
 
@@ -260,17 +350,18 @@ const CheckoutPage = () => {
         unitPrice: unitPriceFromLineItem(item),
       }));
 
-      await createSale(
+      const result = await createSale(
         {
           customerId,
-          tax: 0,
-          paymentMethod: 'In-store',
+          tax: taxParsed.value,
+          paymentMethod,
           items,
         },
         auth
       );
 
       dispatch(inventoryApi.util.invalidateTags([{ type: 'Inventory', id: 'LIST' }]));
+      setLastSale(result.data ?? null);
       setActiveStep(2);
     } catch (err) {
       setError(err.message || 'Failed to process transaction. Please try again.');
@@ -338,8 +429,12 @@ const CheckoutPage = () => {
           </Stack>
         );
       
-      case 1:
+      case 1: {
         const availableItems = inventory.filter((item) => (item.quantity || 0) > 0);
+        const taxSnap = getTaxValue();
+        const taxAmountDisplay = taxSnap.ok ? taxSnap.value : 0;
+        const grandTotal = calculateSubtotal() + taxAmountDisplay;
+
         return (
           <Stack spacing={3}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -445,16 +540,54 @@ const CheckoutPage = () => {
                     </TableBody>
                   </Table>
                 </TableContainer>
-                <Box sx={{ mt: 2, textAlign: 'right' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Total: ${calculateTotal().toFixed(2)}
-                  </Typography>
+                <Box sx={{ mt: 2 }}>
+                  <Stack spacing={2} sx={{ maxWidth: 360, ml: 'auto' }}>
+                    <TextField
+                      label="Tax (optional)"
+                      type="number"
+                      size="small"
+                      value={taxInput}
+                      onChange={(e) => {
+                        setTaxInput(e.target.value);
+                        setError('');
+                      }}
+                      inputProps={{ min: 0, step: '0.01' }}
+                      helperText="Sales tax or other tax for this transaction"
+                    />
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="checkout-payment-method-label">Payment method</InputLabel>
+                      <Select
+                        labelId="checkout-payment-method-label"
+                        label="Payment method"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                      >
+                        {PAYMENT_OPTIONS.map((opt) => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Subtotal: ${calculateSubtotal().toFixed(2)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Tax: ${taxSnap.ok ? taxSnap.value.toFixed(2) : '—'}
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700, mt: 0.5 }}>
+                        Total: ${taxSnap.ok ? grandTotal.toFixed(2) : '—'}
+                      </Typography>
+                    </Box>
+                  </Stack>
                 </Box>
               </Box>
             )}
           </Stack>
         );
-      
+      }
+
       case 2:
         return (
           <Stack spacing={3} alignItems="center" sx={{ py: 4 }}>
@@ -465,11 +598,34 @@ const CheckoutPage = () => {
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 500 }}>
               The sale was saved and inventory quantities were updated.
             </Typography>
-            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+            {lastSale?.id != null && (
+              <Typography variant="body1" sx={{ textAlign: 'center' }}>
+                Sale #{lastSale.id} · Total ${Number(lastSale.total ?? 0).toFixed(2)} ·{' '}
+                {lastSale.paymentMethod || 'Payment'}
+              </Typography>
+            )}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2 }} alignItems="center">
+              <Button
+                variant="outlined"
+                startIcon={<Print />}
+                disabled={!lastSale}
+                onClick={() =>
+                  openPrintableReceipt(
+                    lastSale,
+                    checkoutData.customerName,
+                    checkoutData.customerEmail
+                  )
+                }
+              >
+                Print receipt
+              </Button>
               <Button
                 variant="outlined"
                 onClick={() => {
                   setCheckoutData({ customer: null, customerName: '', customerEmail: '', items: [] });
+                  setTaxInput('');
+                  setPaymentMethod('Cash');
+                  setLastSale(null);
                   setActiveStep(0);
                 }}
               >

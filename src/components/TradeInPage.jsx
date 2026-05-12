@@ -6,30 +6,20 @@ import {
   CardContent,
   AppBar,
   Toolbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
   IconButton,
+  Alert,
+  Button,
+  Stack,
 } from '@mui/material';
 import {
   SwapHoriz,
   ArrowBack,
+  Inventory2,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 const TradeInPage = () => {
   const navigate = useNavigate();
-
-  const tradeInData = [
-    { id: 1, customer: 'John Smith', item: 'Used Nintendo Switch', condition: 'Good', offer: '$180.00', status: 'Pending' },
-    { id: 2, customer: 'Mike Chen', item: 'Pokémon Card Collection', condition: 'Excellent', offer: '$250.00', status: 'Approved' },
-    { id: 3, customer: 'Sarah Johnson', item: 'PS4 Console', condition: 'Fair', offer: '$120.00', status: 'Pending' },
-  ];
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -44,46 +34,35 @@ const TradeInPage = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth="md" sx={{ py: 4 }}>
         <Card elevation={2}>
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <SwapHoriz sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
               <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                Trade-in Requests
+                Trade-ins
               </Typography>
             </Box>
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Customer</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Item</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Condition</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }} align="right">Offer</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }} align="right">Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {tradeInData.map((tradeIn) => (
-                    <TableRow key={tradeIn.id} hover>
-                      <TableCell>{tradeIn.customer}</TableCell>
-                      <TableCell>{tradeIn.item}</TableCell>
-                      <TableCell>{tradeIn.condition}</TableCell>
-                      <TableCell align="right">{tradeIn.offer}</TableCell>
-                      <TableCell align="right">
-                        <Chip
-                          label={tradeIn.status}
-                          size="small"
-                          color={tradeIn.status === 'Approved' ? 'success' : 'warning'}
-                          variant="outlined"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Guided trade-in workflows and market-based pricing are on our roadmap. Until then, process buy-outs at
+              the counter and add accepted items to inventory with your cost and condition so stock and margins stay
+              accurate.
+            </Alert>
+
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+              You can track incoming stock and sell prices from{' '}
+              <strong>Inventory</strong>, and use <strong>Checkout</strong> when trade credit or cash-outs tie to a sale.
+            </Typography>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Button variant="contained" startIcon={<Inventory2 />} onClick={() => navigate('/dashboard/inventory')}>
+                Go to inventory
+              </Button>
+              <Button variant="outlined" onClick={() => navigate('/dashboard')}>
+                Back to dashboard
+              </Button>
+            </Stack>
           </CardContent>
         </Card>
       </Container>
@@ -92,4 +71,3 @@ const TradeInPage = () => {
 };
 
 export default TradeInPage;
-

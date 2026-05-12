@@ -19,12 +19,15 @@ import {
   FormControl,
   InputLabel,
   FormHelperText,
+  FormControlLabel,
+  Checkbox,
+  Link,
 } from '@mui/material';
 import {
   Visibility,
   VisibilityOff,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 
 /**
  * Subscription tier options available for new account registration.
@@ -71,7 +74,8 @@ function SignUpFormInner() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -302,6 +306,11 @@ function SignUpFormInner() {
 
     // Validate all fields before submission
     if (!validateForm()) {
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setError('Please accept the Terms of Service and Privacy Policy to continue.');
       return;
     }
 
@@ -594,10 +603,37 @@ function SignUpFormInner() {
                     </MenuItem>
                   ))}
                 </Select>
-{fieldErrors.subscriptionTier && (
-                <FormHelperText>{fieldErrors.subscriptionTier}</FormHelperText>
-              )}
+                {fieldErrors.subscriptionTier && (
+                  <FormHelperText>{fieldErrors.subscriptionTier}</FormHelperText>
+                )}
               </FormControl>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    data-testid="signup-accept-terms"
+                    checked={acceptedTerms}
+                    onChange={(e) => {
+                      setAcceptedTerms(e.target.checked);
+                      setError('');
+                    }}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="body2" component="span">
+                    I agree to the{' '}
+                    <Link component={RouterLink} to="/terms" target="_blank" rel="noopener noreferrer">
+                      Terms of Service
+                    </Link>
+                    {' '}and{' '}
+                    <Link component={RouterLink} to="/privacy" target="_blank" rel="noopener noreferrer">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </Typography>
+                }
+              />
 
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>

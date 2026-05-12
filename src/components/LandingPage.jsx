@@ -49,7 +49,7 @@ const LandingPage = () => {
       icon: <PointOfSale sx={{ fontSize: 48, color: 'primary.main' }} />,
       title: 'In-store checkout',
       description:
-        'Ring up sales tied to customers. Completing a checkout records the sale and updates inventory quantities automatically.',
+        'Ring up sales tied to customers, add tax, record how they paid, and print a simple receipt. Inventory updates when you complete the sale.',
     },
     {
       icon: <History sx={{ fontSize: 48, color: 'primary.main' }} />,
