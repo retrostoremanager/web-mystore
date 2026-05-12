@@ -178,7 +178,7 @@ const CompanyLandingPage = () => {
                     Customer Sign In
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Loyalty, rewards, and purchase history
+                    Customer portal coming soon (loyalty & purchase history)
                   </Typography>
                 </Box>
                 <Typography color="primary" sx={{ fontWeight: 600 }}>

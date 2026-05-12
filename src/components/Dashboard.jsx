@@ -38,6 +38,7 @@ import { getCompanyProfile } from '../services/profileApi';
 import { getTrialStatus } from '../services/billingApi';
 import { getUsers } from '../services/usersApi';
 import { getCustomers } from '../services/customersApi';
+import { getSalesByDateRange } from '../services/salesApi';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -45,11 +46,12 @@ const Dashboard = () => {
   const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
   const { auth, logout, isAuthenticated, getAuthHeaders } = useAuth();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
-  const { formatNumber } = useFormatting();
+  const { formatNumber, locale, timezone } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);
   const [userCount, setUserCount] = useState(null);
   const [customerCount, setCustomerCount] = useState(null);
   const [companyName, setCompanyName] = useState('');
+  const [todaySalesTotal, setTodaySalesTotal] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated || !getAuthHeaders().Authorization) return;
@@ -107,6 +109,57 @@ const Dashboard = () => {
     loadCustomerCount();
   }, [location.pathname, isAuthenticated, getAuthHeaders]);
 
+  useEffect(() => {
+    if (location.pathname !== '/dashboard') return;
+    if (!isAuthenticated || !getAuthHeaders().Authorization) return;
+    if (permissionsLoading || !hasPermission('sales.view')) return;
+
+    const run = async () => {
+      try {
+        const headers = getAuthHeaders();
+        const now = new Date();
+        const rangeStart = new Date(now.getTime() - 72 * 60 * 60 * 1000);
+        const rangeEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const result = await getSalesByDateRange(
+          rangeStart.toISOString(),
+          rangeEnd.toISOString(),
+          headers
+        );
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to load sales');
+        }
+        const list = Array.isArray(result.data) ? result.data : [];
+        const todayKey = new Intl.DateTimeFormat('en-CA', {
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(now);
+        const todays = list.filter((s) => {
+          if (s.saleDate == null) return false;
+          const key = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(new Date(s.saleDate));
+          return key === todayKey;
+        });
+        const total = todays.reduce((sum, s) => sum + Number(s.total ?? 0), 0);
+        setTodaySalesTotal(total);
+      } catch {
+        setTodaySalesTotal(null);
+      }
+    };
+
+    run();
+  }, [location.pathname, isAuthenticated, getAuthHeaders, permissionsLoading, hasPermission, timezone]);
+
+  const todaySalesDisplay =
+    todaySalesTotal != null
+      ? new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(todaySalesTotal)
+      : '—';
+
   const handleSignOut = () => {
     const slug = auth?.slug;
     logout();
@@ -126,7 +179,7 @@ const Dashboard = () => {
       permission: 'customers.view',
     },
     { label: 'Users', value: userCount != null ? String(userCount) : '—', icon: <Badge />, color: 'info', permission: 'users.view' },
-    { label: 'Today\'s Sales', value: '$2,450.00', icon: <PointOfSale />, color: 'warning', permission: 'sales.view' },
+    { label: 'Today\'s Sales', value: todaySalesDisplay, icon: <PointOfSale />, color: 'warning', permission: 'sales.view' },
   ].filter((s) => !s.permission || permissionsLoading || hasPermission(s.permission));
 
   const sections = [

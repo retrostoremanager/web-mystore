@@ -7,6 +7,8 @@ import { PermissionsProvider } from './contexts/PermissionsContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import AuthRedirect from './components/AuthRedirect';
 import LandingPage from './components/LandingPage';
+import PrivacyPolicyPage from './components/PrivacyPolicyPage';
+import TermsOfServicePage from './components/TermsOfServicePage';
 import CompanyLandingPage from './components/CompanyLandingPage';
 import CompanyLoginPage from './components/CompanyLoginPage';
 import CompanyCustomerPage from './components/CompanyCustomerPage';
@@ -83,6 +85,8 @@ function App() {
             <AuthRedirect>
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsOfServicePage />} />
               <Route path="/signup" element={<SignUpForm />} />
               <Route path="/verify" element={<VerifyEmailPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />

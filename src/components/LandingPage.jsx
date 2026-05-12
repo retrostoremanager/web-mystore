@@ -16,12 +16,13 @@ import {
 import {
   Inventory,
   PointOfSale,
-  Analytics,
+  History,
   People,
+  Groups,
+  CreditCard,
   Security,
-  Speed,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import DashboardPreview from './DashboardPreview';
 
 const CONTACT_EMAIL = 'contact@retrostoremanager.com';
@@ -40,33 +41,45 @@ const LandingPage = () => {
   const features = [
     {
       icon: <Inventory sx={{ fontSize: 48, color: 'primary.main' }} />,
-      title: 'Inventory Management',
-      description: 'Track your video games and TCG inventory in real-time with automated alerts and smart restocking.',
+      title: 'Inventory',
+      description:
+        'Track stock by location with optional IGDB-backed game metadata, condition, and pricing. Categories work for TCG and other products.',
     },
     {
       icon: <PointOfSale sx={{ fontSize: 48, color: 'primary.main' }} />,
-      title: 'Point of Sale',
-      description: 'Streamlined checkout process with support for multiple payment methods and receipt generation.',
+      title: 'In-store checkout',
+      description:
+        'Ring up sales tied to customers. Completing a checkout records the sale and updates inventory quantities automatically.',
     },
     {
-      icon: <Analytics sx={{ fontSize: 48, color: 'primary.main' }} />,
-      title: 'Analytics & Reports',
-      description: 'Comprehensive insights into sales, inventory turnover, and customer behavior to drive decisions.',
+      icon: <History sx={{ fontSize: 48, color: 'primary.main' }} />,
+      title: 'Sales history',
+      description:
+        'Review past transactions and see today\'s sales on your dashboard—the operational basics while richer reporting is on the roadmap.',
     },
     {
       icon: <People sx={{ fontSize: 48, color: 'primary.main' }} />,
-      title: 'Customer Management',
-      description: 'Build lasting relationships with customer profiles, purchase history, and loyalty programs.',
+      title: 'Customers',
+      description:
+        'Keep customer records and connect purchases to profiles so you can see who bought what over time.',
+    },
+    {
+      icon: <Groups sx={{ fontSize: 48, color: 'primary.main' }} />,
+      title: 'Staff & roles',
+      description:
+        'Invite your team with role-based permissions—owners, managers, employees, and cashier-friendly access out of the box.',
+    },
+    {
+      icon: <CreditCard sx={{ fontSize: 48, color: 'primary.main' }} />,
+      title: 'Subscriptions & billing',
+      description:
+        'Self-serve plans and subscription billing through Stripe, including trial periods and saved payment methods.',
     },
     {
       icon: <Security sx={{ fontSize: 48, color: 'primary.main' }} />,
-      title: 'Secure & Reliable',
-      description: 'Enterprise-grade security with regular backups and data encryption to protect your business.',
-    },
-    {
-      icon: <Speed sx={{ fontSize: 48, color: 'primary.main' }} />,
-      title: 'Fast & Efficient',
-      description: 'Lightning-fast performance that keeps your store running smoothly, even during peak hours.',
+      title: 'Sign-in & access control',
+      description:
+        'Email verification, per-company sign-in links, and permissions so each employee only sees what they need.',
     },
   ];
 
@@ -126,19 +139,18 @@ const LandingPage = () => {
                 gutterBottom
                 sx={{ fontWeight: 700, mb: 3 }}
               >
-                Complete Store Management
+                Complete operations software
                 <br />
                 <Box component="span" sx={{ color: '#ffd700' }}>
-                  All in One Place
+                  for game & hobby shops
                 </Box>
               </Typography>
               <Typography
                 variant="h6"
                 sx={{ mb: 4, opacity: 0.9, lineHeight: 1.6 }}
               >
-                Streamline your video game and TCG store operations with our
-                comprehensive platform. Manage inventory, sales, customers, and
-                analytics from a single, intuitive dashboard.
+                Run inventory, in-store checkout, customers, and staff access from one dashboard—built for retro games,
+                trading cards, and collectibles. We ship what works today and say clearly what is still on the way.
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <Button
@@ -203,10 +215,10 @@ const LandingPage = () => {
       <Container ref={featuresRef} maxWidth="lg" sx={{ py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
         <Box sx={{ textAlign: 'center', mb: 8 }}>
           <Typography variant="h3" component="h2" gutterBottom sx={{ fontWeight: 700, mb: 2 }}>
-            Everything You Need to Run Your Store
+            Everything You Need Today
           </Typography>
           <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
-            Powerful features designed specifically for video game and TCG retailers
+            Inventory through billing—described the way your team will actually use it
           </Typography>
         </Box>
 
@@ -238,6 +250,34 @@ const LandingPage = () => {
           ))}
         </Grid>
       </Container>
+
+      <Box sx={{ bgcolor: 'grey.100', py: { xs: 6, md: 8 } }}>
+        <Container maxWidth="lg">
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2, textAlign: 'center' }}>
+            On the roadmap
+          </Typography>
+          <Typography
+            variant="body1"
+            color="text.secondary"
+            sx={{ maxWidth: 720, mx: 'auto', textAlign: 'center', mb: 2 }}
+          >
+            We ship the daily workflows first, then expand. Coming next:
+          </Typography>
+          <Box
+            component="ul"
+            sx={{
+              maxWidth: 520,
+              mx: 'auto',
+              color: 'text.secondary',
+              '& li': { mb: 1 },
+            }}
+          >
+            <li>Trade-in flows with market pricing integrations</li>
+            <li>Customer loyalty sign-in and rewards</li>
+            <li>Richer analytics, exports, and retail reporting</li>
+          </Box>
+        </Container>
+      </Box>
 
       {/* Pricing Section */}
       <Box ref={pricingRef} sx={{ bgcolor: 'grey.50', py: { xs: 6, md: 12 }, scrollMarginTop: 80 }}>
@@ -342,12 +382,12 @@ const LandingPage = () => {
                     </Typography>
                     <Stack spacing={1.5} sx={{ mb: 3, flex: 1 }}>
                       {[
-                        'Unlimited inventory items',
-                        'Unlimited customers',
-                        'Point of sale & checkout',
-                        'Sales history & analytics',
-                        'Trade-in management',
-                        'Multi-user support',
+                        'Inventory with IGDB-backed game search',
+                        'In-store checkout & sales history',
+                        'Customer records tied to purchases',
+                        'Multi-location company profile',
+                        'Team access with role permissions',
+                        'Stripe subscriptions & trial billing',
                         'Email support',
                       ].map((item, i) => (
                         <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -383,7 +423,7 @@ const LandingPage = () => {
                       Start Free Trial
                     </Button>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
-                      14-day free trial • No credit card required
+                      30-day free trial • Payment method at signup; you are not charged until the trial ends
                     </Typography>
                   </CardContent>
                 </Card>
@@ -403,11 +443,11 @@ const LandingPage = () => {
       >
         <Container maxWidth="md" sx={{ textAlign: 'center' }}>
           <Typography variant="h3" component="h2" gutterBottom sx={{ fontWeight: 700, mb: 3 }}>
-            Ready to Transform Your Store?
+            Ready to simplify daily store ops?
           </Typography>
           <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
-            Join store owners who are already streamlining their operations
-            with RetroStore Manager. Start your free trial today — no credit card required.
+            Start a 30-day trial with your team, connect billing when you sign up, and put checkout and inventory on one
+            system. Questions? We are happy to help.
           </Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
             <Button
@@ -461,7 +501,8 @@ const LandingPage = () => {
                 RetroStore Manager
               </Typography>
               <Typography variant="body2">
-                Complete store management solution for video game and TCG retailers.
+                Inventory, checkout, and team access for independent game and hobby retailers—described honestly, improved
+                continuously.
               </Typography>
             </Grid>
             <Grid item xs={12} md={6}>
@@ -519,21 +560,48 @@ const LandingPage = () => {
                 </Typography>
                 <Typography
                   variant="body2"
-                  component="button"
-                  onClick={() => navigate('/signup')}
+                  component={Link}
+                  to="/privacy"
                   sx={(theme) => ({
-                    cursor: 'pointer',
-                    border: 'none',
-                    background: 'none',
                     color: 'inherit',
-                    p: 0,
+                    textDecoration: 'none',
                     fontFamily: theme.typography.fontFamily,
                     fontSize: theme.typography.body2.fontSize,
                     fontWeight: theme.typography.body2.fontWeight,
                     '&:hover': { color: 'white' },
                   })}
                 >
-                  Sign Up
+                  Privacy
+                </Typography>
+                <Typography
+                  variant="body2"
+                  component={Link}
+                  to="/terms"
+                  sx={(theme) => ({
+                    color: 'inherit',
+                    textDecoration: 'none',
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.body2.fontSize,
+                    fontWeight: theme.typography.body2.fontWeight,
+                    '&:hover': { color: 'white' },
+                  })}
+                >
+                  Terms
+                </Typography>
+                <Typography
+                  variant="body2"
+                  component={Link}
+                  to="/signup"
+                  sx={(theme) => ({
+                    color: 'inherit',
+                    textDecoration: 'none',
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.body2.fontSize,
+                    fontWeight: theme.typography.body2.fontWeight,
+                    '&:hover': { color: 'white' },
+                  })}
+                >
+                  Sign up
                 </Typography>
               </Stack>
             </Grid>

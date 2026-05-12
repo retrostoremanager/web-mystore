@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   Box,
   Container,
@@ -32,17 +33,49 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useGetInventoryQuery } from '../store/inventoryApi';
+import { useGetInventoryQuery, inventoryApi } from '../store/inventoryApi';
+import { useAuth } from '../contexts/AuthContext';
+import { getCustomers, createCustomer } from '../services/customersApi';
+import { createSale } from '../services/salesApi';
 
 const steps = ['Select Customer', 'Add Items', 'Review & Complete'];
 
+function customerRecordToOption(c) {
+  const displayName =
+    [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || c.email || `Customer #${c.id}`;
+  return {
+    id: c.id,
+    firstName: c.firstName,
+    lastName: c.lastName,
+    email: c.email || '',
+    displayName,
+    label: `${displayName}${c.email ? ` (${c.email})` : ''}`,
+  };
+}
+
+function unitPriceFromLineItem(item) {
+  const raw = item.sellPrice ?? item.price;
+  if (typeof raw === 'number' && !Number.isNaN(raw)) {
+    return raw;
+  }
+  if (typeof raw === 'string') {
+    const n = parseFloat(raw.replace(/[^0-9.-]/g, ''));
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { getAuthHeaders } = useAuth();
   const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 30000 });
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [customersLoadError, setCustomersLoadError] = useState(null);
+
   const [checkoutData, setCheckoutData] = useState({
     customer: null,
     customerName: '',
@@ -50,22 +83,31 @@ const CheckoutPage = () => {
     items: [],
   });
 
-  // Mock customer list
-  const customers = [
-    { id: 1, name: 'John Smith', email: 'john.smith@email.com' },
-    { id: 2, name: 'Sarah Johnson', email: 'sarah.j@email.com' },
-    { id: 3, name: 'Mike Chen', email: 'mike.chen@email.com' },
-    { id: 4, name: 'Emily Davis', email: 'emily.d@email.com' },
-    { id: 5, name: 'David Wilson', email: 'david.w@email.com' },
-  ];
+  const loadCustomers = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers.Authorization) return;
+    setCustomersLoadError(null);
+    try {
+      const result = await getCustomers(headers);
+      const list = Array.isArray(result.data) ? result.data : [];
+      setCustomerOptions(list.map(customerRecordToOption));
+    } catch (e) {
+      setCustomersLoadError(e.message || 'Failed to load customers');
+      setCustomerOptions([]);
+    }
+  }, [getAuthHeaders]);
+
+  useEffect(() => {
+    loadCustomers();
+  }, [loadCustomers]);
 
   const handleCustomerSelect = (event, value) => {
     if (value) {
       setCheckoutData({
         ...checkoutData,
         customer: value,
-        customerName: value.name,
-        customerEmail: value.email,
+        customerName: value.displayName,
+        customerEmail: value.email || '',
       });
     } else {
       setCheckoutData({
@@ -76,15 +118,6 @@ const CheckoutPage = () => {
       });
     }
     setError('');
-  };
-
-  const handleNewCustomer = () => {
-    setCheckoutData({
-      ...checkoutData,
-      customer: null,
-      customerName: '',
-      customerEmail: '',
-    });
   };
 
   const handleAddItem = (item) => {
@@ -125,10 +158,10 @@ const CheckoutPage = () => {
   };
 
   const calculateTotal = () => {
-    return checkoutData.items.reduce((total, item) => {
-      const price = parseFloat(item.sellPrice || item.price?.replace('$', '') || 0);
-      return total + price * item.quantity;
-    }, 0);
+    return checkoutData.items.reduce(
+      (total, item) => total + unitPriceFromLineItem(item) * item.quantity,
+      0
+    );
   };
 
   const validateStep1 = () => {
@@ -182,27 +215,65 @@ const CheckoutPage = () => {
   const handleComplete = async () => {
     setLoading(true);
     setError('');
-    
+
+    const auth = getAuthHeaders();
+    const email = checkoutData.customerEmail.trim().toLowerCase();
+
     try {
-      // Simulate API call to process transaction
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // In a real app, you would make an API call here to:
-      // 1. Create/update customer record
-      // 2. Create transaction record
-      // 3. Update inventory quantities
-      
-      console.log('Transaction completed:', {
-        customer: checkoutData.customerName,
-        email: checkoutData.customerEmail,
-        items: checkoutData.items,
-        total: calculateTotal(),
-      });
-      
-      // Move to completion step
+      let customerId = checkoutData.customer?.id ?? null;
+      if (!customerId) {
+        const match = customerOptions.find((c) => c.email && c.email.toLowerCase() === email);
+        if (match) customerId = match.id;
+      }
+
+      if (!customerId) {
+        const nameParts = checkoutData.customerName.trim().split(/\s+/);
+        const firstName = nameParts[0]?.trim() || 'Customer';
+        const lastName = nameParts.slice(1).join(' ').trim() || '';
+        try {
+          const res = await createCustomer({ firstName, lastName, email }, auth);
+          customerId = res.data?.id;
+        } catch (createErr) {
+          const msg = createErr.message || '';
+          if (msg.includes('already exists')) {
+            const refreshed = await getCustomers(auth);
+            const list = Array.isArray(refreshed.data) ? refreshed.data : [];
+            setCustomerOptions(list.map(customerRecordToOption));
+            const found = list.find((c) => c.email?.toLowerCase() === email);
+            if (found) {
+              customerId = found.id;
+            }
+          }
+          if (!customerId) {
+            throw createErr;
+          }
+        }
+      }
+
+      if (!customerId) {
+        throw new Error('Could not resolve customer for checkout.');
+      }
+
+      const items = checkoutData.items.map((item) => ({
+        inventoryItemId: item.id,
+        quantity: item.quantity,
+        unitPrice: unitPriceFromLineItem(item),
+      }));
+
+      await createSale(
+        {
+          customerId,
+          tax: 0,
+          paymentMethod: 'In-store',
+          items,
+        },
+        auth
+      );
+
+      dispatch(inventoryApi.util.invalidateTags([{ type: 'Inventory', id: 'LIST' }]));
       setActiveStep(2);
     } catch (err) {
-      setError('Failed to process transaction. Please try again.');
+      setError(err.message || 'Failed to process transaction. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -216,9 +287,15 @@ const CheckoutPage = () => {
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
               Select Customer
             </Typography>
+            {customersLoadError && (
+              <Alert severity="warning">
+                {customersLoadError} You can still type a new customer below if you have access to create customers.
+              </Alert>
+            )}
             <Autocomplete
-              options={customers}
-              getOptionLabel={(option) => `${option.name} (${option.email})`}
+              options={customerOptions}
+              getOptionLabel={(option) => option.label || ''}
+              isOptionEqualToValue={(a, b) => a?.id === b?.id}
               value={checkoutData.customer}
               onChange={handleCustomerSelect}
               renderInput={(params) => (
@@ -335,7 +412,7 @@ const CheckoutPage = () => {
                     </TableHead>
                     <TableBody>
                       {checkoutData.items.map((item) => {
-                        const price = parseFloat(item.sellPrice || item.price?.replace('$', '') || 0);
+                        const price = unitPriceFromLineItem(item);
                         const subtotal = price * item.quantity;
                         return (
                           <TableRow key={item.id}>
@@ -386,7 +463,7 @@ const CheckoutPage = () => {
               Transaction Complete!
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 500 }}>
-              The transaction has been processed successfully. A receipt has been generated.
+              The sale was saved and inventory quantities were updated.
             </Typography>
             <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
               <Button
