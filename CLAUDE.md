@@ -126,7 +126,7 @@ npm run lint        # ESLint
 
 ## When Opening PRs
 
-Target the `development` branch. PR body must reference the orchestrator issue: `Closes sbranham314/orchestrator-mystore#N`
+Target the `development` branch. PR body must reference the orchestrator issue: `Closes retrostoremanager/orchestrator-mystore#N`
 
 ## Code Review Mode
 
