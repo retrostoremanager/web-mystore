@@ -141,7 +141,7 @@ const LandingPage = () => {
               >
                 Complete operations software
                 <br />
-                <Box component="span" sx={{ color: '#ffd700' }}>
+                <Box component="span" sx={{ color: 'warning.light' }}>
                   for game & hobby shops
                 </Box>
               </Typography>
@@ -165,7 +165,7 @@ const LandingPage = () => {
                     fontSize: '1.1rem',
                     fontWeight: 600,
                     '&:hover': {
-                      bgcolor: '#f5f5f5',
+                      bgcolor: 'grey.100',
                     },
                   }}
                 >
@@ -462,7 +462,7 @@ const LandingPage = () => {
                 fontSize: '1.1rem',
                 fontWeight: 600,
                 '&:hover': {
-                  bgcolor: '#f5f5f5',
+                  bgcolor: 'grey.100',
                 },
               }}
             >

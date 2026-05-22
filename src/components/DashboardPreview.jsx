@@ -64,7 +64,7 @@ const DashboardPreview = () => {
       <Box
         sx={{
           width: '100%',
-          bgcolor: '#f5f5f5',
+          bgcolor: 'grey.100',
           borderRadius: 3,
           overflow: 'hidden',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
