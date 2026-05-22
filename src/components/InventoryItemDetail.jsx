@@ -88,8 +88,8 @@ const InventoryItemDetail = () => {
           position="sticky" 
           elevation={1}
           sx={{
-            bgcolor: '#2c3e50',
-            color: '#ffffff',
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
           }}
         >
           <Toolbar>
@@ -121,8 +121,8 @@ const InventoryItemDetail = () => {
           position="sticky" 
           elevation={1}
           sx={{
-            bgcolor: '#2c3e50', // Dark slate gray
-            color: '#ffffff',
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
           }}
         >
           <Toolbar>
@@ -288,8 +288,8 @@ const InventoryItemDetail = () => {
         position="sticky" 
         elevation={1}
         sx={{
-          bgcolor: '#2c3e50', // Dark slate gray
-          color: '#ffffff',
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
         }}
       >
         <Toolbar>
@@ -309,10 +309,10 @@ const InventoryItemDetail = () => {
                 ml: 2,
                 fontWeight: 600,
                 boxShadow: 3,
-                bgcolor: '#16a085', // Teal green
-                color: '#ffffff',
+                bgcolor: 'secondary.main',
+                color: 'primary.contrastText',
                 '&:hover': {
-                  bgcolor: '#138d75', // Darker teal on hover
+                  bgcolor: 'secondary.dark',
                   boxShadow: 5,
                   transform: 'translateY(-1px)',
                 },
@@ -336,10 +336,10 @@ const InventoryItemDetail = () => {
                 startIcon={<Save />}
                 onClick={handleSave}
                 sx={{
-                  bgcolor: '#16a085', // Teal green
-                  color: '#ffffff',
+                  bgcolor: 'secondary.main',
+                  color: 'primary.contrastText',
                   '&:hover': {
-                    bgcolor: '#138d75', // Darker teal on hover
+                    bgcolor: 'secondary.dark',
                   },
                 }}
               >
