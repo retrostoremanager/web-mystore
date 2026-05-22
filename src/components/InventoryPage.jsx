@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -9,51 +9,177 @@ import {
   Toolbar,
   Button,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Chip,
   IconButton,
   TextField,
   InputAdornment,
-  TableSortLabel,
-  Popover,
-  Badge,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
+  Skeleton,
+  Snackbar,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
 import {
   Inventory,
   ArrowBack,
   Add,
-  FilterList,
-  Clear,
-  ArrowUpward,
-  ArrowDownward,
-  UnfoldMore,
+  Edit,
+  Delete,
   Search,
   LocationOn,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useGetInventoryQuery } from '../store/inventoryApi';
+import {
+  useGetInventoryQuery,
+  useCreateInventoryItemMutation,
+  useUpdateInventoryItemMutation,
+  useDeleteInventoryItemMutation,
+} from '../store/inventoryApi';
 import { getCompanyProfile } from '../services/profileApi';
 import { useAuth } from '../contexts/AuthContext';
-import { CircularProgress, Alert } from '@mui/material';
 
-/** Label for list / filters: stored category or linked game console. */
+const CONDITIONS = ['Loose', 'CIB', 'New'];
+
 const getItemSystemLabel = (item) => {
   const fromCategory = item.category?.trim();
   if (fromCategory) return fromCategory;
   const fromGame = item.game?.console?.trim();
   if (fromGame) return fromGame;
-  return '—';
+  return '';
 };
+
+const emptyForm = {
+  name: '',
+  category: '',
+  condition: '',
+  sellPrice: '',
+  quantity: '',
+};
+
+const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading }) => {
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    if (open) {
+      setForm(initialValues ? { ...initialValues } : emptyForm);
+    }
+  }, [open, initialValues]);
+
+  const handleChange = (field) => (e) => {
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleSubmit = () => {
+    onSubmit(form);
+  };
+
+  const isEdit = Boolean(initialValues);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{isEdit ? 'Edit Item' : 'Add Inventory Item'}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField
+            label="Name"
+            value={form.name}
+            onChange={handleChange('name')}
+            required
+            fullWidth
+            autoFocus
+          />
+          <TextField
+            label="Platform / Category"
+            value={form.category}
+            onChange={handleChange('category')}
+            fullWidth
+          />
+          <FormControl fullWidth>
+            <InputLabel>Condition</InputLabel>
+            <Select
+              value={form.condition}
+              label="Condition"
+              onChange={handleChange('condition')}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {CONDITIONS.map((c) => (
+                <MenuItem key={c} value={c}>
+                  {c}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="Price"
+            type="number"
+            value={form.sellPrice}
+            onChange={handleChange('sellPrice')}
+            fullWidth
+            inputProps={{ min: 0, step: 0.01 }}
+            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+          />
+          <TextField
+            label="Quantity"
+            type="number"
+            value={form.quantity}
+            onChange={handleChange('quantity')}
+            fullWidth
+            inputProps={{ min: 0, step: 1 }}
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading || !form.name.trim()}
+          startIcon={loading ? <CircularProgress size={16} /> : null}
+        >
+          {isEdit ? 'Save' : 'Add Item'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const ConfirmDialog = ({ open, onClose, onConfirm, loading, itemName }) => (
+  <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <DialogTitle>Delete Item</DialogTitle>
+    <DialogContent>
+      <DialogContentText>
+        Are you sure you want to delete <strong>{itemName}</strong>? This action cannot be undone.
+      </DialogContentText>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose} disabled={loading}>
+        Cancel
+      </Button>
+      <Button
+        onClick={onConfirm}
+        color="error"
+        variant="contained"
+        disabled={loading}
+        startIcon={loading ? <CircularProgress size={16} /> : null}
+      >
+        Delete
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
 
 const InventoryPage = () => {
   const navigate = useNavigate();
@@ -62,164 +188,202 @@ const InventoryPage = () => {
   const [locationFilter, setLocationFilter] = useState('');
   const [locations, setLocations] = useState([]);
 
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteItem, setDeleteItem] = useState(null);
+
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
   const { data: inventory = [], isLoading, isError, error } = useGetInventoryQuery(
-    {
-      q: searchQuery || undefined,
-      locationId: locationFilter ? Number(locationFilter) : undefined,
-    },
+    { locationId: locationFilter ? Number(locationFilter) : undefined },
     { pollingInterval: 30000 }
   );
+
+  const [createItem, { isLoading: isCreating }] = useCreateInventoryItemMutation();
+  const [updateItem, { isLoading: isUpdating }] = useUpdateInventoryItemMutation();
+  const [deleteItemMutation, { isLoading: isDeleting }] = useDeleteInventoryItemMutation();
 
   useEffect(() => {
     getCompanyProfile(getAuthHeaders())
       .then((res) => setLocations(res?.data?.locations ?? []))
       .catch(() => {});
   }, [getAuthHeaders]);
-  
-  // Sorting state
-  const [orderBy, setOrderBy] = useState('');
-  const [order, setOrder] = useState('asc');
-  
-  // Client-side column filters (in addition to server search/location)
-  const [filters, setFilters] = useState({
-    name: '',
-    category: '',
-    quantity: '',
-    price: '',
-  });
-  
-  // Filter popover state
-  const [filterAnchor, setFilterAnchor] = useState(null);
-  const [activeFilterField, setActiveFilterField] = useState(null);
 
-  // Handle sorting
-  const handleRequestSort = (property) => {
-    const isAsc = orderBy === property && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
-    setOrderBy(property);
-  };
+  const showSnackbar = useCallback((message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
 
-  // Handle filter icon click
-  const handleFilterClick = (event, field) => {
-    // If clicking the same filter, close it; otherwise open the new one
-    if (filterAnchor && activeFilterField === field) {
-      handleFilterClose();
-    } else {
-      setActiveFilterField(field);
-      setFilterAnchor(event.currentTarget);
-    }
-  };
-
-  // Handle filter popover close
-  const handleFilterClose = () => {
-    setFilterAnchor(null);
-    setActiveFilterField(null);
-  };
-
-  // Handle filter changes
-  const handleFilterChange = (field) => (event) => {
-    setFilters((prev) => ({
-      ...prev,
-      [field]: event.target.value,
-    }));
-  };
-
-  // Clear specific filter
-  const handleClearFilter = (field) => {
-    setFilters((prev) => ({
-      ...prev,
-      [field]: '',
-    }));
-    handleFilterClose();
-  };
-
-  // Clear all filters
-  const handleClearFilters = () => {
-    setFilters({
-      name: '',
-      category: '',
-      quantity: '',
-      price: '',
-    });
-  };
-
-  // Normalize items for display (API returns sellPrice, we use price for display)
-  const normalizedInventory = useMemo(
+  const normalizedRows = useMemo(
     () =>
       inventory.map((item) => ({
         ...item,
-        price: item.sellPrice != null ? `$${Number(item.sellPrice).toFixed(2)}` : '$0.00',
+        systemLabel: getItemSystemLabel(item),
+        displayPrice: item.sellPrice != null ? Number(item.sellPrice) : 0,
       })),
     [inventory]
   );
 
-  // Sort and filter inventory
-  const sortedAndFilteredInventory = useMemo(() => {
-    let filtered = [...normalizedInventory];
+  const filteredRows = useMemo(() => {
+    if (!searchQuery.trim()) return normalizedRows;
+    const q = searchQuery.toLowerCase();
+    return normalizedRows.filter(
+      (item) =>
+        item.name?.toLowerCase().includes(q) ||
+        item.systemLabel?.toLowerCase().includes(q)
+    );
+  }, [normalizedRows, searchQuery]);
 
-    // Apply filters
-    if (filters.name) {
-      filtered = filtered.filter((item) =>
-        item.name?.toLowerCase().includes(filters.name.toLowerCase())
-      );
+  const handleAdd = async (form) => {
+    try {
+      await createItem({
+        name: form.name.trim(),
+        category: form.category.trim() || undefined,
+        condition: form.condition || undefined,
+        sellPrice: form.sellPrice !== '' ? Number(form.sellPrice) : undefined,
+        quantity: form.quantity !== '' ? Number(form.quantity) : undefined,
+      }).unwrap();
+      setAddDialogOpen(false);
+      showSnackbar('Item added successfully');
+    } catch (err) {
+      showSnackbar(err?.data?.message || err?.message || 'Failed to add item', 'error');
     }
-    if (filters.category) {
-      const q = filters.category.toLowerCase();
-      filtered = filtered.filter((item) =>
-        getItemSystemLabel(item).toLowerCase().includes(q)
-      );
+  };
+
+  const handleEdit = async (form) => {
+    try {
+      await updateItem({
+        id: editItem.id,
+        name: form.name.trim(),
+        category: form.category.trim() || undefined,
+        condition: form.condition || undefined,
+        sellPrice: form.sellPrice !== '' ? Number(form.sellPrice) : undefined,
+        quantity: form.quantity !== '' ? Number(form.quantity) : undefined,
+      }).unwrap();
+      setEditDialogOpen(false);
+      setEditItem(null);
+      showSnackbar('Item updated successfully');
+    } catch (err) {
+      showSnackbar(err?.data?.message || err?.message || 'Failed to update item', 'error');
     }
-    if (filters.quantity) {
-      filtered = filtered.filter((item) =>
-        String(item.quantity ?? '').includes(filters.quantity)
-      );
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteItemMutation(deleteItem.id).unwrap();
+      setDeleteDialogOpen(false);
+      setDeleteItem(null);
+      showSnackbar('Item deleted successfully');
+    } catch (err) {
+      showSnackbar(err?.data?.message || err?.message || 'Failed to delete item', 'error');
     }
-    if (filters.price) {
-      filtered = filtered.filter((item) =>
-        (item.price ?? '').toLowerCase().includes(filters.price.toLowerCase())
-      );
-    }
+  };
 
-    // Apply sorting
-    if (orderBy) {
-      filtered.sort((a, b) => {
-        let aValue, bValue;
+  const openEdit = (item) => {
+    setEditItem({
+      id: item.id,
+      name: item.name || '',
+      category: item.systemLabel || '',
+      condition: item.condition || '',
+      sellPrice: item.sellPrice != null ? String(item.sellPrice) : '',
+      quantity: item.quantity != null ? String(item.quantity) : '',
+    });
+    setEditDialogOpen(true);
+  };
 
-        switch (orderBy) {
-          case 'name':
-            aValue = a.name?.toLowerCase() ?? '';
-            bValue = b.name?.toLowerCase() ?? '';
-            break;
-          case 'category':
-            aValue = getItemSystemLabel(a).toLowerCase();
-            bValue = getItemSystemLabel(b).toLowerCase();
-            break;
-          case 'quantity':
-            aValue = a.quantity ?? 0;
-            bValue = b.quantity ?? 0;
-            break;
-          case 'price':
-            aValue = a.sellPrice ?? 0;
-            bValue = b.sellPrice ?? 0;
-            break;
-          default:
-            return 0;
-        }
+  const openDelete = (item) => {
+    setDeleteItem(item);
+    setDeleteDialogOpen(true);
+  };
 
-        if (typeof aValue === 'string') {
-          return order === 'asc'
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        } else {
-          return order === 'asc' ? aValue - bValue : bValue - aValue;
-        }
-      });
-    }
+  const columns = [
+    {
+      field: 'name',
+      headerName: 'Name',
+      flex: 2,
+      minWidth: 160,
+    },
+    {
+      field: 'systemLabel',
+      headerName: 'Platform / Category',
+      flex: 1.5,
+      minWidth: 140,
+      renderCell: ({ value }) =>
+        value ? (
+          <Chip label={value} size="small" color="primary" variant="outlined" />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            —
+          </Typography>
+        ),
+    },
+    {
+      field: 'condition',
+      headerName: 'Condition',
+      flex: 1,
+      minWidth: 100,
+      renderCell: ({ value }) =>
+        value ? (
+          <Chip label={value} size="small" variant="outlined" />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            —
+          </Typography>
+        ),
+    },
+    {
+      field: 'displayPrice',
+      headerName: 'Price',
+      flex: 1,
+      minWidth: 90,
+      type: 'number',
+      valueFormatter: ({ value }) =>
+        value != null ? `$${Number(value).toFixed(2)}` : '$0.00',
+    },
+    {
+      field: 'quantity',
+      headerName: 'Quantity',
+      flex: 0.8,
+      minWidth: 80,
+      type: 'number',
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      flex: 1,
+      minWidth: 110,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <Stack direction="row" spacing={0.5}>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              openEdit(row);
+            }}
+            aria-label="edit"
+          >
+            <Edit fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => {
+              e.stopPropagation();
+              openDelete(row);
+            }}
+            aria-label="delete"
+          >
+            <Delete fontSize="small" />
+          </IconButton>
+        </Stack>
+      ),
+    },
+  ];
 
-    return filtered;
-  }, [normalizedInventory, filters, orderBy, order]);
-
-  const hasActiveFilters = Object.values(filters).some((filter) => filter !== '');
+  const skeletonRows = Array.from({ length: 8 }, (_, i) => ({ id: `skeleton-${i}` }));
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -237,22 +401,25 @@ const InventoryPage = () => {
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Card elevation={2}>
           <CardContent>
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: 2, mb: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', md: 'row' },
+                alignItems: { md: 'center' },
+                gap: 2,
+                mb: 3,
+              }}
+            >
               <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                 <Inventory sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
                   Inventory Items
                 </Typography>
-                {sortedAndFilteredInventory.length !== normalizedInventory.length && (
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                    ({sortedAndFilteredInventory.length} of {normalizedInventory.length})
-                  </Typography>
-                )}
               </Box>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
                 <TextField
                   size="small"
-                  placeholder="Search by name, system..."
+                  placeholder="Search by name, platform..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   InputProps={{
@@ -262,16 +429,15 @@ const InventoryPage = () => {
                       </InputAdornment>
                     ),
                   }}
-                  sx={{ minWidth: 200 }}
+                  sx={{ minWidth: 220 }}
                 />
                 <FormControl size="small" sx={{ minWidth: 180 }}>
-                  <InputLabel id="location-filter-label">
+                  <InputLabel>
                     <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <LocationOn fontSize="small" /> Location
                     </Box>
                   </InputLabel>
                   <Select
-                    labelId="location-filter-label"
                     value={locationFilter}
                     label="Location"
                     onChange={(e) => setLocationFilter(e.target.value)}
@@ -293,333 +459,119 @@ const InventoryPage = () => {
                 <Button
                   variant="contained"
                   startIcon={<Add />}
-                  onClick={() => navigate('/dashboard/inventory/add')}
+                  onClick={() => setAddDialogOpen(true)}
                 >
                   Add Item
                 </Button>
               </Stack>
             </Box>
 
-            {hasActiveFilters && (
-              <Box sx={{ mb: 2 }}>
-                <Button
-                  size="small"
-                  startIcon={<Clear />}
-                  onClick={handleClearFilters}
-                  variant="outlined"
-                >
-                  Clear All Filters
-                </Button>
-              </Box>
-            )}
-
-            {isLoading && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            )}
             {isError && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error?.data?.message || error?.message || 'Failed to load inventory'}
               </Alert>
             )}
-            {!isLoading && (
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            '&:hover': { opacity: 0.7 },
-                          }}
-                          onClick={() => handleRequestSort('name')}
-                        >
-                          <Typography sx={{ fontWeight: 600 }}>Item Name</Typography>
-                          {orderBy === 'name' ? (
-                            order === 'asc' ? (
-                              <ArrowUpward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
-                            ) : (
-                              <ArrowDownward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
-                            )
-                          ) : (
-                            <UnfoldMore sx={{ fontSize: 18, ml: 0.5, color: 'action.disabled' }} />
-                          )}
-                        </Box>
-                        <Badge
-                          badgeContent={filters.name ? 1 : 0}
-                          color="primary"
-                          invisible={!filters.name}
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleFilterClick(e, 'name')}
-                            sx={{
-                              p: 0.5,
-                              color: filters.name ? 'primary.main' : 'action.disabled',
-                            }}
-                          >
-                            <FilterList fontSize="small" />
-                          </IconButton>
-                        </Badge>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            '&:hover': { opacity: 0.7 },
-                          }}
-                          onClick={() => handleRequestSort('category')}
-                        >
-                          <Typography sx={{ fontWeight: 600 }}>System</Typography>
-                          {orderBy === 'category' ? (
-                            order === 'asc' ? (
-                              <ArrowUpward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
-                            ) : (
-                              <ArrowDownward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
-                            )
-                          ) : (
-                            <UnfoldMore sx={{ fontSize: 18, ml: 0.5, color: 'action.disabled' }} />
-                          )}
-                        </Box>
-                        <Badge
-                          badgeContent={filters.category ? 1 : 0}
-                          color="primary"
-                          invisible={!filters.category}
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleFilterClick(e, 'category')}
-                            sx={{
-                              p: 0.5,
-                              color: filters.category ? 'primary.main' : 'action.disabled',
-                            }}
-                          >
-                            <FilterList fontSize="small" />
-                          </IconButton>
-                        </Badge>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 600 }}>
-                        <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <LocationOn fontSize="small" /> Location
-                        </Box>
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            '&:hover': { opacity: 0.7 },
-                          }}
-                          onClick={() => handleRequestSort('quantity')}
-                        >
-                          <Typography sx={{ fontWeight: 600 }}>Quantity</Typography>
-                          {orderBy === 'quantity' ? (
-                            order === 'asc' ? (
-                              <ArrowUpward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
-                            ) : (
-                              <ArrowDownward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
-                            )
-                          ) : (
-                            <UnfoldMore sx={{ fontSize: 18, ml: 0.5, color: 'action.disabled' }} />
-                          )}
-                        </Box>
-                        <Badge
-                          badgeContent={filters.quantity ? 1 : 0}
-                          color="primary"
-                          invisible={!filters.quantity}
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleFilterClick(e, 'quantity')}
-                            sx={{
-                              p: 0.5,
-                              color: filters.quantity ? 'primary.main' : 'action.disabled',
-                            }}
-                          >
-                            <FilterList fontSize="small" />
-                          </IconButton>
-                        </Badge>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            '&:hover': { opacity: 0.7 },
-                          }}
-                          onClick={() => handleRequestSort('price')}
-                        >
-                          <Typography sx={{ fontWeight: 600 }}>Price</Typography>
-                          {orderBy === 'price' ? (
-                            order === 'asc' ? (
-                              <ArrowUpward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
-                            ) : (
-                              <ArrowDownward sx={{ fontSize: 18, ml: 0.5, color: 'primary.main' }} />
-                            )
-                          ) : (
-                            <UnfoldMore sx={{ fontSize: 18, ml: 0.5, color: 'action.disabled' }} />
-                          )}
-                        </Box>
-                        <Badge
-                          badgeContent={filters.price ? 1 : 0}
-                          color="primary"
-                          invisible={!filters.price}
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleFilterClick(e, 'price')}
-                            sx={{
-                              p: 0.5,
-                              color: filters.price ? 'primary.main' : 'action.disabled',
-                            }}
-                          >
-                            <FilterList fontSize="small" />
-                          </IconButton>
-                        </Badge>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {normalizedInventory.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                        <Typography variant="body1" color="text.secondary">
-                          No inventory items yet. Click "Add Item" to get started.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : sortedAndFilteredInventory.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                        <Typography variant="body1" color="text.secondary">
-                          No items match your filters. Try adjusting your search criteria.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedAndFilteredInventory.map((item) => (
-                      <TableRow
-                        key={item.id}
-                        hover
-                        onClick={() => navigate(`/dashboard/inventory/${item.id}`)}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>
-                          {getItemSystemLabel(item) === '—' ? (
-                            <Typography variant="body2" color="text.secondary">
-                              —
-                            </Typography>
-                          ) : (
-                            <Chip
-                              label={getItemSystemLabel(item)}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={item.locationName || `Location ${item.locationId}`}
-                            size="small"
-                            variant="outlined"
-                            icon={<LocationOn sx={{ fontSize: 14 }} />}
-                          />
-                        </TableCell>
-                        <TableCell align="right">{item.quantity}</TableCell>
-                        <TableCell align="right">{item.price}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            )}
 
-            {/* Filter Popover */}
-            {filterAnchor && activeFilterField && (
-              <Popover
-                open={Boolean(filterAnchor && activeFilterField)}
-                anchorEl={filterAnchor}
-                onClose={handleFilterClose}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'left',
-                }}
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'left',
-                }}
-              >
-                <Box sx={{ p: 2, minWidth: 250 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                    Filter by{' '}
-                    {activeFilterField === 'name'
-                      ? 'Item Name'
-                      : activeFilterField === 'category'
-                      ? 'System'
-                      : activeFilterField === 'quantity'
-                      ? 'Quantity'
-                      : 'Price'}
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    value={filters[activeFilterField] || ''}
-                    onChange={handleFilterChange(activeFilterField)}
-                    placeholder={`Enter ${
-                      activeFilterField === 'name'
-                        ? 'item name'
-                        : activeFilterField === 'category'
-                        ? 'system'
-                        : activeFilterField === 'quantity'
-                        ? 'quantity'
-                        : 'price'
-                    }...`}
-                    type={activeFilterField === 'quantity' ? 'number' : 'text'}
-                    autoFocus
-                    InputProps={{
-                      endAdornment: filters[activeFilterField] && (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleClearFilter(activeFilterField)}
-                            edge="end"
+            {isLoading ? (
+              <Box>
+                {skeletonRows.map((row) => (
+                  <Skeleton key={row.id} variant="rectangular" height={52} sx={{ mb: 0.5, borderRadius: 1 }} />
+                ))}
+              </Box>
+            ) : (
+              <Box sx={{ width: '100%' }}>
+                <DataGrid
+                  rows={filteredRows}
+                  columns={columns}
+                  autoHeight
+                  pageSizeOptions={[25, 50, 100]}
+                  initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+                  onRowClick={({ row }) => navigate(`/dashboard/inventory/${row.id}`)}
+                  sx={{ cursor: 'pointer', border: 'none' }}
+                  slots={{
+                    noRowsOverlay: () => (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: '100%',
+                          py: 6,
+                        }}
+                      >
+                        <Inventory sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                        <Typography variant="body1" color="text.secondary">
+                          {searchQuery
+                            ? 'No items match your search.'
+                            : 'No items yet. Add your first item.'}
+                        </Typography>
+                        {!searchQuery && (
+                          <Button
+                            variant="contained"
+                            startIcon={<Add />}
+                            sx={{ mt: 2 }}
+                            onClick={() => setAddDialogOpen(true)}
                           >
-                            <Clear fontSize="small" />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
-              </Popover>
+                            Add Item
+                          </Button>
+                        )}
+                      </Box>
+                    ),
+                  }}
+                />
+              </Box>
             )}
           </CardContent>
         </Card>
       </Container>
+
+      <ItemDialog
+        open={addDialogOpen}
+        onClose={() => setAddDialogOpen(false)}
+        onSubmit={handleAdd}
+        initialValues={null}
+        loading={isCreating}
+      />
+
+      <ItemDialog
+        open={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setEditItem(null);
+        }}
+        onSubmit={handleEdit}
+        initialValues={editItem}
+        loading={isUpdating}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setDeleteItem(null);
+        }}
+        onConfirm={handleDelete}
+        loading={isDeleting}
+        itemName={deleteItem?.name}
+      />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          variant="filled"
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
 
 export default InventoryPage;
-
