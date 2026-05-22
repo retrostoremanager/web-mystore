@@ -13,6 +13,14 @@ import {
   Stack,
   Alert,
   Chip,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from '@mui/material';
 import {
   Inventory,
@@ -43,15 +51,19 @@ import { getSalesByDateRange } from '../services/salesApi';
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
+  const { data: inventory = [], isLoading: inventoryLoading } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
   const { auth, logout, isAuthenticated, getAuthHeaders } = useAuth();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const { formatNumber, locale, timezone } = useFormatting();
   const [trialStatus, setTrialStatus] = useState(null);
   const [userCount, setUserCount] = useState(null);
   const [customerCount, setCustomerCount] = useState(null);
+  const [customerLoading, setCustomerLoading] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [todaySalesTotal, setTodaySalesTotal] = useState(null);
+  const [recentSales, setRecentSales] = useState([]);
+  const [salesLoading, setSalesLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (!isAuthenticated || !getAuthHeaders().Authorization) return;
@@ -85,7 +97,6 @@ const Dashboard = () => {
       try {
         const result = await getUsers(getAuthHeaders());
         const users = result.data || [];
-        // Only count active users (password set, not disabled, not pending invitation)
         const activeCount = users.filter((u) => u.status === 'active').length;
         setUserCount(activeCount);
       } catch {
@@ -99,11 +110,16 @@ const Dashboard = () => {
     if (location.pathname !== '/dashboard') return;
     if (!isAuthenticated || !getAuthHeaders().Authorization) return;
     const loadCustomerCount = async () => {
+      setCustomerLoading(true);
       try {
         const result = await getCustomers(getAuthHeaders());
         setCustomerCount((result.data || []).length);
-      } catch {
+        setErrors((prev) => ({ ...prev, customers: null }));
+      } catch (err) {
         setCustomerCount(null);
+        setErrors((prev) => ({ ...prev, customers: err.message || 'Failed to load customers' }));
+      } finally {
+        setCustomerLoading(false);
       }
     };
     loadCustomerCount();
@@ -115,6 +131,7 @@ const Dashboard = () => {
     if (permissionsLoading || !hasPermission('sales.view')) return;
 
     const run = async () => {
+      setSalesLoading(true);
       try {
         const headers = getAuthHeaders();
         const now = new Date();
@@ -147,8 +164,15 @@ const Dashboard = () => {
         });
         const total = todays.reduce((sum, s) => sum + Number(s.total ?? 0), 0);
         setTodaySalesTotal(total);
-      } catch {
+        const sorted = [...list].sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
+        setRecentSales(sorted.slice(0, 5));
+        setErrors((prev) => ({ ...prev, sales: null }));
+      } catch (err) {
         setTodaySalesTotal(null);
+        setRecentSales([]);
+        setErrors((prev) => ({ ...prev, sales: err.message || 'Failed to load sales' }));
+      } finally {
+        setSalesLoading(false);
       }
     };
 
@@ -166,20 +190,42 @@ const Dashboard = () => {
     navigate(slug ? `/${slug}` : '/');
   };
 
-  // Calculate total quantity of all inventory items
   const totalQuantity = inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  void totalQuantity;
 
-  const stats = [
-    { label: 'Total Inventory Items', value: formatNumber(inventory.length), icon: <Inventory />, color: 'primary', permission: 'inventory.view' },
+  const statsConfig = [
+    {
+      label: 'Total Inventory Items',
+      value: formatNumber(inventory.length),
+      loading: inventoryLoading,
+      icon: <Inventory />,
+      color: 'primary',
+      permission: 'inventory.view',
+    },
     {
       label: 'Customers',
       value: customerCount != null ? formatNumber(customerCount) : '—',
+      loading: customerLoading,
       icon: <People />,
       color: 'success',
       permission: 'customers.view',
     },
-    { label: 'Users', value: userCount != null ? String(userCount) : '—', icon: <Badge />, color: 'info', permission: 'users.view' },
-    { label: 'Today\'s Sales', value: todaySalesDisplay, icon: <PointOfSale />, color: 'warning', permission: 'sales.view' },
+    {
+      label: 'Users',
+      value: userCount != null ? String(userCount) : '—',
+      loading: false,
+      icon: <Badge />,
+      color: 'info',
+      permission: 'users.view',
+    },
+    {
+      label: "Today's Sales",
+      value: todaySalesDisplay,
+      loading: salesLoading,
+      icon: <PointOfSale />,
+      color: 'warning',
+      permission: 'sales.view',
+    },
   ].filter((s) => !s.permission || permissionsLoading || hasPermission(s.permission));
 
   const sections = [
@@ -195,9 +241,10 @@ const Dashboard = () => {
     { title: 'Billing & Payment', description: 'Manage payment methods for your subscription', icon: <CreditCard sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/billing', permission: 'billing.view' },
   ].filter((s) => permissionsLoading || hasPermission(s.permission));
 
+  const activeErrors = Object.values(errors).filter(Boolean);
+
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
-      {/* Navigation Bar */}
       <AppBar position="sticky" elevation={1}>
         <Toolbar>
           <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
@@ -212,7 +259,6 @@ const Dashboard = () => {
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Trial Status Banner - show when in trial OR when trial expired (access restricted) */}
         {(trialStatus?.isInTrial || trialStatus?.accessRestricted) && (
           <Alert
             severity={trialStatus.accessRestricted || (trialStatus.daysRemaining <= 7 && !trialStatus.hasPaymentMethod) ? 'warning' : 'info'}
@@ -244,9 +290,14 @@ const Dashboard = () => {
           </Alert>
         )}
 
-        {/* Stats Overview */}
+        {activeErrors.map((msg, i) => (
+          <Alert key={i} severity="error" sx={{ mb: 2 }}>
+            {msg}
+          </Alert>
+        ))}
+
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          {stats.map((stat, index) => (
+          {statsConfig.map((stat, index) => (
             <Grid item xs={12} sm={6} md={3} key={index}>
               <Card elevation={2}>
                 <CardContent>
@@ -264,13 +315,22 @@ const Dashboard = () => {
                     >
                       {stat.icon}
                     </Box>
-                    <Box>
-                      <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                        {stat.value}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {stat.label}
-                      </Typography>
+                    <Box sx={{ flexGrow: 1 }}>
+                      {stat.loading ? (
+                        <>
+                          <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1, mb: 0.5 }} />
+                          <Skeleton variant="text" width={120} />
+                        </>
+                      ) : (
+                        <>
+                          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                            {stat.value}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {stat.label}
+                          </Typography>
+                        </>
+                      )}
                     </Box>
                   </Stack>
                 </CardContent>
@@ -279,7 +339,72 @@ const Dashboard = () => {
           ))}
         </Grid>
 
-        {/* Section Cards */}
+        {(!permissionsLoading && hasPermission('sales.view')) && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
+              Recent Sales
+            </Typography>
+            <TableContainer component={Paper} elevation={2}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Customer</TableCell>
+                    <TableCell align="right">Total</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {salesLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton variant="text" /></TableCell>
+                        <TableCell><Skeleton variant="text" /></TableCell>
+                        <TableCell><Skeleton variant="text" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : recentSales.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} align="center">
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                          No recent sales found
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    recentSales.map((sale) => (
+                      <TableRow key={sale.id ?? sale.saleId}>
+                        <TableCell>
+                          {sale.saleDate
+                            ? new Intl.DateTimeFormat(locale, {
+                                timeZone: timezone,
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              }).format(new Date(sale.saleDate))
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {sale.customerName ||
+                            (sale.customer
+                              ? `${sale.customer.firstName || ''} ${sale.customer.lastName || ''}`.trim()
+                              : sale.customerId
+                                ? `Customer #${sale.customerId}`
+                                : 'Walk-in')}
+                        </TableCell>
+                        <TableCell align="right">
+                          {sale.total != null
+                            ? new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(Number(sale.total))
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )}
+
         <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
           Manage Your Store
         </Typography>
@@ -350,4 +475,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
