@@ -126,7 +126,12 @@ npm run lint        # ESLint
 
 ## When Opening PRs
 
-Target the `development` branch. PR body must reference the orchestrator issue: `Closes retrostoremanager/orchestrator-mystore#N`
+**NEVER push directly to the `development` branch.** Always follow these steps:
+
+1. Create a feature branch off `development`: `git checkout -b feature/issue-N`
+2. Make all commits on that branch
+3. Open a pull request targeting `development`
+4. PR body must reference the orchestrator issue: `Closes retrostoremanager/orchestrator-mystore#N`
 
 ## Code Review Mode
 
