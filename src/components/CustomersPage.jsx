@@ -7,13 +7,6 @@ import {
   CardContent,
   AppBar,
   Toolbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   IconButton,
   Button,
   Dialog,
@@ -22,13 +15,29 @@ import {
   DialogActions,
   TextField,
   CircularProgress,
+  Snackbar,
   Alert,
+  Drawer,
+  Divider,
+  Chip,
+  Skeleton,
 } from '@mui/material';
-import { ArrowBack, Add, People } from '@mui/icons-material';
+import {
+  ArrowBack,
+  Add,
+  People,
+  Close,
+  Delete,
+} from '@mui/icons-material';
+import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
-import { getCustomers, createCustomer } from '../services/customersApi';
+import {
+  getCustomers,
+  createCustomer,
+  deleteCustomer,
+} from '../services/customersApi';
 
 const emptyCustomerForm = {
   name: '',
@@ -36,27 +45,41 @@ const emptyCustomerForm = {
   phone: '',
 };
 
+const customerDisplayName = (c) =>
+  [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || '—';
+
 const CustomersPage = () => {
   const navigate = useNavigate();
   const { getAuthHeaders } = useAuth();
   const { hasPermission } = usePermissions();
+
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyCustomerForm);
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState(null);
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const showSnackbar = (message, severity = 'success') =>
+    setSnackbar({ open: true, message, severity });
 
   const loadCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const res = await getCustomers(getAuthHeaders());
       setCustomers(res.data || []);
     } catch (err) {
-      setError(err.message || 'Failed to load customers');
+      showSnackbar(err.message || 'Failed to load customers', 'error');
       setCustomers([]);
     } finally {
       setLoading(false);
@@ -71,7 +94,6 @@ const CustomersPage = () => {
   const openAdd = () => {
     setForm(emptyCustomerForm);
     setFieldErrors({});
-    setSuccessMessage(null);
     setAddOpen(true);
   };
 
@@ -92,10 +114,9 @@ const CustomersPage = () => {
     if (!validateForm()) return;
     try {
       setSubmitting(true);
-      setError(null);
       const email = form.email?.trim() || '';
       const phone = form.phone?.trim() || '';
-      const res = await createCustomer(
+      await createCustomer(
         {
           firstName: form.name.trim(),
           lastName: '',
@@ -104,18 +125,95 @@ const CustomersPage = () => {
         },
         getAuthHeaders()
       );
-      setSuccessMessage(res.message || 'Customer created.');
+      showSnackbar('Customer added successfully');
       setAddOpen(false);
       await loadCustomers();
     } catch (err) {
-      setError(err.message || 'Failed to create customer');
+      showSnackbar(err.message || 'Failed to create customer', 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const customerDisplayName = (c) =>
-    [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || '—';
+  const openDeleteConfirm = (customer) => {
+    setDeleteTarget(customer);
+    setConfirmOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setDeleting(true);
+      await deleteCustomer(deleteTarget.id, getAuthHeaders());
+      showSnackbar('Customer deleted');
+      setConfirmOpen(false);
+      setDeleteTarget(null);
+      if (selectedCustomer?.id === deleteTarget.id) {
+        setDrawerOpen(false);
+        setSelectedCustomer(null);
+      }
+      await loadCustomers();
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to delete customer', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleRowClick = (params) => {
+    setSelectedCustomer(params.row);
+    setDrawerOpen(true);
+  };
+
+  const columns = [
+    {
+      field: 'name',
+      headerName: 'Name',
+      flex: 1,
+      minWidth: 160,
+      valueGetter: (_, row) => customerDisplayName(row),
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      flex: 1,
+      minWidth: 180,
+      valueGetter: (_, row) => row.email || '—',
+    },
+    {
+      field: 'phone',
+      headerName: 'Phone',
+      flex: 1,
+      minWidth: 140,
+      valueGetter: (_, row) => row.phone || '—',
+    },
+    {
+      field: 'pointsBalance',
+      headerName: 'Points Balance',
+      width: 140,
+      renderCell: () => <Chip label="0" size="small" variant="outlined" />,
+      sortable: false,
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 90,
+      sortable: false,
+      renderCell: (params) =>
+        hasPermission('customers.edit') ? (
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => {
+              e.stopPropagation();
+              openDeleteConfirm(params.row);
+            }}
+          >
+            <Delete fontSize="small" />
+          </IconButton>
+        ) : null,
+    },
+  ];
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -156,50 +254,30 @@ const CustomersPage = () => {
               )}
             </Box>
 
-            {successMessage && (
-              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage(null)}>
-                {successMessage}
-              </Alert>
-            )}
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
-
             {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
+              <Box>
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} variant="rectangular" height={52} sx={{ mb: 1, borderRadius: 1 }} />
+                ))}
               </Box>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {customers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
-                          <Typography color="text.secondary">No customers found</Typography>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      customers.map((customer) => (
-                        <TableRow key={customer.id} hover>
-                          <TableCell>{customerDisplayName(customer)}</TableCell>
-                          <TableCell>{customer.email || '—'}</TableCell>
-                          <TableCell>{customer.phone || '—'}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <DataGrid
+                rows={customers}
+                columns={columns}
+                autoHeight
+                onRowClick={handleRowClick}
+                pageSizeOptions={[10, 25, 50]}
+                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+                disableRowSelectionOnClick={false}
+                sx={{ cursor: 'pointer' }}
+                slots={{
+                  noRowsOverlay: () => (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                      <Typography color="text.secondary">No customers found</Typography>
+                    </Box>
+                  ),
+                }}
+              />
             )}
           </CardContent>
         </Card>
@@ -232,19 +310,104 @@ const CustomersPage = () => {
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               fullWidth
               error={Boolean(fieldErrors.contact)}
-              helperText={
-                fieldErrors.contact || 'At least one of email or phone is required'
-              }
+              helperText={fieldErrors.contact || 'At least one of email or phone is required'}
             />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={submitting}>
-            {submitting ? 'Saving...' : 'Save'}
+            {submitting ? <CircularProgress size={20} /> : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Customer</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete{' '}
+            <strong>{deleteTarget ? customerDisplayName(deleteTarget) : 'this customer'}</strong>?
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}>
+            {deleting ? <CircularProgress size={20} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Drawer
+        anchor="right"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 400 } } }}
+      >
+        {selectedCustomer && (
+          <Box sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Customer Details
+              </Typography>
+              <IconButton onClick={() => setDrawerOpen(false)}>
+                <Close />
+              </IconButton>
+            </Box>
+
+            <Divider sx={{ mb: 3 }} />
+
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              CONTACT INFO
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Name
+                </Typography>
+                <Typography variant="body1">{customerDisplayName(selectedCustomer)}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Email
+                </Typography>
+                <Typography variant="body1">{selectedCustomer.email || '—'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Phone
+                </Typography>
+                <Typography variant="body1">{selectedCustomer.phone || '—'}</Typography>
+              </Box>
+            </Box>
+
+            <Divider sx={{ mb: 3 }} />
+
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              PURCHASE HISTORY
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Purchase history will be available in a future update.
+            </Typography>
+          </Box>
+        )}
+      </Drawer>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          variant="filled"
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
