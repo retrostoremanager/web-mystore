@@ -40,3 +40,39 @@ export async function createCustomer(body, authHeaders) {
   }
   return result;
 }
+
+/**
+ * Get a single customer by ID.
+ * @param {number|string} customerId
+ * @param {Object} authHeaders
+ */
+export async function getCustomer(customerId, authHeaders) {
+  const response = await fetchWithRetry(
+    `${config.apiUrl}/customers/${customerId}`,
+    { method: 'GET', headers: authHeaders },
+    3,
+    1500
+  );
+  const result = await parseJsonResponse(response, 'Failed to retrieve customer');
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to retrieve customer');
+  }
+  return result;
+}
+
+/**
+ * Delete a customer by ID.
+ * @param {number|string} customerId
+ * @param {Object} authHeaders
+ */
+export async function deleteCustomer(customerId, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/customers/${customerId}`, {
+    method: 'DELETE',
+    headers: authHeaders,
+  });
+  const result = await parseJsonResponse(response, 'Failed to delete customer');
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to delete customer');
+  }
+  return result;
+}
