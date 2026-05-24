@@ -92,7 +92,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - uses: anthropics/claude-code-action@beta
+      - id: claude
+        continue-on-error: true
+        uses: anthropics/claude-code-action@beta
         env:
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         with:
@@ -105,8 +107,70 @@ jobs:
           timeout_minutes: 30
           max_turns: 60
 
+      - name: Handle spending cap
+        if: steps.claude.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          BRANCH: ${{ github.event.inputs.branch || github.event.client_payload.branch || 'development' }}
+          PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
+        run: |
+          STEP_OUTPUT="${{ steps.claude.outputs.output }}"
+          if echo "$PROMPT" | grep -qF "You are a code reviewer"; then
+            echo "Code review agent failure — skipping retry logic"
+            exit 1
+          fi
+          if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached resets"; then
+            echo "Not a spending cap — resetting issue to ready for retry."
+            ISSUE_N=$(echo "$BRANCH" | grep -oP 'feature/issue-\K[0-9]+' || true)
+            if [ -z "$ISSUE_N" ]; then
+              ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
+            fi
+            if [ -z "$ISSUE_N" ]; then
+              ISSUE_N=$(echo "$PROMPT" | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+            fi
+            if [ -z "$ISSUE_N" ]; then
+              echo "Cannot determine issue number — leaving for stale recovery"
+              exit 1
+            fi
+            RETRY_COUNT=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --json labels \
+              --jq '[.labels[].name | select(startswith("retry-"))] | length' \
+              2>/dev/null || echo "0")
+            NEXT_RETRY=$(( ${RETRY_COUNT:-0} + 1 ))
+            if [ "${RETRY_COUNT:-0}" -ge 3 ]; then
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --remove-label in-progress --add-label agent-failed
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --body "Agent failed $RETRY_COUNT times — marking **agent-failed** ([run $GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
+            else
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --remove-label in-progress --add-label ready --add-label "retry-$NEXT_RETRY"
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --body "Agent workflow failed (retry $NEXT_RETRY/3). Resetting to **ready**."
+            fi
+            exit 1
+          fi
+          RESET_ISO=$(date -u -d "+8 hours" +%Y-%m-%dT%H:%M:%SZ)
+          ISSUE_N=$(echo "$BRANCH" | grep -oP 'feature/issue-\K[0-9]+' || true)
+          if [ -z "$ISSUE_N" ]; then
+            ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
+          fi
+          if [ -n "$ISSUE_N" ]; then
+            GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore --add-label "cap-wait"
+            GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --body "Spending cap reached — will auto-resume after reset (~$RESET_ISO)."
+          fi
+          echo "Spending cap detected — skipping failure notification"
       - name: Trigger code review for any new PR
-        if: always()
+        if: steps.claude.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
