@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -7,16 +7,10 @@ import {
   CardContent,
   AppBar,
   Toolbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Chip,
   IconButton,
-  CircularProgress,
+  Skeleton,
+  Snackbar,
   Alert,
   Button,
   Dialog,
@@ -28,18 +22,25 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  FormControlLabel,
-  Checkbox,
   ListItemText,
   Tooltip,
 } from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
 import { Badge, ArrowBack, Add, Edit, Block, PersonAdd, Email } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getUsers, createUser, updateUser, resendInvite } from '../services/usersApi';
 import { getRoles } from '../services/rolesApi';
 
-const emptyUserForm = {
+const emptyInviteForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  roleId: null,
+};
+
+const emptyEditForm = {
   firstName: '',
   lastName: '',
   email: '',
@@ -53,17 +54,26 @@ const UsersPage = () => {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [userDialog, setUserDialog] = useState(null); // { mode: 'add' | 'edit', user?: {} }
-  const [userForm, setUserForm] = useState(emptyUserForm);
-  const [submitting, setSubmitting] = useState(false);
-  const [disableConfirm, setDisableConfirm] = useState(null); // { user, action: 'disable' | 'enable' }
+  const [snackbar, setSnackbar] = useState(null);
+
+  const [inviteDialog, setInviteDialog] = useState(false);
+  const [inviteForm, setInviteForm] = useState(emptyInviteForm);
+  const [inviteErrors, setInviteErrors] = useState({});
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+
+  const [editDialog, setEditDialog] = useState(null);
+  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const [deactivateConfirm, setDeactivateConfirm] = useState(null);
+  const [deactivateSubmitting, setDeactivateSubmitting] = useState(false);
+
   const [resendingId, setResendingId] = useState(null);
 
-  const loadUsers = async () => {
+  const loadData = useCallback(async () => {
+    if (!getAuthHeaders().Authorization) return;
     try {
       setLoading(true);
-      setError(null);
       const [usersRes, rolesRes] = await Promise.all([
         getUsers(getAuthHeaders()),
         getRoles(getAuthHeaders()),
@@ -71,18 +81,17 @@ const UsersPage = () => {
       setUsers(usersRes.data || []);
       setRoles(rolesRes.data || []);
     } catch (err) {
-      setError(err.message || 'Failed to load users');
+      setSnackbar({ severity: 'error', message: err.message || 'Failed to load users' });
       setUsers([]);
       setRoles([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeaders]);
 
   useEffect(() => {
-    if (!getAuthHeaders().Authorization) return;
-    loadUsers();
-  }, [getAuthHeaders]);
+    loadData();
+  }, [loadData]);
 
   const getStatusColor = (status) => {
     if (status === 'active') return 'success';
@@ -91,103 +100,238 @@ const UsersPage = () => {
     return 'default';
   };
 
-  const getStatusDisplayLabel = (status) => {
+  const getStatusLabel = (status) => {
     if (status === 'pending_invitation') return 'Pending invitation';
     if (status === 'invitation_expired') return 'Invitation expired';
     if (status === 'removed') return 'Disabled';
     return status === 'active' ? 'Active' : status || 'Active';
   };
 
-  const openAddDialog = () => {
-    setUserForm(emptyUserForm);
-    setUserDialog({ mode: 'add' });
+  const validateInviteForm = () => {
+    const errors = {};
+    if (!inviteForm.firstName.trim()) errors.firstName = 'First name is required';
+    if (!inviteForm.lastName.trim()) errors.lastName = 'Last name is required';
+    if (!inviteForm.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email.trim())) {
+      errors.email = 'Enter a valid email address';
+    }
+    return errors;
+  };
+
+  const openInviteDialog = () => {
+    setInviteForm(emptyInviteForm);
+    setInviteErrors({});
+    setInviteDialog(true);
+  };
+
+  const handleInviteUser = async () => {
+    const errors = validateInviteForm();
+    if (Object.keys(errors).length > 0) {
+      setInviteErrors(errors);
+      return;
+    }
+    try {
+      setInviteSubmitting(true);
+      await createUser(
+        {
+          firstName: inviteForm.firstName.trim(),
+          lastName: inviteForm.lastName.trim(),
+          email: inviteForm.email.trim().toLowerCase(),
+          phone: inviteForm.phone?.trim() || undefined,
+          roleIds: inviteForm.roleId ? [inviteForm.roleId] : [],
+        },
+        getAuthHeaders()
+      );
+      setInviteDialog(false);
+      setSnackbar({ severity: 'success', message: 'Invitation sent successfully' });
+      await loadData();
+    } catch (err) {
+      setSnackbar({ severity: 'error', message: err.message || 'Failed to invite user' });
+    } finally {
+      setInviteSubmitting(false);
+    }
   };
 
   const openEditDialog = (user) => {
     const roleNames = (user.roles || []).map((r) => r.toLowerCase());
     const matchedRole = roles.find((r) => roleNames.includes(r.name?.toLowerCase()));
-    setUserForm({
+    setEditForm({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       email: user.email || '',
       phone: user.phone || '',
       roleId: matchedRole?.id ?? null,
-      isActive: user.status === 'active',
     });
-    setUserDialog({ mode: 'edit', user });
+    setEditDialog(user);
   };
 
-  const handleSaveUser = async () => {
-    if (!userForm.firstName?.trim() || !userForm.lastName?.trim() || !userForm.email?.trim()) {
-      setError('First name, last name, and email are required');
+  const handleEditUser = async () => {
+    if (!editForm.firstName?.trim() || !editForm.lastName?.trim() || !editForm.email?.trim()) {
+      setSnackbar({ severity: 'error', message: 'First name, last name, and email are required' });
       return;
     }
     try {
-      setSubmitting(true);
-      setError(null);
-      const headers = getAuthHeaders();
-      if (userDialog.mode === 'add') {
-        await createUser(
-          {
-            firstName: userForm.firstName.trim(),
-            lastName: userForm.lastName.trim(),
-            email: userForm.email.trim().toLowerCase(),
-            phone: userForm.phone?.trim() || undefined,
-            roleIds: userForm.roleId ? [userForm.roleId] : [],
-          },
-          headers
-        );
-      } else {
-        await updateUser(
-          userDialog.user.id,
-          {
-            firstName: userForm.firstName.trim(),
-            lastName: userForm.lastName.trim(),
-            email: userForm.email.trim().toLowerCase(),
-            phone: userForm.phone?.trim() || undefined,
-            roleIds: userForm.roleId ? [userForm.roleId] : [],
-            isActive: userForm.isActive,
-          },
-          headers
-        );
-      }
-      setUserDialog(null);
-      await loadUsers();
+      setEditSubmitting(true);
+      await updateUser(
+        editDialog.id,
+        {
+          firstName: editForm.firstName.trim(),
+          lastName: editForm.lastName.trim(),
+          email: editForm.email.trim().toLowerCase(),
+          phone: editForm.phone?.trim() || undefined,
+          roleIds: editForm.roleId ? [editForm.roleId] : [],
+        },
+        getAuthHeaders()
+      );
+      setEditDialog(null);
+      setSnackbar({ severity: 'success', message: 'User updated successfully' });
+      await loadData();
     } catch (err) {
-      setError(err.message || 'Failed to save user');
+      setSnackbar({ severity: 'error', message: err.message || 'Failed to update user' });
     } finally {
-      setSubmitting(false);
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDeactivateOrReactivate = async () => {
+    if (!deactivateConfirm) return;
+    const isReactivating = deactivateConfirm.action === 'reactivate';
+    try {
+      setDeactivateSubmitting(true);
+      await updateUser(deactivateConfirm.user.id, { isActive: isReactivating }, getAuthHeaders());
+      setDeactivateConfirm(null);
+      setSnackbar({
+        severity: 'success',
+        message: isReactivating ? 'User reactivated successfully' : 'User deactivated successfully',
+      });
+      await loadData();
+    } catch (err) {
+      setSnackbar({ severity: 'error', message: err.message || `Failed to ${isReactivating ? 'reactivate' : 'deactivate'} user` });
+    } finally {
+      setDeactivateSubmitting(false);
     }
   };
 
   const handleResendInvite = async (user) => {
     try {
       setResendingId(user.id);
-      setError(null);
       await resendInvite(user.id, getAuthHeaders());
-      await loadUsers();
+      setSnackbar({ severity: 'success', message: 'Invite resent successfully' });
+      await loadData();
     } catch (err) {
-      setError(err.message || 'Failed to resend invite');
+      setSnackbar({ severity: 'error', message: err.message || 'Failed to resend invite' });
     } finally {
       setResendingId(null);
     }
   };
 
-  const handleDisableOrEnable = async () => {
-    if (!disableConfirm) return;
-    const isEnabling = disableConfirm.action === 'enable';
-    try {
-      setSubmitting(true);
-      setError(null);
-      await updateUser(disableConfirm.user.id, { isActive: isEnabling }, getAuthHeaders());
-      setDisableConfirm(null);
-      await loadUsers();
-    } catch (err) {
-      setError(err.message || `Failed to ${isEnabling ? 'enable' : 'disable'} user`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const columns = [
+    {
+      field: 'name',
+      headerName: 'Name',
+      flex: 1,
+      minWidth: 160,
+      valueGetter: (params) => [params.row.firstName, params.row.lastName].filter(Boolean).join(' ') || '—',
+      renderCell: ({ row }) => (
+        <span>{[row.firstName, row.lastName].filter(Boolean).join(' ') || '—'}</span>
+      ),
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      flex: 1,
+      minWidth: 200,
+      valueGetter: (params) => params.row.email || '—',
+      renderCell: ({ row }) => <span>{row.email || '—'}</span>,
+    },
+    {
+      field: 'roles',
+      headerName: 'Role',
+      flex: 1,
+      minWidth: 140,
+      sortable: false,
+      renderCell: ({ row }) =>
+        row.roles?.length ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+            {row.roles.map((r) => (
+              <Chip key={r} label={r} size="small" />
+            ))}
+          </Box>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 180,
+      renderCell: ({ row }) => (
+        <Chip
+          label={getStatusLabel(row.status)}
+          size="small"
+          color={getStatusColor(row.status)}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 140,
+      sortable: false,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: ({ row }) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+          {(row.status === 'pending_invitation' || row.status === 'invitation_expired') && (
+            <Tooltip title={row.status === 'invitation_expired' ? 'Resend invite (link expired)' : 'Resend invite email'}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => handleResendInvite(row)}
+                  disabled={resendingId === row.id}
+                  aria-label="Resend invite"
+                >
+                  <Email fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+          <Tooltip title="Edit user">
+            <IconButton size="small" onClick={() => openEditDialog(row)} aria-label="Edit user">
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          {row.status === 'removed' ? (
+            <Tooltip title="Reactivate user">
+              <IconButton
+                size="small"
+                onClick={() => setDeactivateConfirm({ user: row, action: 'reactivate' })}
+                aria-label="Reactivate user"
+                color="success"
+              >
+                <PersonAdd fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip title="Deactivate user">
+              <IconButton
+                size="small"
+                onClick={() => setDeactivateConfirm({ user: row, action: 'deactivate' })}
+                aria-label="Deactivate user"
+                color="warning"
+              >
+                <Block fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  ];
+
+  const skeletonRows = Array.from({ length: 5 }, (_, i) => ({ id: `skel-${i}` }));
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -212,157 +356,84 @@ const UsersPage = () => {
                   User List
                 </Typography>
               </Box>
-              <Button variant="contained" startIcon={<Add />} onClick={openAddDialog}>
-                Add User
+              <Button variant="contained" startIcon={<Add />} onClick={openInviteDialog} aria-label="Invite user">
+                Invite User
               </Button>
             </Box>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
-
             {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
+              <Box>
+                {skeletonRows.map((r) => (
+                  <Skeleton key={r.id} variant="rectangular" height={52} sx={{ mb: 1, borderRadius: 1 }} />
+                ))}
               </Box>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {users.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                          <Typography color="text.secondary">No users found</Typography>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      users.map((user) => (
-                        <TableRow key={user.id} hover>
-                          <TableCell>
-                            {[user.firstName, user.lastName].filter(Boolean).join(' ') || '—'}
-                          </TableCell>
-                          <TableCell>
-                            {user.roles?.length ? (
-                              user.roles.map((r) => (
-                                <Chip key={r} label={r} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-                              ))
-                            ) : (
-                              '—'
-                            )}
-                          </TableCell>
-                          <TableCell>{user.email || '—'}</TableCell>
-                          <TableCell>{user.userType || 'employee'}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={getStatusDisplayLabel(user.status)}
-                              size="small"
-                              color={getStatusColor(user.status)}
-                              variant="outlined"
-                            />
-                          </TableCell>
-                          <TableCell align="right">
-                            {(user.status === 'pending_invitation' || user.status === 'invitation_expired') && (
-                              <Tooltip title={user.status === 'invitation_expired' ? 'Resend invite (link expired)' : 'Resend invite email'}>
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleResendInvite(user)}
-                                    disabled={resendingId === user.id}
-                                    aria-label="Resend invite"
-                                  >
-                                    <Email fontSize="small" />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                            )}
-                            <IconButton size="small" onClick={() => openEditDialog(user)} aria-label="Edit user">
-                              <Edit fontSize="small" />
-                            </IconButton>
-                            {user.status === 'removed' ? (
-                              <Tooltip title="Enable user">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => setDisableConfirm({ user, action: 'enable' })}
-                                  aria-label="Enable user"
-                                  color="success"
-                                >
-                                  <PersonAdd fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            ) : (
-                              <Tooltip title="Disable user">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => setDisableConfirm({ user, action: 'disable' })}
-                                  aria-label="Disable user"
-                                  color="warning"
-                                >
-                                  <Block fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <DataGrid
+                rows={users}
+                columns={columns}
+                autoHeight
+                disableRowSelectionOnClick
+                pageSizeOptions={[10, 25, 50]}
+                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+                getRowId={(row) => row.id}
+                slots={{
+                  noRowsOverlay: () => (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', py: 4 }}>
+                      <Typography color="text.secondary">No users found</Typography>
+                    </Box>
+                  ),
+                }}
+                sx={{ border: 'none' }}
+              />
             )}
           </CardContent>
         </Card>
       </Container>
 
-      {/* Add/Edit User Dialog */}
-      <Dialog open={!!userDialog} onClose={() => setUserDialog(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{userDialog?.mode === 'add' ? 'Add User' : 'Edit User'}</DialogTitle>
+      {/* Invite User Dialog */}
+      <Dialog open={inviteDialog} onClose={() => setInviteDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Invite User</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField
               label="First Name"
-              value={userForm.firstName}
-              onChange={(e) => setUserForm((f) => ({ ...f, firstName: e.target.value }))}
+              value={inviteForm.firstName}
+              onChange={(e) => setInviteForm((f) => ({ ...f, firstName: e.target.value }))}
+              error={!!inviteErrors.firstName}
+              helperText={inviteErrors.firstName}
               required
               fullWidth
             />
             <TextField
               label="Last Name"
-              value={userForm.lastName}
-              onChange={(e) => setUserForm((f) => ({ ...f, lastName: e.target.value }))}
+              value={inviteForm.lastName}
+              onChange={(e) => setInviteForm((f) => ({ ...f, lastName: e.target.value }))}
+              error={!!inviteErrors.lastName}
+              helperText={inviteErrors.lastName}
               required
               fullWidth
             />
             <TextField
               label="Email"
               type="email"
-              value={userForm.email}
-              onChange={(e) => setUserForm((f) => ({ ...f, email: e.target.value }))}
+              value={inviteForm.email}
+              onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+              error={!!inviteErrors.email}
+              helperText={inviteErrors.email}
               required
               fullWidth
             />
             <TextField
               label="Phone"
-              value={userForm.phone}
-              onChange={(e) => setUserForm((f) => ({ ...f, phone: e.target.value }))}
+              value={inviteForm.phone}
+              onChange={(e) => setInviteForm((f) => ({ ...f, phone: e.target.value }))}
               fullWidth
             />
             <FormControl fullWidth>
               <InputLabel>Role</InputLabel>
               <Select
-                value={userForm.roleId ?? ''}
-                onChange={(e) => setUserForm((f) => ({ ...f, roleId: e.target.value || null }))}
+                value={inviteForm.roleId ?? ''}
+                onChange={(e) => setInviteForm((f) => ({ ...f, roleId: e.target.value || null }))}
                 label="Role"
               >
                 <MenuItem value="">
@@ -375,46 +446,97 @@ const UsersPage = () => {
                 ))}
               </Select>
             </FormControl>
-            {userDialog?.mode === 'edit' && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={userForm.isActive ?? true}
-                    onChange={(e) => setUserForm((f) => ({ ...f, isActive: e.target.checked }))}
-                  />
-                }
-                label="Active"
-              />
-            )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setUserDialog(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveUser} disabled={submitting}>
-            {submitting ? 'Saving...' : 'Save'}
+          <Button onClick={() => setInviteDialog(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleInviteUser} disabled={inviteSubmitting}>
+            {inviteSubmitting ? 'Sending...' : 'Send Invite'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Disable/Enable Confirmation Dialog */}
-      <Dialog open={!!disableConfirm} onClose={() => setDisableConfirm(null)}>
-        <DialogTitle>{disableConfirm?.action === 'enable' ? 'Enable User' : 'Disable User'}</DialogTitle>
+      {/* Edit User Dialog */}
+      <Dialog open={!!editDialog} onClose={() => setEditDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit User</DialogTitle>
         <DialogContent>
-          {disableConfirm && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="First Name"
+              value={editForm.firstName}
+              onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Last Name"
+              value={editForm.lastName}
+              onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={editForm.email}
+              onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Phone"
+              value={editForm.phone}
+              onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+              fullWidth
+            />
+            <FormControl fullWidth>
+              <InputLabel>Role</InputLabel>
+              <Select
+                value={editForm.roleId ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, roleId: e.target.value || null }))}
+                label="Role"
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {roles.map((role) => (
+                  <MenuItem key={role.id} value={role.id}>
+                    <ListItemText primary={role.name} secondary={role.description} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialog(null)}>Cancel</Button>
+          <Button variant="contained" onClick={handleEditUser} disabled={editSubmitting}>
+            {editSubmitting ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Deactivate/Reactivate Confirmation Dialog */}
+      <Dialog open={!!deactivateConfirm} onClose={() => setDeactivateConfirm(null)}>
+        <DialogTitle>
+          {deactivateConfirm?.action === 'reactivate' ? 'Reactivate User' : 'Deactivate User'}
+        </DialogTitle>
+        <DialogContent>
+          {deactivateConfirm && (
             <Typography>
-              {disableConfirm.action === 'enable' ? (
+              {deactivateConfirm.action === 'reactivate' ? (
                 <>
-                  Are you sure you want to enable{' '}
+                  Are you sure you want to reactivate{' '}
                   <strong>
-                    {[disableConfirm.user.firstName, disableConfirm.user.lastName].filter(Boolean).join(' ') || disableConfirm.user.email}
+                    {[deactivateConfirm.user.firstName, deactivateConfirm.user.lastName].filter(Boolean).join(' ') || deactivateConfirm.user.email}
                   </strong>
                   ? They will regain access to the system.
                 </>
               ) : (
                 <>
-                  Are you sure you want to disable{' '}
+                  Are you sure you want to deactivate{' '}
                   <strong>
-                    {[disableConfirm.user.firstName, disableConfirm.user.lastName].filter(Boolean).join(' ') || disableConfirm.user.email}
+                    {[deactivateConfirm.user.firstName, deactivateConfirm.user.lastName].filter(Boolean).join(' ') || deactivateConfirm.user.email}
                   </strong>
                   ? They will lose access to the system.
                 </>
@@ -423,17 +545,30 @@ const UsersPage = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDisableConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setDeactivateConfirm(null)}>Cancel</Button>
           <Button
             variant="contained"
-            color={disableConfirm?.action === 'enable' ? 'success' : 'warning'}
-            onClick={handleDisableOrEnable}
-            disabled={submitting}
+            color={deactivateConfirm?.action === 'reactivate' ? 'success' : 'warning'}
+            onClick={handleDeactivateOrReactivate}
+            disabled={deactivateSubmitting}
           >
-            {submitting ? (disableConfirm?.action === 'enable' ? 'Enabling...' : 'Disabling...') : disableConfirm?.action === 'enable' ? 'Enable' : 'Disable'}
+            {deactivateSubmitting
+              ? deactivateConfirm?.action === 'reactivate' ? 'Reactivating...' : 'Deactivating...'
+              : deactivateConfirm?.action === 'reactivate' ? 'Reactivate' : 'Deactivate'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={!!snackbar}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar?.severity || 'info'} onClose={() => setSnackbar(null)} sx={{ width: '100%' }}>
+          {snackbar?.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

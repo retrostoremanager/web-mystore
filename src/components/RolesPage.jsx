@@ -16,7 +16,8 @@ import {
   Paper,
   Chip,
   IconButton,
-  CircularProgress,
+  Skeleton,
+  Snackbar,
   Alert,
   Button,
   Dialog,
@@ -44,7 +45,7 @@ const RolesPage = () => {
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [snackbar, setSnackbar] = useState(null);
   const [roleDialog, setRoleDialog] = useState(null);
   const [roleForm, setRoleForm] = useState(emptyRoleForm);
   const [submitting, setSubmitting] = useState(false);
@@ -56,11 +57,10 @@ const RolesPage = () => {
     if (!getAuthHeaders().Authorization) return;
     try {
       setLoading(true);
-      setError(null);
       const result = await getRoles(getAuthHeaders());
       setRoles(result.data || []);
     } catch (err) {
-      setError(err.message || 'Failed to load roles');
+      setSnackbar({ severity: 'error', message: err.message || 'Failed to load roles' });
       setRoles([]);
     } finally {
       setLoading(false);
@@ -110,12 +110,11 @@ const RolesPage = () => {
 
   const handleSaveRole = async () => {
     if (!roleForm.name?.trim()) {
-      setError('Role name is required');
+      setSnackbar({ severity: 'error', message: 'Role name is required' });
       return;
     }
     try {
       setSubmitting(true);
-      setError(null);
       const headers = getAuthHeaders();
       const payload = {
         name: roleForm.name.trim(),
@@ -124,13 +123,15 @@ const RolesPage = () => {
       };
       if (roleDialog.mode === 'add') {
         await createRole(payload, headers);
+        setSnackbar({ severity: 'success', message: 'Role created successfully' });
       } else {
         await updateRole(roleDialog.role.id, payload, headers);
+        setSnackbar({ severity: 'success', message: 'Role updated successfully' });
       }
       setRoleDialog(null);
       await loadRoles();
     } catch (err) {
-      setError(err.message || 'Failed to save role');
+      setSnackbar({ severity: 'error', message: err.message || 'Failed to save role' });
     } finally {
       setSubmitting(false);
     }
@@ -140,12 +141,12 @@ const RolesPage = () => {
     if (!deleteConfirm) return;
     try {
       setSubmitting(true);
-      setError(null);
       await deleteRole(deleteConfirm.id, getAuthHeaders());
       setDeleteConfirm(null);
+      setSnackbar({ severity: 'success', message: 'Role deleted successfully' });
       await loadRoles();
     } catch (err) {
-      setError(err.message || 'Failed to delete role');
+      setSnackbar({ severity: 'error', message: err.message || 'Failed to delete role' });
     } finally {
       setSubmitting(false);
     }
@@ -157,6 +158,8 @@ const RolesPage = () => {
     acc[prefix].push(p);
     return acc;
   }, {});
+
+  const skeletonRows = Array.from({ length: 4 }, (_, i) => i);
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -182,21 +185,17 @@ const RolesPage = () => {
                 </Typography>
               </Box>
               {canManageRoles && (
-                <Button variant="contained" startIcon={<Add />} onClick={openAddDialog}>
+                <Button variant="contained" startIcon={<Add />} onClick={openAddDialog} aria-label="Create role">
                   Create Role
                 </Button>
               )}
             </Box>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
-
             {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
+              <Box>
+                {skeletonRows.map((i) => (
+                  <Skeleton key={i} variant="rectangular" height={52} sx={{ mb: 1, borderRadius: 1 }} />
+                ))}
               </Box>
             ) : (
               <TableContainer component={Paper} variant="outlined">
@@ -231,11 +230,13 @@ const RolesPage = () => {
                                   <Chip key={p} label={p} size="small" variant="outlined" />
                                 ))}
                                 {role.permissions.length > 5 && (
-                                  <Chip
-                                    label={`+${role.permissions.length - 5} more`}
-                                    size="small"
-                                    variant="outlined"
-                                  />
+                                  <Tooltip title={role.permissions.slice(5).join(', ')}>
+                                    <Chip
+                                      label={`+${role.permissions.length - 5} more`}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                  </Tooltip>
                                 )}
                               </Box>
                             ) : (
@@ -306,9 +307,11 @@ const RolesPage = () => {
               </Typography>
               <FormGroup>
                 {Object.keys(groupedPermissions).length === 0 && roleDialog && (
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                    Loading permissions...
-                  </Typography>
+                  <Box>
+                    {Array.from({ length: 3 }, (_, i) => (
+                      <Skeleton key={i} variant="rectangular" height={32} sx={{ mb: 1, borderRadius: 1 }} />
+                    ))}
+                  </Box>
                 )}
                 {Object.entries(groupedPermissions).map(([group, perms]) => (
                   <Box key={group} sx={{ mb: 2 }}>
@@ -364,6 +367,17 @@ const RolesPage = () => {
           </DialogActions>
         </Dialog>
       </Container>
+
+      <Snackbar
+        open={!!snackbar}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar?.severity || 'info'} onClose={() => setSnackbar(null)} sx={{ width: '100%' }}>
+          {snackbar?.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
