@@ -26,6 +26,11 @@ import {
   Snackbar,
   Alert,
   CircularProgress,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Paper,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -45,6 +50,7 @@ import {
   useDeleteInventoryItemMutation,
 } from '../store/inventoryApi';
 import { getCompanyProfile } from '../services/profileApi';
+import { searchGames } from '../services/gameApi';
 import { useAuth } from '../contexts/AuthContext';
 
 const CONDITIONS = ['Loose', 'CIB', 'New'];
@@ -68,10 +74,19 @@ const emptyForm = {
 
 const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations }) => {
   const [form, setForm] = useState(emptyForm);
+  const [gameSearch, setGameSearch] = useState('');
+  const [gameResults, setGameResults] = useState([]);
+  const [gameSearching, setGameSearching] = useState(false);
+  const [selectedGame, setSelectedGame] = useState(null);
 
   useEffect(() => {
     if (open) {
       setForm(initialValues ? { ...initialValues } : emptyForm);
+      if (!initialValues) {
+        setGameSearch('');
+        setGameResults([]);
+        setSelectedGame(null);
+      }
     }
   }, [open, initialValues]);
 
@@ -79,8 +94,35 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  const handleGameSearch = async () => {
+    if (!gameSearch.trim()) {
+      setGameResults([]);
+      return;
+    }
+    setGameSearching(true);
+    try {
+      const results = await searchGames(gameSearch.trim());
+      setGameResults(results);
+    } catch {
+      setGameResults([]);
+    } finally {
+      setGameSearching(false);
+    }
+  };
+
+  const handleGameSelect = (game) => {
+    setSelectedGame(game);
+    setGameResults([]);
+    setGameSearch(`${game.title} (${game.console})`);
+    setForm((prev) => ({
+      ...prev,
+      name: prev.name || `${game.title} (${game.console})`,
+      category: prev.category || game.console || '',
+    }));
+  };
+
   const handleSubmit = () => {
-    onSubmit(form);
+    onSubmit(form, selectedGame);
   };
 
   const isEdit = Boolean(initialValues);
@@ -90,13 +132,58 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
       <DialogTitle>{isEdit ? 'Edit Item' : 'Add Inventory Item'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {!isEdit && (
+            <Box>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  label="Search game catalog"
+                  value={gameSearch}
+                  onChange={(e) => setGameSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleGameSearch(); }}
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. Zelda, NES, etc."
+                />
+                <Button
+                  variant="outlined"
+                  onClick={handleGameSearch}
+                  disabled={gameSearching}
+                  startIcon={gameSearching ? <CircularProgress size={14} /> : <Search />}
+                  sx={{ minWidth: 90, whiteSpace: 'nowrap' }}
+                >
+                  Search
+                </Button>
+              </Stack>
+              {gameResults.length > 0 && (
+                <Paper sx={{ mt: 1, maxHeight: 180, overflow: 'auto' }} variant="outlined">
+                  <List dense disablePadding>
+                    {gameResults.map((game) => (
+                      <ListItem key={game.id} disablePadding>
+                        <ListItemButton onClick={() => handleGameSelect(game)}>
+                          <ListItemText
+                            primary={game.title}
+                            secondary={game.console}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Paper>
+              )}
+              {selectedGame && (
+                <Alert severity="info" sx={{ mt: 1 }} icon={false}>
+                  Selected: <strong>{selectedGame.title}</strong> ({selectedGame.console})
+                </Alert>
+              )}
+            </Box>
+          )}
           <TextField
             label="Name"
             value={form.name}
             onChange={handleChange('name')}
             required
             fullWidth
-            autoFocus
+            autoFocus={isEdit}
           />
           <TextField
             label="Platform / Category"
@@ -164,7 +251,7 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !form.name.trim() || !form.locationId}
+          disabled={loading || !form.name.trim() || !form.locationId || (!isEdit && !selectedGame)}
           startIcon={loading ? <CircularProgress size={16} /> : null}
         >
           {isEdit ? 'Save' : 'Add Item'}
@@ -253,7 +340,11 @@ const InventoryPage = () => {
     );
   }, [normalizedRows, searchQuery]);
 
-  const handleAdd = async (form) => {
+  const handleAdd = async (form, selectedGame) => {
+    const catalogGameId =
+      selectedGame?.id != null && selectedGame.id !== ''
+        ? String(selectedGame.id)
+        : null;
     try {
       await createItem({
         name: form.name.trim(),
@@ -262,6 +353,14 @@ const InventoryPage = () => {
         sellPrice: form.sellPrice !== '' ? Number(form.sellPrice) : undefined,
         quantity: form.quantity !== '' ? Number(form.quantity) : undefined,
         locationId: form.locationId !== '' ? Number(form.locationId) : undefined,
+        gameId: catalogGameId,
+        game: selectedGame && catalogGameId
+          ? {
+              id: catalogGameId,
+              title: selectedGame.title,
+              console: selectedGame.console,
+            }
+          : undefined,
       }).unwrap();
       setAddDialogOpen(false);
       showSnackbar('Item added successfully');
@@ -270,7 +369,7 @@ const InventoryPage = () => {
     }
   };
 
-  const handleEdit = async (form) => {
+  const handleEdit = async (form, _selectedGame) => {
     try {
       await updateItem({
         id: editItem.id,
