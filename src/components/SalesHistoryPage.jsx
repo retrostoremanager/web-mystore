@@ -269,7 +269,7 @@ const SalesHistoryPage = () => {
               ))}
             </Box>
           ) : (
-            <Box sx={{ height: 600 }}>
+            <Box sx={{ height: 600, overflowX: 'auto' }}>
               <DataGrid
                 rows={rows}
                 columns={columns}
@@ -330,8 +330,8 @@ const SalesHistoryPage = () => {
                   </Typography>
                 </Box>
                 <Divider sx={{ mb: 2 }} />
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
+                <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
+                  <Table size="small" sx={{ minWidth: 360 }}>
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600 }}>Item</TableCell>

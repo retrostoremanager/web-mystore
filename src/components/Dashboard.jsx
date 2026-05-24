@@ -21,6 +21,16 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
+  Divider,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Inventory,
@@ -36,6 +46,7 @@ import {
   Schedule,
   Store,
   WorkspacePremium,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetInventoryQuery } from '../store/inventoryApi';
@@ -51,6 +62,8 @@ import { getSalesByDateRange } from '../services/salesApi';
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { data: inventory = [], isLoading: inventoryLoading } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
   const { auth, logout, isAuthenticated, getAuthHeaders } = useAuth();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
@@ -64,6 +77,7 @@ const Dashboard = () => {
   const [recentSales, setRecentSales] = useState([]);
   const [salesLoading, setSalesLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated || !getAuthHeaders().Authorization) return;
@@ -243,20 +257,75 @@ const Dashboard = () => {
 
   const activeErrors = Object.values(errors).filter(Boolean);
 
+  const navItems = sections.map((section) => ({ ...section }));
+
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={1}>
         <Toolbar>
+          {isMobile && (
+            <IconButton
+              edge="start"
+              color="inherit"
+              aria-label="open navigation menu"
+              onClick={() => setMobileNavOpen(true)}
+              sx={{ mr: 1 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
           <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
             {companyName ? `${companyName} Dashboard` : 'Dashboard'}
           </Typography>
           <Stack direction="row" spacing={2}>
             <Button color="inherit" startIcon={<ExitToApp />} onClick={handleSignOut}>
-              Sign Out
+              {isMobile ? null : 'Sign Out'}
             </Button>
           </Stack>
         </Toolbar>
       </AppBar>
+
+      <Drawer
+        anchor="left"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        PaperProps={{ sx: { width: 280 } }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {companyName || 'Dashboard'}
+          </Typography>
+        </Box>
+        <Divider />
+        <List>
+          {navItems.map((item, index) => (
+            <ListItem key={index} disablePadding>
+              <ListItemButton
+                onClick={() => {
+                  navigate(item.route);
+                  setMobileNavOpen(false);
+                }}
+              >
+                <ListItemIcon sx={{ color: `${item.color}.main`, minWidth: 40 }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.title} secondary={item.description} />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+        <Divider />
+        <Box sx={{ p: 2 }}>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<ExitToApp />}
+            onClick={handleSignOut}
+          >
+            Sign Out
+          </Button>
+        </Box>
+      </Drawer>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
         {(trialStatus?.isInTrial || trialStatus?.accessRestricted) && (
@@ -344,8 +413,8 @@ const Dashboard = () => {
             <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
               Recent Sales
             </Typography>
-            <TableContainer component={Paper} elevation={2}>
-              <Table size="small">
+            <TableContainer component={Paper} elevation={2} sx={{ overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 400 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Date</TableCell>

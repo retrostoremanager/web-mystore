@@ -198,8 +198,8 @@ const RolesPage = () => {
                 ))}
               </Box>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table>
+              <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
+                <Table sx={{ minWidth: 500 }}>
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>

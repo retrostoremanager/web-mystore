@@ -474,8 +474,8 @@ export default function BillingSettingsPage() {
             <Typography color="text.secondary">No invoices found.</Typography>
           ) : (
             <>
-              <TableContainer>
-                <Table size="small">
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 400 }}>
                   <TableHead>
                     <TableRow>
                       <TableCell><strong>Date</strong></TableCell>
