@@ -110,18 +110,62 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
         run: |
-          BRANCH="${{ github.event.inputs.branch || github.event.client_payload.branch || 'development' }}"
-          if [[ "$BRANCH" != feature/issue-* ]]; then
-            echo "Branch $BRANCH is not a feature branch — skipping review trigger"
+          # Review agents also run on claude-code.yml — skip to prevent review -> review cascade.
+          if echo "$PROMPT" | grep -qF "You are a code reviewer"; then
+            echo "Current run is a code review agent — skipping chained review trigger"
             exit 0
           fi
-          PR_NUMBER=$(gh pr list --head "$BRANCH" --base development --state open \
-            --json number --jq '.[0].number // empty')
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No open PR found for branch $BRANCH — agent may not have opened one"
+
+          # First try: look for the PR belonging to THIS agent's specific issue (from prompt).
+          ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
+          if [ -z "$ISSUE_N" ]; then
+            ISSUE_N=$(echo "$PROMPT" | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+          fi
+          if [ -n "$ISSUE_N" ]; then
+            PR_DATA=$(gh pr list \
+              --base development \
+              --state open \
+              --json number,headRefName,labels \
+              --jq "[.[] | select(
+                .headRefName == \"feature/issue-${ISSUE_N}\" and
+                (.labels | map(.name) | any(startswith(\"review-retry-\") or . == \"needs-human-review\") | not)
+              )] | first // empty")
+          fi
+
+          # Fallback: scan for any open feature PR not yet in a review cycle.
+          if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
+            PR_DATA=$(gh pr list \
+              --base development \
+              --state open \
+              --json number,headRefName,labels \
+              --jq '[.[] | select(
+                (.headRefName | startswith("feature/issue-")) and
+                (.labels | map(.name) | any(startswith("review-retry-") or . == "needs-human-review") | not)
+              )] | first // empty')
+          fi
+
+          if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
+            echo "No open feature PRs awaiting review — skipping"
             exit 0
           fi
-          echo "Found PR #$PR_NUMBER on $BRANCH — dispatching code review"
-          export PR_NUMBER HEAD_BRANCH="$BRANCH"
+
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          HEAD_BRANCH=$(echo "$PR_DATA" | jq -r '.headRefName')
+
+          # Guard: skip if this PR's orchestrator issue is already in code-review state.
+          PR_ISSUE_N=$(echo "$HEAD_BRANCH" | grep -oP 'feature/issue-\K[0-9]+' || true)
+          if [ -n "$PR_ISSUE_N" ]; then
+            ISSUE_LABELS=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view "$PR_ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --json labels --jq '[.labels[].name]' 2>/dev/null || echo "[]")
+            if echo "$ISSUE_LABELS" | grep -q '"code-review"'; then
+              echo "Issue #$PR_ISSUE_N already in code-review — skipping duplicate dispatch"
+              exit 0
+            fi
+          fi
+
+          echo "Found PR #$PR_NUMBER on $HEAD_BRANCH — dispatching code review"
+          export PR_NUMBER HEAD_BRANCH
           bash scripts/trigger-review.sh
