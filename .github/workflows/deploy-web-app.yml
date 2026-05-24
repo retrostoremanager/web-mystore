@@ -1,15 +1,13 @@
 name: Deploy Web App to Azure Static Web Apps
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches:
       - development
   workflow_dispatch:
 
 jobs:
   build_and_deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,7 +18,7 @@ jobs:
           VITE_GAMEDB_API_URL: ${{ vars.VITE_GAMEDB_API_URL || secrets.VITE_GAMEDB_API_URL }}
         run: |
           if [ -z "${VITE_GAMEDB_API_URL:-}" ]; then
-            echo "::error::VITE_GAMEDB_API_URL is empty. Add it on GitHub: Settings → Secrets and variables → Actions → Variables (or Secrets), name exactly VITE_GAMEDB_API_URL, value e.g. https://gamedb-func-dev.azurewebsites.net/api. Azure SWA Configuration in the portal does NOT apply to this GitHub build."
+            echo "::error::VITE_GAMEDB_API_URL is empty. Add it on GitHub: Settings -> Secrets and variables -> Actions -> Variables (or Secrets), name exactly VITE_GAMEDB_API_URL, value e.g. https://gamedb-func-dev.azurewebsites.net/api."
             exit 1
           fi
           echo "VITE_GAMEDB_API_URL is set (${#VITE_GAMEDB_API_URL} characters)."
@@ -39,16 +37,26 @@ jobs:
           output_location: "dist"
           app_build_command: "npm run build"
 
-      - name: Trigger test agent
-        if: github.event_name == 'pull_request'
+      - name: Trigger test agent for recently merged PR
         env:
           GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          ORCHESTRATOR_ISSUE=$(gh pr view "$PR_NUMBER" --repo retrostoremanager/web-mystore \
-            --json body --jq '.body' \
+          # Find the most recently merged PR into development
+          PR_DATA=$(GH_TOKEN="${{ secrets.GITHUB_TOKEN }}" gh pr list \
+            --repo retrostoremanager/web-mystore \
+            --base development --state merged \
+            --limit 1 \
+            --json number,body)
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r ".[0].number // empty")
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No recently merged PR found — skipping test agent trigger"
+            exit 0
+          fi
+          ORCHESTRATOR_ISSUE=$(echo "$PR_DATA" | jq -r ".[0].body" \
             | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+          echo "Triggering test agent for PR #$PR_NUMBER (issue #${ORCHESTRATOR_ISSUE:-none})"
           jq -n --arg pr "$PR_NUMBER" --arg issue "${ORCHESTRATOR_ISSUE:-}" \
             '{"ref":"main","inputs":{"pr_numbers":$pr,"target_repo":"web-mystore","orchestrator_issues":$issue}}' | \
           gh api repos/retrostoremanager/fn-mystore/actions/workflows/test-agent.yml/dispatches \
             --method POST --input -
+
