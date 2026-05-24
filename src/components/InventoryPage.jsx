@@ -500,7 +500,7 @@ const InventoryPage = () => {
                 ))}
               </Box>
             ) : (
-              <Box sx={{ width: '100%' }}>
+              <Box sx={{ width: '100%', overflowX: 'auto' }}>
                 <DataGrid
                   rows={filteredRows}
                   columns={columns}

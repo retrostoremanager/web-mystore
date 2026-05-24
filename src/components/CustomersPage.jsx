@@ -261,23 +261,25 @@ const CustomersPage = () => {
                 ))}
               </Box>
             ) : (
-              <DataGrid
-                rows={customers}
-                columns={columns}
-                autoHeight
-                onRowClick={handleRowClick}
-                pageSizeOptions={[10, 25, 50]}
-                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-                disableRowSelectionOnClick={false}
-                sx={{ cursor: 'pointer' }}
-                slots={{
-                  noRowsOverlay: () => (
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                      <Typography color="text.secondary">No customers found</Typography>
-                    </Box>
-                  ),
-                }}
-              />
+              <Box sx={{ overflowX: 'auto' }}>
+                <DataGrid
+                  rows={customers}
+                  columns={columns}
+                  autoHeight
+                  onRowClick={handleRowClick}
+                  pageSizeOptions={[10, 25, 50]}
+                  initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+                  disableRowSelectionOnClick={false}
+                  sx={{ cursor: 'pointer' }}
+                  slots={{
+                    noRowsOverlay: () => (
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                        <Typography color="text.secondary">No customers found</Typography>
+                      </Box>
+                    ),
+                  }}
+                />
+              </Box>
             )}
           </CardContent>
         </Card>

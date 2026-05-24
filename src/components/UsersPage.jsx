@@ -368,23 +368,25 @@ const UsersPage = () => {
                 ))}
               </Box>
             ) : (
-              <DataGrid
-                rows={users}
-                columns={columns}
-                autoHeight
-                disableRowSelectionOnClick
-                pageSizeOptions={[10, 25, 50]}
-                initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-                getRowId={(row) => row.id}
-                slots={{
-                  noRowsOverlay: () => (
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', py: 4 }}>
-                      <Typography color="text.secondary">No users found</Typography>
-                    </Box>
-                  ),
-                }}
-                sx={{ border: 'none' }}
-              />
+              <Box sx={{ overflowX: 'auto' }}>
+                <DataGrid
+                  rows={users}
+                  columns={columns}
+                  autoHeight
+                  disableRowSelectionOnClick
+                  pageSizeOptions={[10, 25, 50]}
+                  initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+                  getRowId={(row) => row.id}
+                  slots={{
+                    noRowsOverlay: () => (
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', py: 4 }}>
+                        <Typography color="text.secondary">No users found</Typography>
+                      </Box>
+                    ),
+                  }}
+                  sx={{ border: 'none' }}
+                />
+              </Box>
             )}
           </CardContent>
         </Card>
