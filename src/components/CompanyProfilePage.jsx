@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -6,7 +6,6 @@ import {
   Paper,
   Button,
   TextField,
-  Alert,
   CircularProgress,
   AppBar,
   Toolbar,
@@ -19,8 +18,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Snackbar,
+  Alert,
+  Divider,
 } from '@mui/material';
-import { ArrowBack, Add, Edit, Delete } from '@mui/icons-material';
+import { ArrowBack, Add, Edit, Delete, CloudUpload } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useFormatting } from '../contexts/FormattingContext';
@@ -52,13 +54,28 @@ const COMMON_LOCALES = [
   { value: 'fr-FR', label: 'French' },
 ];
 
+const ACCEPTED_LOGO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ACCEPTED_LOGO_ACCEPT = 'image/jpeg,image/jpg,image/png,image/webp';
+const MAX_LOGO_SIZE = 5 * 1024 * 1024;
+
+export function validateLogoFile(file) {
+  if (!file) return { valid: false, error: 'No file selected.' };
+  if (!ACCEPTED_LOGO_TYPES.includes(file.type)) {
+    return { valid: false, error: 'Invalid file type. Please use JPG, PNG, or WebP.' };
+  }
+  if (file.size > MAX_LOGO_SIZE) {
+    return { valid: false, error: 'File too large. Maximum size is 5MB.' };
+  }
+  return { valid: true, error: null };
+}
+
 export default function CompanyProfilePage() {
   const navigate = useNavigate();
   const { isAuthenticated, getAuthHeaders } = useAuth();
   const { refresh: refreshFormatting } = useFormatting();
+  const fileInputRef = useRef(null);
+
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
   const [profile, setProfile] = useState({
     companyName: '',
     companyAddress: '',
@@ -70,8 +87,9 @@ export default function CompanyProfilePage() {
     logoUrl: '',
   });
   const [locations, setLocations] = useState([]);
-  const [companyDialog, setCompanyDialog] = useState(false);
-  const [companyForm, setCompanyForm] = useState({
+  const [trialStatus, setTrialStatus] = useState(null);
+
+  const [infoForm, setInfoForm] = useState({
     companyName: '',
     companyAddress: '',
     companyCity: '',
@@ -80,6 +98,16 @@ export default function CompanyProfilePage() {
     companyPhone: '',
     locale: 'en-US',
   });
+  const [infoSaving, setInfoSaving] = useState(false);
+
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoPendingFile, setLogoPendingFile] = useState(null);
+  const [logoSaving, setLogoSaving] = useState(false);
+  const [logoRemoveConfirm, setLogoRemoveConfirm] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const [snackbar, setSnackbar] = useState({ open: false, severity: 'success', message: '' });
+
   const [locationDialog, setLocationDialog] = useState(null);
   const [locationForm, setLocationForm] = useState({
     name: '',
@@ -91,20 +119,24 @@ export default function CompanyProfilePage() {
     timezone: 'America/New_York',
     isPrimary: false,
   });
+  const [locationSaving, setLocationSaving] = useState(false);
+
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deletionInfo, setDeletionInfo] = useState(null);
   const [deleteAction, setDeleteAction] = useState(null);
-  const [logoRemoveConfirm, setLogoRemoveConfirm] = useState(false);
-  const [trialStatus, setTrialStatus] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  const showSnackbar = (severity, message) => {
+    setSnackbar({ open: true, severity, message });
+  };
 
   const loadProfile = async () => {
     try {
       setLoading(true);
-      setError(null);
       const result = await getCompanyProfile(getAuthHeaders());
       const p = result.data?.profile || {};
       const locs = result.data?.locations || [];
-      setProfile({
+      const profileData = {
         companyName: p.companyName || '',
         companyAddress: p.companyAddress || '',
         companyCity: p.companyCity || '',
@@ -113,10 +145,20 @@ export default function CompanyProfilePage() {
         companyPhone: p.companyPhone || '',
         locale: p.locale || 'en-US',
         logoUrl: p.logoUrl || '',
+      };
+      setProfile(profileData);
+      setInfoForm({
+        companyName: profileData.companyName,
+        companyAddress: profileData.companyAddress,
+        companyCity: profileData.companyCity,
+        companyState: profileData.companyState,
+        companyZipCode: profileData.companyZipCode,
+        companyPhone: profileData.companyPhone,
+        locale: profileData.locale,
       });
       setLocations(locs);
     } catch (err) {
-      setError(err.message || 'Failed to load profile');
+      showSnackbar('error', err.message || 'Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -136,84 +178,104 @@ export default function CompanyProfilePage() {
   const locationLimit = TIER_LOCATION_LIMITS[tier] ?? TIER_LOCATION_LIMITS.Basic;
   const canAddLocation = locationLimit == null || locations.length < locationLimit;
 
-  const handleOpenEditCompany = () => {
-    setCompanyForm({
-      companyName: profile.companyName || '',
-      companyAddress: profile.companyAddress || '',
-      companyCity: profile.companyCity || '',
-      companyState: profile.companyState || '',
-      companyZipCode: profile.companyZipCode || '',
-      companyPhone: profile.companyPhone || '',
-      locale: profile.locale || 'en-US',
-    });
-    setCompanyDialog(true);
+  const handleInfoChange = (field, value) => {
+    setInfoForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCompanyFormChange = (field, value) => {
-    setCompanyForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleCompanySubmit = async () => {
-    if (!companyForm.companyName.trim()) return;
+  const handleInfoSave = async () => {
+    if (!infoForm.companyName.trim()) return;
     try {
-      setSubmitting(true);
-      setError(null);
-      await updateCompanyProfile(companyForm, getAuthHeaders());
-      setCompanyDialog(false);
+      setInfoSaving(true);
+      await updateCompanyProfile(infoForm, getAuthHeaders());
       await loadProfile();
       refreshFormatting();
+      showSnackbar('success', 'Company info saved successfully.');
     } catch (err) {
-      setError(err.message || 'Failed to update company');
+      showSnackbar('error', err.message || 'Failed to save company info.');
     } finally {
-      setSubmitting(false);
+      setInfoSaving(false);
     }
   };
 
-  const handleLogoUpload = async (e) => {
-    const file = e?.target?.files?.[0];
-    if (!file) return;
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
-    if (!allowed.includes(file.type)) {
-      setError('Invalid format. Use PNG, JPG, or SVG.');
+  const handleFileSelected = (file) => {
+    const { valid, error } = validateLogoFile(file);
+    if (!valid) {
+      showSnackbar('error', error);
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File too large. Maximum 5MB.');
-      return;
-    }
+    setLogoPendingFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setLogoPreview(objectUrl);
+  };
+
+  const handleFileInputChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileSelected(file);
+    e.target.value = '';
+  };
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileSelected(file);
+  }, []);
+
+  const handleLogoSave = async () => {
+    if (!logoPendingFile) return;
     try {
-      setSubmitting(true);
-      setError(null);
+      setLogoSaving(true);
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result?.split(',')[1] || '');
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(logoPendingFile);
       });
       await uploadLogo(
-        { file: base64, fileName: file.name, contentType: file.type },
+        { file: base64, fileName: logoPendingFile.name, contentType: logoPendingFile.type },
         getAuthHeaders()
       );
+      setLogoPendingFile(null);
+      if (logoPreview) {
+        URL.revokeObjectURL(logoPreview);
+        setLogoPreview(null);
+      }
       await loadProfile();
+      showSnackbar('success', 'Logo uploaded successfully.');
     } catch (err) {
-      setError(err.message || 'Failed to upload logo');
+      showSnackbar('error', err.message || 'Failed to upload logo.');
     } finally {
-      setSubmitting(false);
-      e.target.value = '';
+      setLogoSaving(false);
     }
+  };
+
+  const handleLogoCancelPreview = () => {
+    if (logoPreview) URL.revokeObjectURL(logoPreview);
+    setLogoPreview(null);
+    setLogoPendingFile(null);
   };
 
   const handleLogoRemove = async () => {
     try {
-      setSubmitting(true);
-      setError(null);
+      setLogoSaving(true);
       await deleteLogo(getAuthHeaders());
       setLogoRemoveConfirm(false);
       await loadProfile();
+      showSnackbar('success', 'Logo removed.');
     } catch (err) {
-      setError(err.message || 'Failed to remove logo');
+      showSnackbar('error', err.message || 'Failed to remove logo.');
     } finally {
-      setSubmitting(false);
+      setLogoSaving(false);
     }
   };
 
@@ -252,8 +314,7 @@ export default function CompanyProfilePage() {
   const handleLocationSubmit = async () => {
     if (!locationForm.name.trim()) return;
     try {
-      setSubmitting(true);
-      setError(null);
+      setLocationSaving(true);
       const payload = {
         name: locationForm.name.trim(),
         address: locationForm.address || undefined,
@@ -272,10 +333,11 @@ export default function CompanyProfilePage() {
       setLocationDialog(null);
       await loadProfile();
       refreshFormatting();
+      showSnackbar('success', locationDialog.mode === 'add' ? 'Location added.' : 'Location updated.');
     } catch (err) {
-      setError(err.message || 'Failed to save location');
+      showSnackbar('error', err.message || 'Failed to save location.');
     } finally {
-      setSubmitting(false);
+      setLocationSaving(false);
     }
   };
 
@@ -286,28 +348,30 @@ export default function CompanyProfilePage() {
       setDeletionInfo(data);
       setDeleteConfirm(loc);
       setDeleteAction(
-        data?.hasInventory && (!data.otherLocations?.length)
+        data?.hasInventory && !data.otherLocations?.length
           ? { action: 'delete_inventory' }
           : null
       );
     } catch (err) {
-      setError(err.message || 'Failed to load deletion info');
+      showSnackbar('error', err.message || 'Failed to load deletion info.');
     }
   };
 
   const handleDeleteLocation = async () => {
     if (!deleteConfirm) return;
     if (deletionInfo?.hasInventory && !deleteAction) {
-      setError('Please choose how to handle inventory: delete it or move to another location.');
+      showSnackbar('error', 'Please choose how to handle inventory: delete it or move to another location.');
       return;
     }
-    if (deleteAction?.action === 'reassign' && (!deletionInfo?.otherLocations?.length || !deleteAction.targetId)) {
-      setError('Please select a location to move inventory to.');
+    if (
+      deleteAction?.action === 'reassign' &&
+      (!deletionInfo?.otherLocations?.length || !deleteAction.targetId)
+    ) {
+      showSnackbar('error', 'Please select a location to move inventory to.');
       return;
     }
     try {
-      setSubmitting(true);
-      setError(null);
+      setDeleteSubmitting(true);
       const options = deletionInfo?.hasInventory
         ? deleteAction?.action === 'reassign'
           ? { action: 'reassign', targetLocationId: deleteAction.targetId }
@@ -319,12 +383,15 @@ export default function CompanyProfilePage() {
       setDeleteAction(null);
       await loadProfile();
       refreshFormatting();
+      showSnackbar('success', 'Location deleted.');
     } catch (err) {
-      setError(err.message || 'Failed to delete location');
+      showSnackbar('error', err.message || 'Failed to delete location.');
     } finally {
-      setSubmitting(false);
+      setDeleteSubmitting(false);
     }
   };
+
+  const currentLogoSrc = logoPreview || profile.logoUrl;
 
   if (loading) {
     return (
@@ -346,165 +413,195 @@ export default function CompanyProfilePage() {
           </Typography>
         </Toolbar>
       </AppBar>
+
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Typography variant="h4" gutterBottom>
           Company Profile
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Your company information and locations. Company address/phone can differ from location addresses (e.g. mailing address or PO box).
+          Manage your company information, logo, and store locations.
         </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-            <Typography variant="h6">Company</Typography>
-            <IconButton size="small" onClick={handleOpenEditCompany} aria-label="Edit company">
-              <Edit />
-            </IconButton>
-          </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Company name and contact info. Use for mailing address, PO box, or headquarters if different from store locations.
+          <Typography variant="h6" gutterBottom>
+            Company Info
           </Typography>
-          <Card variant="outlined">
-            <CardContent>
-              <Stack direction="row" spacing={2} alignItems="flex-start">
-                {profile.logoUrl && (
-                  <Box
-                    component="img"
-                    src={profile.logoUrl}
-                    alt="Company logo"
-                    sx={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 1 }}
-                  />
-                )}
-                <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle1" fontWeight={600}>
-                {profile.companyName || '—'}
-              </Typography>
-              {(profile.companyAddress || profile.companyCity) && (
-                <Typography variant="body2" color="text.secondary">
-                  {[profile.companyAddress, profile.companyCity, profile.companyState, profile.companyZipCode].filter(Boolean).join(', ')}
-                </Typography>
-              )}
-              {profile.companyPhone && (
-                <Typography variant="body2" color="text.secondary">
-                  {profile.companyPhone}
-                </Typography>
-              )}
-              {profile.locale && (
-                <Typography variant="caption" color="text.secondary" display="block">
-                  {COMMON_LOCALES.find((l) => l.value === profile.locale)?.label || profile.locale}
-                </Typography>
-              )}
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Your company name and contact details. Use for mailing address, PO box, or headquarters.
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
+          <Stack spacing={2}>
+            <TextField
+              fullWidth
+              label="Company Name"
+              value={infoForm.companyName}
+              onChange={(e) => handleInfoChange('companyName', e.target.value)}
+              required
+              disabled={infoSaving}
+            />
+            <TextField
+              fullWidth
+              label="Address"
+              value={infoForm.companyAddress}
+              onChange={(e) => handleInfoChange('companyAddress', e.target.value)}
+              placeholder="Street, PO box, etc."
+              disabled={infoSaving}
+            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                fullWidth
+                label="City"
+                value={infoForm.companyCity}
+                onChange={(e) => handleInfoChange('companyCity', e.target.value)}
+                disabled={infoSaving}
+              />
+              <TextField
+                fullWidth
+                label="State"
+                value={infoForm.companyState}
+                onChange={(e) => handleInfoChange('companyState', e.target.value)}
+                disabled={infoSaving}
+              />
+              <TextField
+                fullWidth
+                label="Zip Code"
+                value={infoForm.companyZipCode}
+                onChange={(e) => handleInfoChange('companyZipCode', e.target.value)}
+                disabled={infoSaving}
+              />
+            </Stack>
+            <TextField
+              fullWidth
+              label="Phone"
+              value={infoForm.companyPhone}
+              onChange={(e) => handleInfoChange('companyPhone', e.target.value)}
+              disabled={infoSaving}
+            />
+            <TextField
+              fullWidth
+              select
+              label="Locale"
+              value={infoForm.locale}
+              onChange={(e) => handleInfoChange('locale', e.target.value)}
+              disabled={infoSaving}
+            >
+              {COMMON_LOCALES.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                onClick={handleInfoSave}
+                disabled={infoSaving || !infoForm.companyName.trim()}
+                startIcon={infoSaving ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {infoSaving ? 'Saving…' : 'Save Info'}
+              </Button>
+            </Box>
+          </Stack>
         </Paper>
 
-        <Dialog open={companyDialog} onClose={() => setCompanyDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Edit Company</DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  Company Logo (PNG, JPG, SVG, max 5MB)
-                </Typography>
-                {profile.logoUrl ? (
-                  <Stack direction="row" alignItems="center" spacing={2}>
-                    <Box
-                      component="img"
-                      src={profile.logoUrl}
-                      alt="Company logo"
-                      sx={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}
-                    />
-                    <Stack direction="row" spacing={1}>
-                      <Button variant="outlined" size="small" component="label" disabled={submitting}>
-                        Change
-                        <input type="file" hidden accept="image/png,image/jpeg,image/jpg,image/svg+xml" onChange={handleLogoUpload} />
-                      </Button>
-                      <Button variant="outlined" size="small" color="error" onClick={() => setLogoRemoveConfirm(true)} disabled={submitting}>
-                        Remove
-                      </Button>
-                    </Stack>
-                  </Stack>
-                ) : (
-                  <Button variant="outlined" size="small" component="label" disabled={submitting}>
-                    Upload Logo
-                    <input type="file" hidden accept="image/png,image/jpeg,image/jpg,image/svg+xml" onChange={handleLogoUpload} />
-                  </Button>
-                )}
-              </Box>
-              <TextField
-                fullWidth
-                label="Company Name"
-                value={companyForm.companyName}
-                onChange={(e) => handleCompanyFormChange('companyName', e.target.value)}
-                required
-                helperText="The business name you entered at registration."
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Company Logo
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            JPG, PNG, or WebP · Max 5 MB
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
+
+          {currentLogoSrc && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                {logoPreview ? 'Preview (unsaved)' : 'Current logo'}
+              </Typography>
+              <Box
+                component="img"
+                src={currentLogoSrc}
+                alt="Company logo preview"
+                sx={{
+                  maxWidth: 180,
+                  maxHeight: 120,
+                  objectFit: 'contain',
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: logoPreview ? 'primary.main' : 'divider',
+                  display: 'block',
+                }}
               />
-              <TextField
-                fullWidth
-                label="Address"
-                value={companyForm.companyAddress}
-                onChange={(e) => handleCompanyFormChange('companyAddress', e.target.value)}
-                placeholder="Street, PO box, etc."
-              />
-              <Stack direction="row" spacing={2}>
-                <TextField
-                  fullWidth
-                  label="City"
-                  value={companyForm.companyCity}
-                  onChange={(e) => handleCompanyFormChange('companyCity', e.target.value)}
-                />
-                <TextField
-                  fullWidth
-                  label="State"
-                  value={companyForm.companyState}
-                  onChange={(e) => handleCompanyFormChange('companyState', e.target.value)}
-                />
-                <TextField
-                  fullWidth
-                  label="Zip Code"
-                  value={companyForm.companyZipCode}
-                  onChange={(e) => handleCompanyFormChange('companyZipCode', e.target.value)}
-                />
-              </Stack>
-              <TextField
-                fullWidth
-                label="Phone"
-                value={companyForm.companyPhone}
-                onChange={(e) => handleCompanyFormChange('companyPhone', e.target.value)}
-              />
-              <TextField
-                fullWidth
-                select
-                label="Locale"
-                value={companyForm.locale}
-                onChange={(e) => handleCompanyFormChange('locale', e.target.value)}
+            </Box>
+          )}
+
+          <Box
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => !logoSaving && fileInputRef.current?.click()}
+            sx={{
+              border: '2px dashed',
+              borderColor: isDragOver ? 'primary.main' : 'divider',
+              borderRadius: 2,
+              p: 4,
+              textAlign: 'center',
+              cursor: logoSaving ? 'not-allowed' : 'pointer',
+              bgcolor: isDragOver ? 'action.hover' : 'background.paper',
+              transition: 'border-color 0.2s, background-color 0.2s',
+              '&:hover': logoSaving ? {} : { borderColor: 'primary.main', bgcolor: 'action.hover' },
+            }}
+          >
+            <CloudUpload sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
+            <Typography variant="body1" color="text.secondary">
+              Drag & drop an image here, or{' '}
+              <Typography component="span" color="primary" fontWeight={600}>
+                browse
+              </Typography>
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+              JPG, PNG, WebP · Max 5 MB
+            </Typography>
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              accept={ACCEPTED_LOGO_ACCEPT}
+              onChange={handleFileInputChange}
+            />
+          </Box>
+
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }} justifyContent="flex-end">
+            {logoPendingFile && (
+              <Button variant="outlined" onClick={handleLogoCancelPreview} disabled={logoSaving}>
+                Cancel
+              </Button>
+            )}
+            {logoPendingFile && (
+              <Button
+                variant="contained"
+                onClick={handleLogoSave}
+                disabled={logoSaving}
+                startIcon={logoSaving ? <CircularProgress size={16} color="inherit" /> : null}
               >
-                {COMMON_LOCALES.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setCompanyDialog(false)}>Cancel</Button>
-            <Button onClick={handleCompanySubmit} variant="contained" disabled={submitting || !companyForm.companyName.trim()}>
-              {submitting ? 'Saving...' : 'Save'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+                {logoSaving ? 'Uploading…' : 'Upload Logo'}
+              </Button>
+            )}
+            {profile.logoUrl && !logoPendingFile && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => setLogoRemoveConfirm(true)}
+                disabled={logoSaving}
+              >
+                Remove Logo
+              </Button>
+            )}
+          </Stack>
+        </Paper>
 
         <Paper sx={{ p: 3 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
             <Typography variant="h6">Locations</Typography>
             <Button
               startIcon={<Add />}
@@ -512,7 +609,11 @@ export default function CompanyProfilePage() {
               variant="outlined"
               size="small"
               disabled={!canAddLocation}
-              title={!canAddLocation ? `Your ${tier} plan allows ${locationLimit} location(s). Upgrade to Premium or Enterprise for more.` : ''}
+              title={
+                !canAddLocation
+                  ? `Your ${tier} plan allows ${locationLimit} location(s). Upgrade to Premium or Enterprise for more.`
+                  : ''
+              }
             >
               Add Location
             </Button>
@@ -520,10 +621,9 @@ export default function CompanyProfilePage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Physical store locations. Each can have its own address, phone, and timezone.
           </Typography>
+          <Divider sx={{ mb: 2 }} />
           {locations.length === 0 ? (
-            <Typography color="text.secondary">
-              No locations yet. Add at least one location.
-            </Typography>
+            <Typography color="text.secondary">No locations yet. Add at least one location.</Typography>
           ) : (
             <Stack spacing={2}>
               {locations.map((loc) => (
@@ -559,7 +659,12 @@ export default function CompanyProfilePage() {
                         <IconButton size="small" onClick={() => handleOpenEditLocation(loc)} aria-label="Edit location">
                           <Edit />
                         </IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(loc)} aria-label="Delete location">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteClick(loc)}
+                          aria-label="Delete location"
+                        >
                           <Delete />
                         </IconButton>
                       </Stack>
@@ -570,156 +675,216 @@ export default function CompanyProfilePage() {
             </Stack>
           )}
         </Paper>
+      </Container>
 
-        <Dialog open={!!locationDialog} onClose={() => setLocationDialog(null)} maxWidth="sm" fullWidth>
-          <DialogTitle>{locationDialog?.mode === 'add' ? 'Add Location' : 'Edit Location'}</DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} sx={{ mt: 1 }}>
+      <Dialog open={!!locationDialog} onClose={() => setLocationDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{locationDialog?.mode === 'add' ? 'Add Location' : 'Edit Location'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Location Name"
+              value={locationForm.name}
+              onChange={(e) => handleLocationFormChange('name', e.target.value)}
+              required
+              fullWidth
+              disabled={locationSaving}
+            />
+            <TextField
+              label="Address"
+              value={locationForm.address}
+              onChange={(e) => handleLocationFormChange('address', e.target.value)}
+              fullWidth
+              disabled={locationSaving}
+            />
+            <Stack direction="row" spacing={2}>
               <TextField
-                label="Location Name"
-                value={locationForm.name}
-                onChange={(e) => handleLocationFormChange('name', e.target.value)}
-                required
+                label="City"
+                value={locationForm.city}
+                onChange={(e) => handleLocationFormChange('city', e.target.value)}
                 fullWidth
+                disabled={locationSaving}
               />
               <TextField
-                label="Address"
-                value={locationForm.address}
-                onChange={(e) => handleLocationFormChange('address', e.target.value)}
+                label="State"
+                value={locationForm.state}
+                onChange={(e) => handleLocationFormChange('state', e.target.value)}
                 fullWidth
-              />
-              <Stack direction="row" spacing={2}>
-                <TextField
-                  label="City"
-                  value={locationForm.city}
-                  onChange={(e) => handleLocationFormChange('city', e.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  label="State"
-                  value={locationForm.state}
-                  onChange={(e) => handleLocationFormChange('state', e.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  label="Zip"
-                  value={locationForm.zipCode}
-                  onChange={(e) => handleLocationFormChange('zipCode', e.target.value)}
-                  fullWidth
-                />
-              </Stack>
-              <TextField
-                label="Phone"
-                value={locationForm.phone}
-                onChange={(e) => handleLocationFormChange('phone', e.target.value)}
-                fullWidth
+                disabled={locationSaving}
               />
               <TextField
+                label="Zip"
+                value={locationForm.zipCode}
+                onChange={(e) => handleLocationFormChange('zipCode', e.target.value)}
                 fullWidth
-                select
-                label="Timezone"
-                value={locationForm.timezone}
-                onChange={(e) => handleLocationFormChange('timezone', e.target.value)}
-              >
-                {COMMON_TIMEZONES.map((tz) => (
-                  <MenuItem key={tz} value={tz}>
-                    {tz}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <Button
-                variant={locationForm.isPrimary ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => handleLocationFormChange('isPrimary', !locationForm.isPrimary)}
-              >
-                {locationForm.isPrimary ? 'Primary Location' : 'Set as Primary'}
-              </Button>
+                disabled={locationSaving}
+              />
             </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setLocationDialog(null)}>Cancel</Button>
-            <Button onClick={handleLocationSubmit} variant="contained" disabled={submitting || !locationForm.name.trim()}>
-              {locationDialog?.mode === 'add' ? 'Add' : 'Save'}
+            <TextField
+              label="Phone"
+              value={locationForm.phone}
+              onChange={(e) => handleLocationFormChange('phone', e.target.value)}
+              fullWidth
+              disabled={locationSaving}
+            />
+            <TextField
+              fullWidth
+              select
+              label="Timezone"
+              value={locationForm.timezone}
+              onChange={(e) => handleLocationFormChange('timezone', e.target.value)}
+              disabled={locationSaving}
+            >
+              {COMMON_TIMEZONES.map((tz) => (
+                <MenuItem key={tz} value={tz}>
+                  {tz}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button
+              variant={locationForm.isPrimary ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => handleLocationFormChange('isPrimary', !locationForm.isPrimary)}
+              disabled={locationSaving}
+            >
+              {locationForm.isPrimary ? 'Primary Location' : 'Set as Primary'}
             </Button>
-          </DialogActions>
-        </Dialog>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLocationDialog(null)} disabled={locationSaving}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleLocationSubmit}
+            variant="contained"
+            disabled={locationSaving || !locationForm.name.trim()}
+            startIcon={locationSaving ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {locationDialog?.mode === 'add' ? 'Add' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        <Dialog open={!!deleteConfirm} onClose={() => { setDeleteConfirm(null); setDeletionInfo(null); setDeleteAction(null); }} maxWidth="sm" fullWidth>
-          <DialogTitle>Delete Location?</DialogTitle>
-          <DialogContent>
-            <Typography sx={{ mb: 2 }}>
-              Are you sure you want to delete &quot;{deleteConfirm?.name}&quot;?
-            </Typography>
-            {deletionInfo?.hasInventory ? (
-              <Stack spacing={2}>
-                <Typography color="text.secondary">
-                  This location has {deletionInfo.inventoryCount} inventory item(s). Choose how to proceed:
-                </Typography>
-                <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-                  <Button
-                    variant={deleteAction?.action === 'delete_inventory' ? 'contained' : 'outlined'}
-                    size="small"
-                    color="error"
-                    onClick={() => setDeleteAction({ action: 'delete_inventory' })}
-                  >
-                    Delete all inventory
-                  </Button>
-                  {deletionInfo.otherLocations?.length > 0 && (
-                    <>
-                      <Typography variant="body2" color="text.secondary">or</Typography>
-                      <Button
-                        variant={deleteAction?.action === 'reassign' ? 'contained' : 'outlined'}
-                        size="small"
-                        onClick={() => setDeleteAction({ action: 'reassign', targetId: deletionInfo.otherLocations[0].id })}
-                      >
-                        Move to another location
-                      </Button>
-                    </>
-                  )}
-                </Stack>
-                {deleteAction?.action === 'reassign' && deletionInfo.otherLocations?.length > 0 && (
-                  <TextField
-                    select
-                    fullWidth
-                    label="Move inventory to"
-                    value={deleteAction.targetId || ''}
-                    onChange={(e) => setDeleteAction((a) => ({ ...a, targetId: parseInt(e.target.value, 10) }))}
-                  >
-                    {deletionInfo.otherLocations.map((loc) => (
-                      <MenuItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+      <Dialog
+        open={!!deleteConfirm}
+        onClose={() => {
+          setDeleteConfirm(null);
+          setDeletionInfo(null);
+          setDeleteAction(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Delete Location?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            Are you sure you want to delete &quot;{deleteConfirm?.name}&quot;?
+          </Typography>
+          {deletionInfo?.hasInventory ? (
+            <Stack spacing={2}>
+              <Typography color="text.secondary">
+                This location has {deletionInfo.inventoryCount} inventory item(s). Choose how to proceed:
+              </Typography>
+              <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                <Button
+                  variant={deleteAction?.action === 'delete_inventory' ? 'contained' : 'outlined'}
+                  size="small"
+                  color="error"
+                  onClick={() => setDeleteAction({ action: 'delete_inventory' })}
+                >
+                  Delete all inventory
+                </Button>
+                {deletionInfo.otherLocations?.length > 0 && (
+                  <>
+                    <Typography variant="body2" color="text.secondary">
+                      or
+                    </Typography>
+                    <Button
+                      variant={deleteAction?.action === 'reassign' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() =>
+                        setDeleteAction({ action: 'reassign', targetId: deletionInfo.otherLocations[0].id })
+                      }
+                    >
+                      Move to another location
+                    </Button>
+                  </>
                 )}
               </Stack>
-            ) : (
-              <Typography color="text.secondary">This cannot be undone.</Typography>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => { setDeleteConfirm(null); setDeletionInfo(null); setDeleteAction(null); }}>Cancel</Button>
-            <Button onClick={handleDeleteLocation} color="error" variant="contained" disabled={submitting || (deletionInfo?.hasInventory && !deleteAction)}>
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
+              {deleteAction?.action === 'reassign' && deletionInfo.otherLocations?.length > 0 && (
+                <TextField
+                  select
+                  fullWidth
+                  label="Move inventory to"
+                  value={deleteAction.targetId || ''}
+                  onChange={(e) =>
+                    setDeleteAction((a) => ({ ...a, targetId: parseInt(e.target.value, 10) }))
+                  }
+                >
+                  {deletionInfo.otherLocations.map((loc) => (
+                    <MenuItem key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            </Stack>
+          ) : (
+            <Typography color="text.secondary">This cannot be undone.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setDeleteConfirm(null);
+              setDeletionInfo(null);
+              setDeleteAction(null);
+            }}
+            disabled={deleteSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteLocation}
+            color="error"
+            variant="contained"
+            disabled={deleteSubmitting || (deletionInfo?.hasInventory && !deleteAction)}
+            startIcon={deleteSubmitting ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        <Dialog open={logoRemoveConfirm} onClose={() => setLogoRemoveConfirm(false)}>
-          <DialogTitle>Remove Logo?</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to remove the company logo?
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setLogoRemoveConfirm(false)}>Cancel</Button>
-            <Button onClick={handleLogoRemove} color="error" variant="contained" disabled={submitting}>
-              Remove
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
+      <Dialog open={logoRemoveConfirm} onClose={() => setLogoRemoveConfirm(false)}>
+        <DialogTitle>Remove Logo?</DialogTitle>
+        <DialogContent>
+          <Typography>Are you sure you want to remove the company logo?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLogoRemoveConfirm(false)} disabled={logoSaving}>
+            Cancel
+          </Button>
+          <Button onClick={handleLogoRemove} color="error" variant="contained" disabled={logoSaving}>
+            Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
