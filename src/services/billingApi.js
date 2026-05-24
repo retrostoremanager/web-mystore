@@ -124,6 +124,53 @@ export async function changeSubscriptionTier(tier, locationCount, authHeaders) {
 }
 
 /**
+ * Get subscription details for the current company.
+ * Requires authentication.
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, data?: Object}>}
+ */
+export async function getSubscription(authHeaders) {
+  const response = await fetch(`${config.apiUrl}/billing/subscription`, {
+    method: 'GET',
+    headers: authHeaders,
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to retrieve subscription');
+  }
+
+  return result;
+}
+
+/**
+ * Get invoices for the current company.
+ * Requires authentication.
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @param {number} [page=1] - Page number for pagination
+ * @param {number} [limit=10] - Number of invoices per page
+ * @returns {Promise<{success: boolean, data?: Array, pagination?: Object}>}
+ */
+export async function getInvoices(authHeaders, page = 1, limit = 10) {
+  const response = await fetch(
+    `${config.apiUrl}/billing/invoices?page=${page}&limit=${limit}`,
+    {
+      method: 'GET',
+      headers: authHeaders,
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to retrieve invoices');
+  }
+
+  return result;
+}
+
+/**
  * Delete a payment method.
  * Requires authentication. Cannot delete the last payment method.
  * @param {number} paymentMethodId - Database ID of the payment method
