@@ -63,9 +63,10 @@ const emptyForm = {
   condition: '',
   sellPrice: '',
   quantity: '',
+  locationId: '',
 };
 
-const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading }) => {
+const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations }) => {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
@@ -137,6 +138,23 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading }) => {
             fullWidth
             inputProps={{ min: 0, step: 1 }}
           />
+          <FormControl fullWidth required>
+            <InputLabel>Location</InputLabel>
+            <Select
+              value={form.locationId}
+              label="Location"
+              onChange={handleChange('locationId')}
+            >
+              <MenuItem value="">
+                <em>Select a location</em>
+              </MenuItem>
+              {locations.map((loc) => (
+                <MenuItem key={loc.id} value={loc.id}>
+                  {loc.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -146,7 +164,7 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading }) => {
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !form.name.trim()}
+          disabled={loading || !form.name.trim() || !form.locationId}
           startIcon={loading ? <CircularProgress size={16} /> : null}
         >
           {isEdit ? 'Save' : 'Add Item'}
@@ -243,6 +261,7 @@ const InventoryPage = () => {
         condition: form.condition || undefined,
         sellPrice: form.sellPrice !== '' ? Number(form.sellPrice) : undefined,
         quantity: form.quantity !== '' ? Number(form.quantity) : undefined,
+        locationId: form.locationId !== '' ? Number(form.locationId) : undefined,
       }).unwrap();
       setAddDialogOpen(false);
       showSnackbar('Item added successfully');
@@ -260,6 +279,7 @@ const InventoryPage = () => {
         condition: form.condition || undefined,
         sellPrice: form.sellPrice !== '' ? Number(form.sellPrice) : undefined,
         quantity: form.quantity !== '' ? Number(form.quantity) : undefined,
+        locationId: form.locationId !== '' ? Number(form.locationId) : undefined,
       }).unwrap();
       setEditDialogOpen(false);
       setEditItem(null);
@@ -288,6 +308,7 @@ const InventoryPage = () => {
       condition: item.condition || '',
       sellPrice: item.sellPrice != null ? String(item.sellPrice) : '',
       quantity: item.quantity != null ? String(item.quantity) : '',
+      locationId: item.locationId != null ? item.locationId : '',
     });
     setEditDialogOpen(true);
   };
@@ -532,6 +553,7 @@ const InventoryPage = () => {
         onSubmit={handleAdd}
         initialValues={null}
         loading={isCreating}
+        locations={locations}
       />
 
       <ItemDialog
@@ -543,6 +565,7 @@ const InventoryPage = () => {
         onSubmit={handleEdit}
         initialValues={editItem}
         loading={isUpdating}
+        locations={locations}
       />
 
       <ConfirmDialog
