@@ -22,13 +22,21 @@ import {
   Tabs,
   Tab,
   Autocomplete,
+  Tooltip,
+  Stack,
 } from '@mui/material';
-import { ArrowBack, Add, Handshake } from '@mui/icons-material';
+import { ArrowBack, Add, Handshake, AttachMoney, Payments, Undo } from '@mui/icons-material';
 import ConsignmentDetailDrawer from './ConsignmentDetailDrawer';
 import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getConsignmentItems, createConsignmentItem } from '../services/consignmentApi';
+import {
+  getConsignmentItems,
+  createConsignmentItem,
+  markConsignmentSold,
+  recordConsignmentPayout,
+  returnConsignmentToCustomer,
+} from '../services/consignmentApi';
 import { getCustomers } from '../services/customersApi';
 
 const STATUS_TABS = ['all', 'active', 'sold', 'returned'];
@@ -207,6 +215,66 @@ const ConsignmentPage = () => {
         const s = params.value?.toLowerCase();
         const props = statusChipProps[s] || { label: params.value || '—', color: 'default' };
         return <Chip label={props.label} color={props.color} size="small" />;
+      },
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 220,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      renderCell: (params) => {
+        const status = params.row.status?.toLowerCase();
+        return (
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', height: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <Tooltip title={status !== 'active' ? 'Only active items can be marked as sold' : 'Mark Sold'}>
+              <span>
+                <IconButton
+                  size="small"
+                  color="success"
+                  disabled={status !== 'active'}
+                  onClick={() => {
+                    setSelectedItem(params.row);
+                    setDrawerOpen(true);
+                  }}
+                >
+                  <AttachMoney fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={status !== 'sold' || params.row.payoutRecorded ? (status !== 'sold' ? 'Only sold items can have a payout recorded' : 'Payout already recorded') : 'Record Payout'}>
+              <span>
+                <IconButton
+                  size="small"
+                  color="primary"
+                  disabled={status !== 'sold' || Boolean(params.row.payoutRecorded)}
+                  onClick={() => {
+                    setSelectedItem(params.row);
+                    setDrawerOpen(true);
+                  }}
+                >
+                  <Payments fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={status !== 'active' ? 'Only active items can be returned' : 'Return to Customer'}>
+              <span>
+                <IconButton
+                  size="small"
+                  color="warning"
+                  disabled={status !== 'active'}
+                  onClick={() => {
+                    setSelectedItem(params.row);
+                    setDrawerOpen(true);
+                  }}
+                >
+                  <Undo fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
+        );
       },
     },
   ];
