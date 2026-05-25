@@ -34,6 +34,7 @@ import CompanyProfilePage from './components/CompanyProfilePage';
 import AccountSuspendedPage from './components/AccountSuspendedPage';
 import TrialExpiredPrompt from './components/TrialExpiredPrompt';
 import PermissionRoute from './components/PermissionRoute';
+import ConsignmentPage from './components/ConsignmentPage';
 
 const theme = createTheme({
   palette: {
@@ -103,6 +104,7 @@ function App() {
               <Route path="/dashboard/trade-in" element={<PermissionRoute permission="inventory.create" element={<TradeInPage />} />} />
               <Route path="/dashboard/checkout" element={<PermissionRoute permission="sales.create" element={<CheckoutPage />} />} />
               <Route path="/dashboard/sales-history" element={<PermissionRoute permission="sales.view" element={<SalesHistoryPage />} />} />
+              <Route path="/dashboard/consignment" element={<PermissionRoute permission="inventory.view" element={<ConsignmentPage />} />} />
               <Route path="/dashboard/billing" element={<PermissionRoute permission="billing.view" element={<BillingSettingsPage />} />} />
               <Route path="/dashboard/subscription" element={<PermissionRoute permission="billing.view" element={<SubscriptionPage />} />} />
               <Route path="/dashboard/profile" element={<PermissionRoute permission="settings.manage" element={<CompanyProfilePage />} />} />
