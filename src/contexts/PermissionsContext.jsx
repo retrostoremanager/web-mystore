@@ -13,11 +13,12 @@ export const usePermissions = () => {
 };
 
 export const PermissionsProvider = ({ children }) => {
-  const { isAuthenticated, getAuthHeaders } = useAuth();
+  const { isAuthenticated, getAuthHeaders, loading: authLoading } = useAuth();
   const [permissions, setPermissions] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
   const loadPermissions = useCallback(async () => {
+    if (authLoading) return;
     if (!isAuthenticated || !getAuthHeaders().Authorization) {
       setPermissions(new Set());
       setLoading(false);
@@ -32,7 +33,7 @@ export const PermissionsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, getAuthHeaders]);
+  }, [authLoading, isAuthenticated, getAuthHeaders]);
 
   useEffect(() => {
     loadPermissions();
