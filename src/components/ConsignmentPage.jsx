@@ -24,6 +24,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import { ArrowBack, Add, Handshake } from '@mui/icons-material';
+import ConsignmentDetailDrawer from './ConsignmentDetailDrawer';
 import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,6 +59,9 @@ const ConsignmentPage = () => {
 
   const [customers, setCustomers] = useState([]);
   const [customersLoading, setCustomersLoading] = useState(false);
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -121,6 +125,18 @@ const ConsignmentPage = () => {
       next.splitPercent = 'Enter a split % between 0 and 100';
     setFieldErrors(next);
     return Object.keys(next).length === 0;
+  };
+
+  const handleRowClick = (params) => {
+    setSelectedItem(params.row);
+    setDrawerOpen(true);
+  };
+
+  const handleItemUpdated = (updatedItem) => {
+    setItems((prev) =>
+      prev.map((it) => (it.id === updatedItem.id ? { ...it, ...updatedItem } : it))
+    );
+    setSelectedItem((prev) => (prev?.id === updatedItem.id ? { ...prev, ...updatedItem } : prev));
   };
 
   const handleSave = async () => {
@@ -270,7 +286,9 @@ const ConsignmentPage = () => {
                   autoHeight
                   pageSizeOptions={[10, 25, 50]}
                   initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-                  disableRowSelectionOnClick
+                  onRowClick={handleRowClick}
+                  disableRowSelectionOnClick={false}
+                  sx={{ cursor: 'pointer' }}
                   slots={{
                     noRowsOverlay: () => (
                       <Box
@@ -366,6 +384,14 @@ const ConsignmentPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConsignmentDetailDrawer
+        item={selectedItem}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onItemUpdated={handleItemUpdated}
+        showSnackbar={showSnackbar}
+      />
 
       <Snackbar
         open={snackbar.open}
