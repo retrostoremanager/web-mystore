@@ -531,7 +531,7 @@ const InventoryPage = () => {
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                <Inventory sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
+                <Inventory sx={{ mr: 1, color: 'primary.main' }} fontSize="large" />
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
                   Inventory Items
                 </Typography>
@@ -620,7 +620,7 @@ const InventoryPage = () => {
                           py: 6,
                         }}
                       >
-                        <Inventory sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                        <Inventory sx={{ color: 'text.disabled', mb: 1 }} fontSize="large" />
                         <Typography variant="body1" color="text.secondary">
                           {searchQuery
                             ? 'No items match your search.'
