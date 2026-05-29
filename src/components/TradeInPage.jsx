@@ -21,12 +21,13 @@ import {
   Divider,
   Stack,
 } from '@mui/material';
-import { ArrowBack, Add, SwapHoriz, Delete, QrCodeScanner } from '@mui/icons-material';
+import { ArrowBack, Add, SwapHoriz, Delete, QrCodeScanner, SmartToy } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getCustomers } from '../services/customersApi';
 import { getTradeIns, createTradeIn, completeTradeIn, rejectTradeIn } from '../services/tradeInApi';
+import AiScanDialog from './trade-ins/AiScanDialog';
 
 const STATUS_TABS = ['all', 'draft', 'completed', 'rejected'];
 
@@ -73,6 +74,8 @@ const TradeInPage = () => {
 
   const [activeDraftId, setActiveDraftId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -233,7 +236,37 @@ const TradeInPage = () => {
     },
   ];
 
+  const handleItemsParsed = useCallback((parsedItems) => {
+    const newRows = parsedItems.map((item) => ({
+      id: `new-${nextRowId++}`,
+      gameTitle: item.gameTitle || item.title || '',
+      platform: item.platform || '',
+      condition: CONDITIONS.includes(item.condition) ? item.condition : 'good',
+      offeredValue: item.offeredValue ?? '',
+      aiGenerated: true,
+    }));
+    setItems((prev) => [...prev, ...newRows]);
+  }, []);
+
   const itemColumns = [
+    {
+      field: 'aiGenerated',
+      headerName: 'AI',
+      width: 56,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      renderCell: (params) =>
+        params.value ? (
+          <Chip
+            label="AI"
+            size="small"
+            color="info"
+            icon={<SmartToy sx={{ fontSize: '14px !important' }} />}
+            sx={{ fontSize: 11 }}
+          />
+        ) : null,
+    },
     {
       field: 'gameTitle',
       headerName: 'Game Title',
@@ -398,7 +431,7 @@ const TradeInPage = () => {
                 <Button
                   variant="outlined"
                   startIcon={<QrCodeScanner />}
-                  disabled
+                  onClick={() => setScanDialogOpen(true)}
                   size="small"
                 >
                   Scan Games
@@ -437,7 +470,7 @@ const TradeInPage = () => {
                       }}
                     >
                       <Typography color="text.secondary">
-                        No items added — click "Add Item Manually" to start
+                        No items added — use "Scan Games" or "Add Item Manually" to start
                       </Typography>
                     </Box>
                   ),
@@ -522,6 +555,13 @@ const TradeInPage = () => {
           </Paper>
         </Box>
       </Container>
+
+      <AiScanDialog
+        open={scanDialogOpen}
+        onClose={() => setScanDialogOpen(false)}
+        onItemsParsed={handleItemsParsed}
+        onError={(msg) => showSnackbar(msg, 'error')}
+      />
 
       <Snackbar
         open={snackbar.open}
