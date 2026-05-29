@@ -27,10 +27,11 @@ export async function createTradeIn(body, authHeaders) {
   return result;
 }
 
-export async function completeTradeIn(tradeInId, authHeaders) {
+export async function completeTradeIn(tradeInId, paymentType, authHeaders) {
   const response = await fetch(`${config.apiUrl}/trade-ins/${tradeInId}/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify({ paymentType }),
   });
   const result = await parseJsonResponse(response, 'Failed to complete trade-in');
   if (!response.ok) {

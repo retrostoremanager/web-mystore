@@ -159,7 +159,7 @@ const TradeInPage = () => {
       const created = await createTradeIn(body, headers);
       const draftId = created.data?.id;
       if (!draftId) throw new Error('No trade-in ID returned from server');
-      await completeTradeIn(draftId, headers);
+      await completeTradeIn(draftId, paymentType, headers);
       showSnackbar('Trade-in completed successfully');
       setItems([]);
       setSelectedCustomer(null);
