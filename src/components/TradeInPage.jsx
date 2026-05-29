@@ -194,7 +194,8 @@ const TradeInPage = () => {
       field: 'createdAt',
       headerName: 'Date',
       width: 160,
-      valueGetter: (_, row) => {
+      valueGetter: (params) => {
+        const row = params.row;
         const d = row.createdAt || row.createdDate || null;
         return d ? new Date(d).toLocaleDateString() : '—';
       },
@@ -204,7 +205,8 @@ const TradeInPage = () => {
       headerName: 'Customer',
       flex: 1,
       minWidth: 140,
-      valueGetter: (_, row) => {
+      valueGetter: (params) => {
+        const row = params.row;
         if (row.customer) return customerDisplayName(row.customer);
         if (row.customerName) return row.customerName;
         return row.customerId ? `Customer #${row.customerId}` : '—';
@@ -214,15 +216,19 @@ const TradeInPage = () => {
       field: 'itemsCount',
       headerName: 'Items #',
       width: 90,
-      valueGetter: (_, row) =>
-        Array.isArray(row.items) ? row.items.length : (row.itemsCount ?? '—'),
+      valueGetter: (params) => {
+        const row = params.row;
+        return Array.isArray(row.items) ? row.items.length : (row.itemsCount ?? '—');
+      },
     },
     {
       field: 'totalOffered',
       headerName: 'Total Offered',
       width: 140,
-      valueGetter: (_, row) =>
-        row.totalOffered != null ? fmt(row.totalOffered) : '—',
+      valueGetter: (params) => {
+        const row = params.row;
+        return row.totalOffered != null ? fmt(row.totalOffered) : '—';
+      },
     },
     {
       field: 'status',
