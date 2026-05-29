@@ -237,7 +237,7 @@ const CustomersPage = () => {
       field: 'pointsBalance',
       headerName: 'Points Balance',
       width: 140,
-      valueGetter: (_, row) => row.pointsBalance ?? 0,
+      valueGetter: (_, row) => row?.pointsBalance ?? 0,
     },
     {
       field: 'actions',
