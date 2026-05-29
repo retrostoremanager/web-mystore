@@ -6,6 +6,12 @@ import { fetchWithRetry, parseJsonResponse } from '../utils/fetchWithRetry';
  * @param {Object} authHeaders
  * @returns {Promise<{success: boolean, data?: Array}>}
  */
+const normalizeCustomer = (c) => ({
+  ...c,
+  createdAt: c.createdAt ?? c.createdDate ?? null,
+  pointsBalance: c.pointsBalance ?? 0,
+});
+
 export async function getCustomers(authHeaders) {
   const response = await fetchWithRetry(
     `${config.apiUrl}/customers`,
@@ -16,6 +22,9 @@ export async function getCustomers(authHeaders) {
   const result = await parseJsonResponse(response, 'Failed to retrieve customers');
   if (!response.ok) {
     throw new Error(result.message || 'Failed to retrieve customers');
+  }
+  if (Array.isArray(result.data)) {
+    result.data = result.data.map(normalizeCustomer);
   }
   return result;
 }
@@ -56,6 +65,9 @@ export async function getCustomer(customerId, authHeaders) {
   const result = await parseJsonResponse(response, 'Failed to retrieve customer');
   if (!response.ok) {
     throw new Error(result.message || 'Failed to retrieve customer');
+  }
+  if (result.data) {
+    result.data = normalizeCustomer(result.data);
   }
   return result;
 }
