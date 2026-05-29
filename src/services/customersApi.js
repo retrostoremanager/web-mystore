@@ -61,6 +61,28 @@ export async function getCustomer(customerId, authHeaders) {
 }
 
 /**
+ * Update a customer by ID.
+ * @param {number|string} customerId
+ * @param {Object} body
+ * @param {Object} authHeaders
+ */
+export async function updateCustomer(customerId, body, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/customers/${customerId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(body),
+  });
+  const result = await parseJsonResponse(response, 'Failed to update customer');
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to update customer');
+  }
+  return result;
+}
+
+/**
  * Delete a customer by ID.
  * @param {number|string} customerId
  * @param {Object} authHeaders
