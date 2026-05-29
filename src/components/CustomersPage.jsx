@@ -234,6 +234,12 @@ const CustomersPage = () => {
       valueGetter: (_, row) => row?.phone || '—',
     },
     {
+      field: 'pointsBalance',
+      headerName: 'Points Balance',
+      width: 140,
+      valueGetter: (_, row) => row.pointsBalance ?? 0,
+    },
+    {
       field: 'actions',
       headerName: 'Actions',
       width: 110,
@@ -490,10 +496,14 @@ const CustomersPage = () => {
               <DetailRow
                 label="Member Since"
                 value={
-                  selectedCustomer.createdDate
-                    ? new Date(selectedCustomer.createdDate).toLocaleDateString()
+                  selectedCustomer.createdAt
+                    ? new Date(selectedCustomer.createdAt).toLocaleDateString()
                     : undefined
                 }
+              />
+              <DetailRow
+                label="Points Balance"
+                value={String(selectedCustomer.pointsBalance ?? 0)}
               />
             </Box>
 
