@@ -50,3 +50,16 @@ export async function rejectTradeIn(tradeInId, authHeaders) {
   }
   return result;
 }
+
+export async function parseTradeInImage(imageBase64, mimeType, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/trade-ins/parse-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify({ imageBase64, mimeType }),
+  });
+  const result = await parseJsonResponse(response, 'Failed to parse image');
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to parse image');
+  }
+  return result;
+}
