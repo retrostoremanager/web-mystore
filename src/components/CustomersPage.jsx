@@ -217,21 +217,21 @@ const CustomersPage = () => {
       headerName: 'Name',
       flex: 1,
       minWidth: 160,
-      valueGetter: (_, row) => customerDisplayName(row),
+      valueGetter: (_, row) => row ? customerDisplayName(row) : '—',
     },
     {
       field: 'email',
       headerName: 'Email',
       flex: 1,
       minWidth: 180,
-      valueGetter: (_, row) => row.email || '—',
+      valueGetter: (_, row) => row?.email || '—',
     },
     {
       field: 'phone',
       headerName: 'Phone',
       flex: 1,
       minWidth: 140,
-      valueGetter: (_, row) => row.phone || '—',
+      valueGetter: (_, row) => row?.phone || '—',
     },
     {
       field: 'actions',
@@ -318,7 +318,7 @@ const CustomersPage = () => {
             ) : (
               <Box sx={{ overflowX: 'auto' }}>
                 <DataGrid
-                  rows={customers}
+                  rows={customers.filter(Boolean)}
                   columns={columns}
                   autoHeight
                   onRowClick={handleRowClick}
