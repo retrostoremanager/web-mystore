@@ -69,7 +69,7 @@ const TradeInPage = () => {
   const [customersLoading, setCustomersLoading] = useState(false);
 
   const [items, setItems] = useState([]);
-  const [paymentType, setPaymentType] = useState('Cash');
+  const [paymentType, setPaymentType] = useState('cash');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   const [activeDraftId, setActiveDraftId] = useState(null);
@@ -163,7 +163,7 @@ const TradeInPage = () => {
       showSnackbar('Trade-in completed successfully');
       setItems([]);
       setSelectedCustomer(null);
-      setPaymentType('Cash');
+      setPaymentType('cash');
       setActiveDraftId(null);
       await loadTradeIns(activeTab);
     } catch (err) {
@@ -513,8 +513,8 @@ const TradeInPage = () => {
                 fullWidth
                 size="small"
               >
-                <ToggleButton value="Cash">Cash</ToggleButton>
-                <ToggleButton value="Store Credit">Store Credit</ToggleButton>
+                <ToggleButton value="cash">Cash</ToggleButton>
+                <ToggleButton value="store_credit">Store Credit</ToggleButton>
               </ToggleButtonGroup>
             </Box>
 
