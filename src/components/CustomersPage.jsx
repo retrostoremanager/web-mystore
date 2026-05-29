@@ -19,7 +19,6 @@ import {
   Alert,
   Drawer,
   Divider,
-  Chip,
   Skeleton,
 } from '@mui/material';
 import {
@@ -233,20 +232,6 @@ const CustomersPage = () => {
       flex: 1,
       minWidth: 140,
       valueGetter: (_, row) => row.phone || '—',
-    },
-    {
-      field: 'pointsBalance',
-      headerName: 'Points Balance',
-      width: 140,
-      renderCell: (params) => (
-        <Chip
-          label={params.row.pointsBalance ?? 0}
-          size="small"
-          variant="outlined"
-          color="primary"
-        />
-      ),
-      sortable: false,
     },
     {
       field: 'actions',
@@ -502,24 +487,11 @@ const CustomersPage = () => {
               ACCOUNT
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Points Balance
-                </Typography>
-                <Box sx={{ mt: 0.5 }}>
-                  <Chip
-                    label={selectedCustomer.pointsBalance ?? 0}
-                    size="small"
-                    variant="outlined"
-                    color="primary"
-                  />
-                </Box>
-              </Box>
               <DetailRow
                 label="Member Since"
                 value={
-                  selectedCustomer.createdAt
-                    ? new Date(selectedCustomer.createdAt).toLocaleDateString()
+                  selectedCustomer.createdDate
+                    ? new Date(selectedCustomer.createdDate).toLocaleDateString()
                     : undefined
                 }
               />
