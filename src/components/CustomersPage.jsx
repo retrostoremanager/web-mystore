@@ -20,6 +20,7 @@ import {
   Drawer,
   Divider,
   Skeleton,
+  Chip,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -237,7 +238,15 @@ const CustomersPage = () => {
       field: 'pointsBalance',
       headerName: 'Points Balance',
       width: 140,
-      valueGetter: (_, row) => row?.pointsBalance ?? 0,
+      sortable: false,
+      renderCell: (params) => (
+        <Chip
+          label={params.row.pointsBalance ?? 0}
+          size="small"
+          variant="outlined"
+          color="primary"
+        />
+      ),
     },
     {
       field: 'actions',
