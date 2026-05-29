@@ -101,7 +101,8 @@ function App() {
               <Route path="/dashboard/customers" element={<PermissionRoute permission="customers.view" element={<CustomersPage />} />} />
               <Route path="/dashboard/users" element={<PermissionRoute permission="users.view" element={<UsersPage />} />} />
               <Route path="/dashboard/roles" element={<PermissionRoute permission="users.view" element={<RolesPage />} />} />
-              <Route path="/dashboard/trade-in" element={<PermissionRoute permission="inventory.create" element={<TradeInPage />} />} />
+              <Route path="/dashboard/trade-in" element={<PermissionRoute permission="trade_in.view" element={<TradeInPage />} />} />
+              <Route path="/trade-ins" element={<PermissionRoute permission="trade_in.view" element={<TradeInPage />} />} />
               <Route path="/dashboard/checkout" element={<PermissionRoute permission="sales.create" element={<CheckoutPage />} />} />
               <Route path="/dashboard/sales-history" element={<PermissionRoute permission="sales.view" element={<SalesHistoryPage />} />} />
               <Route path="/dashboard/consignment" element={<PermissionRoute permission="consignment.view" element={<ConsignmentPage />} />} />
