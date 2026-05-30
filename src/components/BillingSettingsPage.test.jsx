@@ -174,6 +174,23 @@ describe('BillingSettingsPage render', () => {
     });
   });
 
+  it('shows payment method card with last4 and expiry when brand field is absent', async () => {
+    getSubscription.mockResolvedValue({ data: null });
+    getPaymentMethods.mockResolvedValue({
+      data: [
+        { id: 1, last4: '4242', expirationMonth: 12, expirationYear: 2035, isDefault: true },
+      ],
+    });
+    getInvoices.mockResolvedValue({ data: [], pagination: { totalPages: 1 } });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/4242/)).toBeInTheDocument();
+      expect(screen.getByText(/12\/35/)).toBeInTheDocument();
+    });
+  });
+
   it('shows empty state when no payment methods', async () => {
     getSubscription.mockResolvedValue({ data: null });
     getPaymentMethods.mockResolvedValue({ data: [] });
