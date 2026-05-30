@@ -180,6 +180,16 @@ export async function getInvoices(authHeaders, page = 1, limit = 10) {
     throw new Error(result.message || 'Failed to retrieve invoices');
   }
 
+  if (result.data && !Array.isArray(result.data) && Array.isArray(result.data.invoices)) {
+    const { invoices, hasMore, ...rest } = result.data;
+    return {
+      ...result,
+      data: invoices,
+      hasMore: hasMore ?? false,
+      pagination: { ...rest, totalPages: hasMore ? page + 1 : page },
+    };
+  }
+
   return result;
 }
 

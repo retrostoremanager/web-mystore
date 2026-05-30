@@ -193,9 +193,8 @@ export default function BillingSettingsPage() {
         setInvoicesError(null);
       }
       const result = await getInvoices(getAuthHeaders(), page, 10);
-      const invoiceData = result.data || {};
-      const newInvoices = invoiceData.invoices || [];
-      const hasMore = invoiceData.hasMore || false;
+      const newInvoices = Array.isArray(result.data) ? result.data : [];
+      const hasMore = result.hasMore || false;
       if (append) {
         setInvoices((prev) => [...prev, ...newInvoices]);
       } else {
