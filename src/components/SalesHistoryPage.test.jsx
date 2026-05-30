@@ -24,9 +24,11 @@ vi.mock('../contexts/FormattingContext', () => ({
 vi.mock('../services/salesApi', () => ({
   getAllSales: vi.fn(),
   getSalesByDateRange: vi.fn(),
+  getSaleReceipt: vi.fn(),
+  emailSaleReceipt: vi.fn(),
 }));
 
-import { getAllSales } from '../services/salesApi';
+import { getAllSales, getSaleReceipt } from '../services/salesApi';
 
 const mockSales = [
   {
@@ -62,6 +64,19 @@ describe('SalesHistoryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getAllSales.mockResolvedValue({ success: true, data: mockSales });
+    getSaleReceipt.mockResolvedValue({
+      success: true,
+      data: {
+        receiptNumber: '001',
+        storeName: 'Test Store',
+        saleDate: '2024-03-15T10:00:00Z',
+        items: [],
+        subtotal: 20,
+        taxAmount: 0,
+        total: 20,
+        paymentMethod: 'cash',
+      },
+    });
   });
 
   describe('DataGrid rendering', () => {
@@ -100,7 +115,7 @@ describe('SalesHistoryPage', () => {
       });
     });
 
-    it('renders DataGrid with column fields including Date, Customer, Items', async () => {
+    it('renders DataGrid with column fields including Date, Customer, Items, Total, Employee', async () => {
       renderPage();
       await waitFor(() => {
         expect(document.querySelector('.MuiDataGrid-root')).toBeInTheDocument();
@@ -110,6 +125,7 @@ describe('SalesHistoryPage', () => {
       expect(fieldNames).toContain('dateLabel');
       expect(fieldNames).toContain('customerLabel');
       expect(fieldNames).toContain('itemCount');
+      expect(fieldNames.length).toBeGreaterThanOrEqual(3);
     });
 
     it('shows Snackbar error when API fails', async () => {
