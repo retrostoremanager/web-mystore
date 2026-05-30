@@ -193,15 +193,15 @@ export default function BillingSettingsPage() {
         setInvoicesError(null);
       }
       const result = await getInvoices(getAuthHeaders(), page, 10);
-      const newInvoices = result.data || [];
+      const invoiceData = result.data || {};
+      const newInvoices = invoiceData.invoices || [];
+      const hasMore = invoiceData.hasMore || false;
       if (append) {
         setInvoices((prev) => [...prev, ...newInvoices]);
       } else {
         setInvoices(newInvoices);
       }
-      const pagination = result.pagination || {};
-      const totalPages = pagination.totalPages || 1;
-      setInvoicesHasMore(page < totalPages);
+      setInvoicesHasMore(hasMore);
       setInvoicePage(page);
     } catch (err) {
       const { message } = getBillingErrorMessage(err);
