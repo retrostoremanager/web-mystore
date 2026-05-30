@@ -23,6 +23,7 @@ import {
   Divider,
   Switch,
   FormControlLabel,
+  Skeleton,
 } from '@mui/material';
 import { ArrowBack, Add, Edit, Delete, CloudUpload } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -83,6 +84,7 @@ export default function CompanyProfilePage() {
   const [profile, setProfile] = useState({
     companyName: '',
     companyAddress: '',
+    companyAddress2: '',
     companyCity: '',
     companyState: '',
     companyZipCode: '',
@@ -96,6 +98,7 @@ export default function CompanyProfilePage() {
   const [infoForm, setInfoForm] = useState({
     companyName: '',
     companyAddress: '',
+    companyAddress2: '',
     companyCity: '',
     companyState: '',
     companyZipCode: '',
@@ -161,6 +164,7 @@ export default function CompanyProfilePage() {
       const profileData = {
         companyName: p.companyName || '',
         companyAddress: p.companyAddress || '',
+        companyAddress2: p.companyAddress2 || '',
         companyCity: p.companyCity || '',
         companyState: p.companyState || '',
         companyZipCode: p.companyZipCode || '',
@@ -172,6 +176,7 @@ export default function CompanyProfilePage() {
       setInfoForm({
         companyName: profileData.companyName,
         companyAddress: profileData.companyAddress,
+        companyAddress2: profileData.companyAddress2,
         companyCity: profileData.companyCity,
         companyState: profileData.companyState,
         companyZipCode: profileData.companyZipCode,
@@ -449,14 +454,6 @@ export default function CompanyProfilePage() {
 
   const currentLogoSrc = logoPreview || profile.logoUrl;
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={1}>
@@ -486,78 +483,104 @@ export default function CompanyProfilePage() {
             Your company name and contact details. Use for mailing address, PO box, or headquarters.
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          <Stack spacing={2}>
-            <TextField
-              fullWidth
-              label="Company Name"
-              value={infoForm.companyName}
-              onChange={(e) => handleInfoChange('companyName', e.target.value)}
-              required
-              disabled={infoSaving}
-            />
-            <TextField
-              fullWidth
-              label="Address"
-              value={infoForm.companyAddress}
-              onChange={(e) => handleInfoChange('companyAddress', e.target.value)}
-              placeholder="Street, PO box, etc."
-              disabled={infoSaving}
-            />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                label="City"
-                value={infoForm.companyCity}
-                onChange={(e) => handleInfoChange('companyCity', e.target.value)}
-                disabled={infoSaving}
-              />
-              <TextField
-                fullWidth
-                label="State"
-                value={infoForm.companyState}
-                onChange={(e) => handleInfoChange('companyState', e.target.value)}
-                disabled={infoSaving}
-              />
-              <TextField
-                fullWidth
-                label="Zip Code"
-                value={infoForm.companyZipCode}
-                onChange={(e) => handleInfoChange('companyZipCode', e.target.value)}
-                disabled={infoSaving}
-              />
+          {loading ? (
+            <Stack spacing={2}>
+              <Skeleton variant="rounded" height={56} />
+              <Skeleton variant="rounded" height={56} />
+              <Skeleton variant="rounded" height={56} />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+                <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+                <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+              </Stack>
+              <Skeleton variant="rounded" height={56} />
+              <Skeleton variant="rounded" height={56} />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Skeleton variant="rounded" width={100} height={36} />
+              </Box>
             </Stack>
-            <TextField
-              fullWidth
-              label="Phone"
-              value={infoForm.companyPhone}
-              onChange={(e) => handleInfoChange('companyPhone', e.target.value)}
-              disabled={infoSaving}
-            />
-            <TextField
-              fullWidth
-              select
-              label="Locale"
-              value={infoForm.locale}
-              onChange={(e) => handleInfoChange('locale', e.target.value)}
-              disabled={infoSaving}
-            >
-              {COMMON_LOCALES.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                onClick={handleInfoSave}
-                disabled={infoSaving || !infoForm.companyName.trim()}
-                startIcon={infoSaving ? <CircularProgress size={16} color="inherit" /> : null}
+          ) : (
+            <Stack spacing={2}>
+              <TextField
+                fullWidth
+                label="Company Name"
+                value={infoForm.companyName}
+                onChange={(e) => handleInfoChange('companyName', e.target.value)}
+                required
+                disabled={infoSaving}
+              />
+              <TextField
+                fullWidth
+                label="Address Line 1"
+                value={infoForm.companyAddress}
+                onChange={(e) => handleInfoChange('companyAddress', e.target.value)}
+                placeholder="Street, PO box, etc."
+                disabled={infoSaving}
+              />
+              <TextField
+                fullWidth
+                label="Address Line 2"
+                value={infoForm.companyAddress2}
+                onChange={(e) => handleInfoChange('companyAddress2', e.target.value)}
+                placeholder="Apt, suite, unit, building, floor, etc."
+                disabled={infoSaving}
+              />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label="City"
+                  value={infoForm.companyCity}
+                  onChange={(e) => handleInfoChange('companyCity', e.target.value)}
+                  disabled={infoSaving}
+                />
+                <TextField
+                  fullWidth
+                  label="State/Province"
+                  value={infoForm.companyState}
+                  onChange={(e) => handleInfoChange('companyState', e.target.value)}
+                  disabled={infoSaving}
+                />
+                <TextField
+                  fullWidth
+                  label="Postal Code"
+                  value={infoForm.companyZipCode}
+                  onChange={(e) => handleInfoChange('companyZipCode', e.target.value)}
+                  disabled={infoSaving}
+                />
+              </Stack>
+              <TextField
+                fullWidth
+                label="Phone"
+                value={infoForm.companyPhone}
+                onChange={(e) => handleInfoChange('companyPhone', e.target.value)}
+                disabled={infoSaving}
+              />
+              <TextField
+                fullWidth
+                select
+                label="Locale"
+                value={infoForm.locale}
+                onChange={(e) => handleInfoChange('locale', e.target.value)}
+                disabled={infoSaving}
               >
-                {infoSaving ? 'Saving…' : 'Save Info'}
-              </Button>
-            </Box>
-          </Stack>
+                {COMMON_LOCALES.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  onClick={handleInfoSave}
+                  disabled={infoSaving || !infoForm.companyName.trim()}
+                  startIcon={infoSaving ? <CircularProgress size={16} color="inherit" /> : null}
+                >
+                  {infoSaving ? 'Saving…' : 'Save Info'}
+                </Button>
+              </Box>
+            </Stack>
+          )}
         </Paper>
 
         <Paper sx={{ p: 3, mb: 3 }}>
