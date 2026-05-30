@@ -14,21 +14,16 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Chip,
-  Divider,
+  TextField,
+  CircularProgress,
 } from '@mui/material';
 import {
   History,
   ArrowBack,
   FileDownload,
   Receipt,
+  Email,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -38,7 +33,8 @@ import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useFormatting } from '../contexts/FormattingContext';
-import { getAllSales, getSalesByDateRange } from '../services/salesApi';
+import { getAllSales, getSalesByDateRange, getSaleReceipt, emailSaleReceipt } from '../services/salesApi';
+import ReceiptView from './ReceiptView';
 
 function saleCustomerLabel(sale) {
   const c = sale.customer;
@@ -112,6 +108,13 @@ const SalesHistoryPage = () => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [selectedSale, setSelectedSale] = useState(null);
+  const [receiptData, setReceiptData] = useState(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSnackbar, setEmailSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const loadSales = useCallback(async () => {
     const headers = getAuthHeaders();
@@ -149,6 +152,36 @@ const SalesHistoryPage = () => {
     [filteredSales, formatDateTime, locale]
   );
 
+  const openReceiptDialog = useCallback(async (sale) => {
+    setSelectedSale(sale);
+    setReceiptData(null);
+    setReceiptError(null);
+    setReceiptLoading(true);
+    const headers = getAuthHeaders();
+    try {
+      const result = await getSaleReceipt(sale.id, headers);
+      setReceiptData(result.data ?? result ?? null);
+    } catch (e) {
+      setReceiptError(e.message || 'Failed to load receipt');
+    } finally {
+      setReceiptLoading(false);
+    }
+  }, [getAuthHeaders]);
+
+  const handleEmailSubmit = async () => {
+    if (!selectedSale?.id || !emailInput.trim()) return;
+    setEmailSending(true);
+    try {
+      await emailSaleReceipt(selectedSale.id, emailInput.trim(), getAuthHeaders());
+      setEmailDialogOpen(false);
+      setEmailSnackbar({ open: true, message: 'Receipt sent successfully!', severity: 'success' });
+    } catch (err) {
+      setEmailSnackbar({ open: true, message: err.message || 'Failed to send receipt', severity: 'error' });
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   const columns = [
     { field: 'dateLabel', headerName: 'Date', flex: 1.5, minWidth: 160 },
     { field: 'customerLabel', headerName: 'Customer', flex: 1.5, minWidth: 140 },
@@ -171,10 +204,29 @@ const SalesHistoryPage = () => {
         <Chip label={params.value} size="small" variant="outlined" />
       ),
     },
+    {
+      field: 'actions',
+      headerName: '',
+      flex: 0.8,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <Button
+          size="small"
+          startIcon={<Receipt />}
+          onClick={(e) => {
+            e.stopPropagation();
+            openReceiptDialog(params.row._raw);
+          }}
+        >
+          View Receipt
+        </Button>
+      ),
+    },
   ];
 
   const handleRowClick = (params) => {
-    setSelectedSale(params.row._raw);
+    openReceiptDialog(params.row._raw);
   };
 
   const handleExportCsv = () => {
@@ -315,91 +367,67 @@ const SalesHistoryPage = () => {
                 Receipt — Sale #{selectedSale.id}
               </DialogTitle>
               <DialogContent>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Date: {selectedSale.saleDate ? formatDateTime(selectedSale.saleDate) : '—'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Customer: {saleCustomerLabel(selectedSale)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Employee: {employeeLabel(selectedSale)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Payment: {selectedSale.paymentMethod || '—'}
-                  </Typography>
-                </Box>
-                <Divider sx={{ mb: 2 }} />
-                <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
-                  <Table size="small" sx={{ minWidth: 360 }}>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>Item</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>Qty</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>Unit Price</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>Discount</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>Subtotal</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {(selectedSale.items || []).length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>
-                            No line items
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        (selectedSale.items || []).map((item, idx) => {
-                          const unitPrice = Number(item.unitPrice ?? item.price ?? 0);
-                          const qty = Number(item.quantity ?? 1);
-                          const discount = Number(item.discount ?? item.discountAmount ?? 0);
-                          const subtotal = unitPrice * qty - discount;
-                          const itemName =
-                            item.inventoryItem?.name ||
-                            item.name ||
-                            item.title ||
-                            `Item ${item.inventoryItemId || idx + 1}`;
-                          return (
-                            <TableRow key={idx}>
-                              <TableCell>{itemName}</TableCell>
-                              <TableCell align="right">{qty}</TableCell>
-                              <TableCell align="right">{formatUsd(locale, unitPrice)}</TableCell>
-                              <TableCell align="right">
-                                {discount > 0 ? formatUsd(locale, discount) : '—'}
-                              </TableCell>
-                              <TableCell align="right">{formatUsd(locale, subtotal)}</TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <Divider sx={{ my: 2 }} />
-                {selectedSale.tax != null && (
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>Tax:</Typography>
-                    <Typography variant="body2">{formatUsd(locale, selectedSale.tax)}</Typography>
-                  </Box>
-                )}
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Typography variant="subtitle1" fontWeight={700} sx={{ mr: 2 }}>Grand Total:</Typography>
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    {formatUsd(locale, selectedSale.total)}
-                  </Typography>
-                </Box>
-                {selectedSale.notes && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                    Notes: {selectedSale.notes}
-                  </Typography>
-                )}
+                <ReceiptView
+                  receipt={receiptData}
+                  loading={receiptLoading}
+                  error={receiptError}
+                />
               </DialogContent>
               <DialogActions>
+                <Button
+                  startIcon={<Email />}
+                  onClick={() => {
+                    const customerEmail = selectedSale.customer?.email || '';
+                    setEmailInput(customerEmail);
+                    setEmailDialogOpen(true);
+                  }}
+                  disabled={receiptLoading}
+                >
+                  Email Receipt
+                </Button>
                 <Button onClick={() => setSelectedSale(null)}>Close</Button>
               </DialogActions>
             </>
           )}
         </Dialog>
+
+        <Dialog open={emailDialogOpen} onClose={() => !emailSending && setEmailDialogOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Email Receipt</DialogTitle>
+          <DialogContent>
+            <TextField
+              label="Email address"
+              type="email"
+              fullWidth
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              disabled={emailSending}
+              sx={{ mt: 1 }}
+              autoFocus
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEmailDialogOpen(false)} disabled={emailSending}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleEmailSubmit}
+              disabled={emailSending || !emailInput.trim()}
+              startIcon={emailSending ? <CircularProgress size={18} color="inherit" /> : null}
+            >
+              {emailSending ? 'Sending...' : 'Send'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={emailSnackbar.open}
+          autoHideDuration={5000}
+          onClose={() => setEmailSnackbar((s) => ({ ...s, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert severity={emailSnackbar.severity} onClose={() => setEmailSnackbar((s) => ({ ...s, open: false }))}>
+            {emailSnackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </LocalizationProvider>
   );

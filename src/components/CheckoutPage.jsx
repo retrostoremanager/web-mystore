@@ -28,6 +28,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
 } from '@mui/material';
 import {
   PointOfSale,
@@ -36,13 +41,14 @@ import {
   Delete,
   CheckCircle,
   Print,
+  Email,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useGetInventoryQuery, inventoryApi } from '../store/inventoryApi';
 import { useAuth } from '../contexts/AuthContext';
 import { getCustomers, createCustomer } from '../services/customersApi';
-import { createSale } from '../services/salesApi';
-import { getCompanyProfile } from '../services/profileApi';
+import { createSale, getSaleReceipt, emailSaleReceipt } from '../services/salesApi';
+import ReceiptView from './ReceiptView';
 
 const steps = ['Select Customer', 'Add Items', 'Review & Complete'];
 
@@ -89,78 +95,6 @@ function parseTaxInput(str) {
   return { ok: true, value: Math.round(n * 100) / 100 };
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function formatReceiptBranding(profile) {
-  if (!profile) {
-    return { companyName: '', addressLine: '', phone: '' };
-  }
-  const addressLine = [profile.companyAddress, profile.companyCity, profile.companyState, profile.companyZipCode]
-    .filter(Boolean)
-    .join(', ');
-  return {
-    companyName: profile.companyName || '',
-    addressLine: addressLine,
-    phone: profile.companyPhone || '',
-  };
-}
-
-function openPrintableReceipt(sale, customerName, customerEmail, storeBranding) {
-  if (!sale) return;
-  const fmt = (n) => Number(n ?? 0).toFixed(2);
-  const rows = (sale.items || [])
-    .map((line) => {
-      const name = line.inventoryItem?.name || `Item #${line.inventoryItemId}`;
-      return `<tr><td>${escapeHtml(name)}</td><td style="text-align:right">${line.quantity}</td><td style="text-align:right">$${fmt(line.unitPrice)}</td><td style="text-align:right">$${fmt(line.totalPrice)}</td></tr>`;
-    })
-    .join('');
-  const saleDate = sale.saleDate ? new Date(sale.saleDate).toLocaleString() : '';
-  const storeHeader =
-    storeBranding?.companyName ?
-      `<header style="margin-bottom:14px;border-bottom:1px solid #ddd;padding-bottom:10px">
-        <div style="font-weight:700;font-size:1.1rem">${escapeHtml(storeBranding.companyName)}</div>
-        ${storeBranding.addressLine ? `<div style="font-size:0.88rem;color:#444">${escapeHtml(storeBranding.addressLine)}</div>` : ''}
-        ${storeBranding.phone ? `<div style="font-size:0.88rem;color:#444">${escapeHtml(storeBranding.phone)}</div>` : ''}
-      </header>`
-      : '';
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Receipt #${sale.id}</title>
-<style>
-body{font-family:system-ui,-apple-system,sans-serif;padding:24px;max-width:420px;margin:0 auto;color:#111}
-h1{font-size:1.15rem;margin:0 0 8px}
-.meta,.customer{font-size:0.9rem;color:#444;margin:0 0 12px}
-table{width:100%;border-collapse:collapse;font-size:0.9rem}
-th,td{padding:8px 4px;border-bottom:1px solid #ddd}
-th{text-align:left;font-weight:600}
-.totals{margin-top:16px;text-align:right;font-size:0.95rem;line-height:1.6}
-@media print{body{padding:0}}
-</style></head><body>
-${storeHeader}
-<h1>Sale #${sale.id}</h1>
-<p class="meta">${escapeHtml(saleDate)}</p>
-<p class="customer">${escapeHtml(customerName)}<br/>${escapeHtml(customerEmail)}</p>
-<table>
-<thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Total</th></tr></thead>
-<tbody>${rows}</tbody>
-</table>
-<div class="totals">
-<div>Subtotal: $${fmt(sale.subtotal)}</div>
-<div>Tax: $${fmt(sale.tax)}</div>
-<div><strong>Total: $${fmt(sale.total)}</strong></div>
-<div>Payment: ${escapeHtml(sale.paymentMethod || '')}</div>
-</div>
-</body></html>`;
-  const w = window.open('', '_blank', 'noopener,noreferrer');
-  if (!w) return;
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-}
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -176,11 +110,13 @@ const CheckoutPage = () => {
   const [taxInput, setTaxInput] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [lastSale, setLastSale] = useState(null);
-  const [receiptBranding, setReceiptBranding] = useState({
-    companyName: '',
-    addressLine: '',
-    phone: '',
-  });
+  const [receiptData, setReceiptData] = useState(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSnackbar, setEmailSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const [checkoutData, setCheckoutData] = useState({
     customer: null,
@@ -206,21 +142,6 @@ const CheckoutPage = () => {
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
-
-  const loadReceiptBranding = useCallback(async () => {
-    const headers = getAuthHeaders();
-    if (!headers.Authorization) return;
-    try {
-      const result = await getCompanyProfile(headers);
-      setReceiptBranding(formatReceiptBranding(result.data?.profile));
-    } catch {
-      setReceiptBranding({ companyName: '', addressLine: '', phone: '' });
-    }
-  }, [getAuthHeaders]);
-
-  useEffect(() => {
-    loadReceiptBranding();
-  }, [loadReceiptBranding]);
 
   const handleCustomerSelect = (event, value) => {
     if (value) {
@@ -405,8 +326,22 @@ const CheckoutPage = () => {
       );
 
       dispatch(inventoryApi.util.invalidateTags([{ type: 'Inventory', id: 'LIST' }]));
-      setLastSale(result.data ?? null);
+      const sale = result.data ?? null;
+      setLastSale(sale);
       setActiveStep(2);
+      if (sale?.id != null) {
+        setReceiptLoading(true);
+        setReceiptError(null);
+        setReceiptData(null);
+        try {
+          const receiptResult = await getSaleReceipt(sale.id, auth);
+          setReceiptData(receiptResult.data ?? receiptResult ?? null);
+        } catch (receiptErr) {
+          setReceiptError(receiptErr.message || 'Failed to load receipt');
+        } finally {
+          setReceiptLoading(false);
+        }
+      }
     } catch (err) {
       setError(err.message || 'Failed to process transaction. Please try again.');
     } finally {
@@ -634,40 +569,44 @@ const CheckoutPage = () => {
 
       case 2:
         return (
-          <Stack spacing={3} alignItems="center" sx={{ py: 4 }}>
-            <CheckCircle sx={{ fontSize: 80, color: 'success.main' }} />
-            <Typography variant="h4" sx={{ fontWeight: 700, textAlign: 'center' }}>
-              Transaction Complete!
-            </Typography>
-            {receiptBranding.companyName ? (
-              <Typography variant="subtitle1" color="text.secondary" sx={{ textAlign: 'center' }}>
-                {receiptBranding.companyName}
+          <Stack spacing={3} sx={{ py: 2 }}>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <CheckCircle sx={{ fontSize: 40, color: 'success.main' }} />
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                Sale Complete!
               </Typography>
-            ) : null}
-            <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 500 }}>
+            </Stack>
+            <Typography variant="body1" color="text.secondary">
               The sale was saved and inventory quantities were updated.
             </Typography>
-            {lastSale?.id != null && (
-              <Typography variant="body1" sx={{ textAlign: 'center' }}>
-                Sale #{lastSale.id} · Total ${Number(lastSale.total ?? 0).toFixed(2)} ·{' '}
-                {lastSale.paymentMethod || 'Payment'}
-              </Typography>
-            )}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2 }} alignItems="center">
+
+            <Paper variant="outlined" sx={{ p: 3 }}>
+              <ReceiptView
+                receipt={receiptData}
+                loading={receiptLoading}
+                error={receiptError}
+              />
+            </Paper>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} className="no-print">
               <Button
                 variant="outlined"
                 startIcon={<Print />}
-                disabled={!lastSale}
-                onClick={() =>
-                  openPrintableReceipt(
-                    lastSale,
-                    checkoutData.customerName,
-                    checkoutData.customerEmail,
-                    receiptBranding
-                  )
-                }
+                disabled={receiptLoading || !receiptData}
+                onClick={() => window.print()}
               >
-                Print receipt
+                Print Receipt
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Email />}
+                disabled={receiptLoading || !lastSale}
+                onClick={() => {
+                  setEmailInput(checkoutData.customerEmail || '');
+                  setEmailDialogOpen(true);
+                }}
+              >
+                Email Receipt
               </Button>
               <Button
                 variant="outlined"
@@ -676,6 +615,8 @@ const CheckoutPage = () => {
                   setTaxInput('');
                   setPaymentMethod('Cash');
                   setLastSale(null);
+                  setReceiptData(null);
+                  setReceiptError(null);
                   setActiveStep(0);
                 }}
               >
@@ -696,9 +637,23 @@ const CheckoutPage = () => {
     }
   };
 
+  const handleEmailSubmit = async () => {
+    if (!lastSale?.id || !emailInput.trim()) return;
+    setEmailSending(true);
+    try {
+      await emailSaleReceipt(lastSale.id, emailInput.trim(), getAuthHeaders());
+      setEmailDialogOpen(false);
+      setEmailSnackbar({ open: true, message: 'Receipt sent successfully!', severity: 'success' });
+    } catch (err) {
+      setEmailSnackbar({ open: true, message: err.message || 'Failed to send receipt', severity: 'error' });
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
-      <AppBar position="sticky" elevation={1}>
+      <AppBar position="sticky" elevation={1} className="no-print">
         <Toolbar>
           <IconButton edge="start" color="inherit" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }}>
             <ArrowBack />
@@ -710,7 +665,7 @@ const CheckoutPage = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }} id="receipt-print-root">
         <Paper
           elevation={2}
           sx={{
@@ -737,7 +692,7 @@ const CheckoutPage = () => {
           </Box>
 
           {activeStep < 2 && (
-            <Stack direction="row" spacing={2} justifyContent="space-between">
+            <Stack direction="row" spacing={2} justifyContent="space-between" className="no-print">
               <Button
                 disabled={activeStep === 0}
                 onClick={handleBack}
@@ -762,6 +717,44 @@ const CheckoutPage = () => {
           )}
         </Paper>
       </Container>
+
+      <Dialog open={emailDialogOpen} onClose={() => !emailSending && setEmailDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Email Receipt</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Email address"
+            type="email"
+            fullWidth
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            disabled={emailSending}
+            sx={{ mt: 1 }}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEmailDialogOpen(false)} disabled={emailSending}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleEmailSubmit}
+            disabled={emailSending || !emailInput.trim()}
+            startIcon={emailSending ? <CircularProgress size={18} color="inherit" /> : null}
+          >
+            {emailSending ? 'Sending...' : 'Send'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={emailSnackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setEmailSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={emailSnackbar.severity} onClose={() => setEmailSnackbar((s) => ({ ...s, open: false }))}>
+          {emailSnackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
