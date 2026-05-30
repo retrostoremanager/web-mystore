@@ -21,6 +21,11 @@ import {
   Divider,
   Skeleton,
   Chip,
+  Tabs,
+  Tab,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -29,6 +34,7 @@ import {
   Close,
   Delete,
   Edit,
+  CardGiftcard,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
@@ -40,6 +46,11 @@ import {
   updateCustomer,
   deleteCustomer,
 } from '../services/customersApi';
+import {
+  getCustomerLoyalty,
+  redeemLoyaltyPoints,
+  getLoyaltySettings,
+} from '../services/loyaltyApi';
 
 const emptyCustomerForm = {
   firstName: '',
@@ -64,6 +75,216 @@ const DetailRow = ({ label, value }) => (
   </Box>
 );
 
+const TRANSACTION_TYPE_LABELS = {
+  earn_sale: 'Purchase',
+  earn_tradein: 'Trade-In',
+  redeem: 'Redemption',
+};
+
+const RedeemPointsDialog = ({
+  open,
+  onClose,
+  customer,
+  loyaltyBalance,
+  redemptionRate,
+  onRedeem,
+  redeeming,
+}) => {
+  const [points, setPoints] = useState('');
+  const pointsNum = parseInt(points, 10);
+  const validPoints = !isNaN(pointsNum) && pointsNum > 0 && pointsNum <= loyaltyBalance;
+  const creditPreview =
+    validPoints && redemptionRate > 0
+      ? (pointsNum / redemptionRate).toFixed(2)
+      : null;
+
+  const handleClose = () => {
+    setPoints('');
+    onClose();
+  };
+
+  const handleSubmit = () => {
+    if (!validPoints) return;
+    onRedeem(pointsNum, handleClose);
+  };
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Redeem Points</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Current Balance
+            </Typography>
+            <Chip label={`${loyaltyBalance} pts`} color="primary" size="small" />
+          </Box>
+          <TextField
+            label="Points to Redeem"
+            type="number"
+            value={points}
+            onChange={(e) => setPoints(e.target.value)}
+            fullWidth
+            inputProps={{ min: 1, max: loyaltyBalance }}
+            error={points !== '' && !validPoints}
+            helperText={
+              points !== '' && !validPoints
+                ? `Enter a value between 1 and ${loyaltyBalance}`
+                : ' '
+            }
+          />
+          {creditPreview !== null && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Store Credit
+              </Typography>
+              <Typography variant="body1" fontWeight={600} color="success.main">
+                ${creditPreview}
+              </Typography>
+            </Box>
+          )}
+          {redemptionRate > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              Rate: {redemptionRate} points = $1.00 store credit
+            </Typography>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={!validPoints || redeeming}
+        >
+          {redeeming ? <CircularProgress size={20} /> : 'Redeem'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+const LoyaltyTab = ({ customer, loyaltyData, loyaltyLoading, loyaltySettings, onRedeem, redeeming, showSnackbar, getAuthHeaders }) => {
+  const balance = loyaltyData?.balance ?? customer.pointsBalance ?? 0;
+  const transactions = loyaltyData?.transactions ?? [];
+  const loyaltyEnabled = loyaltySettings?.enabled !== false;
+  const redemptionRate = loyaltySettings?.redemptionRate ?? 0;
+
+  const [redeemOpen, setRedeemOpen] = useState(false);
+
+  const handleRedeem = (points, onSuccess) => {
+    onRedeem(points, onSuccess);
+  };
+
+  return (
+    <Box sx={{ pt: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          mb: 2,
+        }}
+      >
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            Points Balance
+          </Typography>
+          <Box sx={{ mt: 0.5 }}>
+            <Chip
+              label={loyaltyLoading ? '…' : `${balance} pts`}
+              color="primary"
+              icon={<CardGiftcard />}
+              sx={{ fontWeight: 700, fontSize: '1rem', height: 36, px: 1 }}
+            />
+          </Box>
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<CardGiftcard />}
+          disabled={balance === 0 || !loyaltyEnabled || loyaltyLoading}
+          onClick={() => setRedeemOpen(true)}
+        >
+          Redeem Points
+        </Button>
+      </Box>
+
+      <Divider sx={{ mb: 2 }} />
+
+      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+        TRANSACTION HISTORY
+      </Typography>
+
+      {loyaltyLoading ? (
+        <Box>
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} variant="rectangular" height={56} sx={{ mb: 1, borderRadius: 1 }} />
+          ))}
+        </Box>
+      ) : transactions.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+          No loyalty transactions yet.
+        </Typography>
+      ) : (
+        <List disablePadding>
+          {transactions.map((tx, idx) => (
+            <ListItem
+              key={tx.id ?? idx}
+              disablePadding
+              sx={{
+                py: 1,
+                borderBottom: idx < transactions.length - 1 ? '1px solid' : 'none',
+                borderColor: 'divider',
+              }}
+            >
+              <ListItemText
+                primary={
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" fontWeight={500}>
+                      {TRANSACTION_TYPE_LABELS[tx.type] ?? tx.type}
+                    </Typography>
+                    <Chip
+                      label={`${tx.type === 'redeem' ? '-' : '+'}${tx.points} pts`}
+                      size="small"
+                      color={tx.type === 'redeem' ? 'default' : 'success'}
+                      variant="outlined"
+                    />
+                  </Box>
+                }
+                secondary={
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.25 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {tx.createdAt
+                        ? new Date(tx.createdAt).toLocaleDateString()
+                        : '—'}
+                    </Typography>
+                    {tx.reference && (
+                      <Typography variant="caption" color="text.secondary">
+                        Ref: {tx.reference}
+                      </Typography>
+                    )}
+                  </Box>
+                }
+              />
+            </ListItem>
+          ))}
+        </List>
+      )}
+
+      <RedeemPointsDialog
+        open={redeemOpen}
+        onClose={() => setRedeemOpen(false)}
+        customer={customer}
+        loyaltyBalance={balance}
+        redemptionRate={redemptionRate}
+        onRedeem={handleRedeem}
+        redeeming={redeeming}
+      />
+    </Box>
+  );
+};
+
 const CustomersPage = () => {
   const navigate = useNavigate();
   const { getAuthHeaders } = useAuth();
@@ -80,6 +301,12 @@ const CustomersPage = () => {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [drawerTab, setDrawerTab] = useState(0);
+
+  const [loyaltyData, setLoyaltyData] = useState(null);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+  const [loyaltySettings, setLoyaltySettings] = useState(null);
+  const [redeeming, setRedeeming] = useState(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -107,6 +334,23 @@ const CustomersPage = () => {
     if (!getAuthHeaders().Authorization) return;
     loadCustomers();
   }, [getAuthHeaders, loadCustomers]);
+
+  const loadLoyaltyData = useCallback(async (customerId) => {
+    setLoyaltyLoading(true);
+    setLoyaltyData(null);
+    try {
+      const [loyaltyRes, settingsRes] = await Promise.all([
+        getCustomerLoyalty(customerId, getAuthHeaders()),
+        getLoyaltySettings(getAuthHeaders()),
+      ]);
+      setLoyaltyData(loyaltyRes.data ?? null);
+      setLoyaltySettings(settingsRes.data ?? null);
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to load loyalty data', 'error');
+    } finally {
+      setLoyaltyLoading(false);
+    }
+  }, [getAuthHeaders]);
 
   const openAdd = () => {
     setForm(emptyCustomerForm);
@@ -209,7 +453,34 @@ const CustomersPage = () => {
 
   const handleRowClick = (params) => {
     setSelectedCustomer(params.row);
+    setDrawerTab(0);
     setDrawerOpen(true);
+    loadLoyaltyData(params.row.id);
+  };
+
+  const handleRedeem = async (points, onSuccess) => {
+    if (!selectedCustomer) return;
+    try {
+      setRedeeming(true);
+      await redeemLoyaltyPoints(selectedCustomer.id, points, getAuthHeaders());
+      showSnackbar('Points redeemed successfully');
+      onSuccess?.();
+      await loadLoyaltyData(selectedCustomer.id);
+      setCustomers((prev) =>
+        prev.map((c) =>
+          c.id === selectedCustomer.id
+            ? { ...c, pointsBalance: Math.max(0, (c.pointsBalance ?? 0) - points) }
+            : c
+        )
+      );
+      setSelectedCustomer((prev) =>
+        prev ? { ...prev, pointsBalance: Math.max(0, (prev.pointsBalance ?? 0) - points) } : prev
+      );
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to redeem points', 'error');
+    } finally {
+      setRedeeming(false);
+    }
   };
 
   const columns = [
@@ -458,7 +729,7 @@ const CustomersPage = () => {
         anchor="right"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 400 } } }}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 420 } } }}
       >
         {selectedCustomer && (
           <Box sx={{ p: 3 }}>
@@ -471,80 +742,119 @@ const CustomersPage = () => {
               </IconButton>
             </Box>
 
-            <Divider sx={{ mb: 3 }} />
+            <Divider sx={{ mb: 2 }} />
 
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              CONTACT INFO
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
-              <DetailRow label="Name" value={customerDisplayName(selectedCustomer)} />
-              <DetailRow label="Email" value={selectedCustomer.email} />
-              <DetailRow label="Phone" value={selectedCustomer.phone} />
-            </Box>
-
-            <Divider sx={{ mb: 3 }} />
-
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              ADDRESS
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
-              <DetailRow label="Street" value={selectedCustomer.address} />
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <DetailRow label="City" value={selectedCustomer.city} />
-                <DetailRow label="State" value={selectedCustomer.state} />
-                <DetailRow label="ZIP" value={selectedCustomer.zipCode} />
-              </Box>
-            </Box>
-
-            <Divider sx={{ mb: 3 }} />
-
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              ACCOUNT
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
-              <DetailRow
-                label="Member Since"
-                value={
-                  selectedCustomer.createdAt
-                    ? new Date(selectedCustomer.createdAt).toLocaleDateString()
-                    : undefined
+            <Tabs
+              value={drawerTab}
+              onChange={(_, v) => setDrawerTab(v)}
+              sx={{ mb: 2 }}
+              variant="fullWidth"
+            >
+              <Tab label="Details" />
+              <Tab
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    Loyalty
+                    <Chip
+                      label={loyaltyData?.balance ?? selectedCustomer.pointsBalance ?? 0}
+                      size="small"
+                      color="primary"
+                      sx={{ height: 18, fontSize: '0.65rem' }}
+                    />
+                  </Box>
                 }
               />
-              <DetailRow
-                label="Points Balance"
-                value={String(selectedCustomer.pointsBalance ?? 0)}
-              />
-            </Box>
+            </Tabs>
 
-            {hasPermission('customers.edit') && (
+            {drawerTab === 0 && (
               <>
-                <Divider sx={{ mb: 2 }} />
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Edit />}
-                    onClick={() => {
-                      setDrawerOpen(false);
-                      openEdit(selectedCustomer);
-                    }}
-                    fullWidth
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<Delete />}
-                    onClick={() => {
-                      setDrawerOpen(false);
-                      openDeleteConfirm(selectedCustomer);
-                    }}
-                    fullWidth
-                  >
-                    Delete
-                  </Button>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  CONTACT INFO
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+                  <DetailRow label="Name" value={customerDisplayName(selectedCustomer)} />
+                  <DetailRow label="Email" value={selectedCustomer.email} />
+                  <DetailRow label="Phone" value={selectedCustomer.phone} />
                 </Box>
+
+                <Divider sx={{ mb: 3 }} />
+
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  ADDRESS
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+                  <DetailRow label="Street" value={selectedCustomer.address} />
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <DetailRow label="City" value={selectedCustomer.city} />
+                    <DetailRow label="State" value={selectedCustomer.state} />
+                    <DetailRow label="ZIP" value={selectedCustomer.zipCode} />
+                  </Box>
+                </Box>
+
+                <Divider sx={{ mb: 3 }} />
+
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  ACCOUNT
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+                  <DetailRow
+                    label="Member Since"
+                    value={
+                      selectedCustomer.createdAt
+                        ? new Date(selectedCustomer.createdAt).toLocaleDateString()
+                        : undefined
+                    }
+                  />
+                  <DetailRow
+                    label="Points Balance"
+                    value={String(selectedCustomer.pointsBalance ?? 0)}
+                  />
+                </Box>
+
+                {hasPermission('customers.edit') && (
+                  <>
+                    <Divider sx={{ mb: 2 }} />
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="outlined"
+                        startIcon={<Edit />}
+                        onClick={() => {
+                          setDrawerOpen(false);
+                          openEdit(selectedCustomer);
+                        }}
+                        fullWidth
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<Delete />}
+                        onClick={() => {
+                          setDrawerOpen(false);
+                          openDeleteConfirm(selectedCustomer);
+                        }}
+                        fullWidth
+                      >
+                        Delete
+                      </Button>
+                    </Box>
+                  </>
+                )}
               </>
+            )}
+
+            {drawerTab === 1 && (
+              <LoyaltyTab
+                customer={selectedCustomer}
+                loyaltyData={loyaltyData}
+                loyaltyLoading={loyaltyLoading}
+                loyaltySettings={loyaltySettings}
+                onRedeem={handleRedeem}
+                redeeming={redeeming}
+                showSnackbar={showSnackbar}
+                getAuthHeaders={getAuthHeaders}
+              />
             )}
           </Box>
         )}
