@@ -24,6 +24,7 @@ import {
   FileDownload,
   Receipt,
   Email,
+  Print,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -374,6 +375,13 @@ const SalesHistoryPage = () => {
                 />
               </DialogContent>
               <DialogActions>
+                <Button
+                  startIcon={<Print />}
+                  onClick={() => window.print()}
+                  disabled={receiptLoading || !receiptData}
+                >
+                  Print Receipt
+                </Button>
                 <Button
                   startIcon={<Email />}
                   onClick={() => {
