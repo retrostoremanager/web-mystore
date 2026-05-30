@@ -29,7 +29,7 @@ const ReceiptView = ({ receipt, loading, error }) => {
   const storeName = receipt.storeName || receipt.companyName || '';
   const storeAddress = receipt.storeAddress || receipt.addressLine || '';
   const storePhone = receipt.storePhone || receipt.phone || '';
-  const saleDate = receipt.saleDate ? new Date(receipt.saleDate).toLocaleString() : '—';
+  const saleDate = (receipt.date || receipt.saleDate) ? new Date(receipt.date || receipt.saleDate).toLocaleString() : '—';
   const items = receipt.items || [];
   const subtotal = Number(receipt.subtotal ?? 0);
   const taxAmount = Number(receipt.taxAmount ?? receipt.tax ?? 0);
