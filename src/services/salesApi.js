@@ -57,6 +57,36 @@ export async function getAllSales(authHeaders) {
 }
 
 /**
+ * Fetch receipt data for a sale.
+ * @param {number|string} saleId
+ * @param {Object} authHeaders
+ */
+export async function getSaleReceipt(saleId, authHeaders) {
+  const response = await fetchWithRetry(
+    `${config.apiUrl}/sales/${saleId}/receipt`,
+    { method: 'GET', headers: authHeaders },
+    3,
+    1500
+  );
+  return parseSalesResponse(response, 'Failed to retrieve receipt');
+}
+
+/**
+ * Email a receipt for a sale.
+ * @param {number|string} saleId
+ * @param {string} email
+ * @param {Object} authHeaders
+ */
+export async function emailSaleReceipt(saleId, email, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/sales/${saleId}/receipt/email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify({ email }),
+  });
+  return parseSalesResponse(response, 'Failed to send receipt email');
+}
+
+/**
  * Sales between startDate and endDate (inclusive). Pass ISO 8601 strings.
  * @param {string} startDate
  * @param {string} endDate
