@@ -35,6 +35,7 @@ import AccountSuspendedPage from './components/AccountSuspendedPage';
 import TrialExpiredPrompt from './components/TrialExpiredPrompt';
 import PermissionRoute from './components/PermissionRoute';
 import ConsignmentPage from './components/ConsignmentPage';
+import LoyaltySettingsPage from './components/LoyaltySettingsPage';
 
 const theme = createTheme({
   palette: {
@@ -109,6 +110,7 @@ function App() {
               <Route path="/dashboard/billing" element={<PermissionRoute permission="billing.view" element={<BillingSettingsPage />} />} />
               <Route path="/dashboard/subscription" element={<PermissionRoute permission="billing.view" element={<SubscriptionPage />} />} />
               <Route path="/dashboard/profile" element={<PermissionRoute permission="settings.manage" element={<CompanyProfilePage />} />} />
+              <Route path="/settings/loyalty" element={<PermissionRoute permission="loyalty.manage" element={<LoyaltySettingsPage />} />} />
               {/* Company store routes - must be last so system routes take precedence */}
               <Route path="/:slug/login" element={<CompanyLoginPage />} />
               <Route path="/:slug/customer" element={<CompanyCustomerPage />} />

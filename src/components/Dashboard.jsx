@@ -48,6 +48,7 @@ import {
   WorkspacePremium,
   Handshake,
   Menu as MenuIcon,
+  Stars,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetInventoryQuery } from '../store/inventoryApi';
@@ -253,6 +254,7 @@ const Dashboard = () => {
     { title: 'Historical Sales Records', description: 'View transaction history and sales records', icon: <History sx={{ fontSize: 48 }} />, color: 'primary', route: '/dashboard/sales-history', permission: 'sales.view' },
     { title: 'Consignment', description: 'Manage consignment items and track their status', icon: <Handshake sx={{ fontSize: 48 }} />, color: 'warning', route: '/dashboard/consignment', permission: 'inventory.view' },
     { title: 'Company Profile', description: 'Configure store information, locations, and settings', icon: <Store sx={{ fontSize: 48 }} />, color: 'info', route: '/dashboard/profile', permission: 'settings.manage' },
+    { title: 'Loyalty Program', description: 'Configure customer loyalty points and redemption rates', icon: <Stars sx={{ fontSize: 48 }} />, color: 'secondary', route: '/settings/loyalty', permission: 'loyalty.manage' },
     { title: 'Subscription', description: 'View subscription tier, billing cycle, and usage limits', icon: <WorkspacePremium sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/subscription', permission: 'billing.view' },
     { title: 'Billing & Payment', description: 'Manage payment methods for your subscription', icon: <CreditCard sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/billing', permission: 'billing.view' },
   ].filter((s) => permissionsLoading || hasPermission(s.permission));
