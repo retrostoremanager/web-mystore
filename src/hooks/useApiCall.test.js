@@ -157,4 +157,27 @@ describe('useApiCall', () => {
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();
   });
+
+  it('accepts initialData and starts with that value', () => {
+    const { result } = renderHook(() => useApiCall([]));
+    expect(result.current.data).toEqual([]);
+  });
+
+  it('reset restores initialData when provided', async () => {
+    const apiFn = vi.fn().mockResolvedValue({ data: 'loaded' });
+
+    const { result } = renderHook(() => useApiCall([]));
+
+    await act(async () => {
+      await result.current.execute(apiFn);
+    });
+
+    expect(result.current.data).toBe('loaded');
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.data).toEqual([]);
+  });
 });
