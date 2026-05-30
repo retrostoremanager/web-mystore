@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 
-export function useApiCall() {
+export function useApiCall(initialData = null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(initialData);
 
   const execute = useCallback(async (apiFn, ...args) => {
     setLoading(true);
@@ -25,8 +25,8 @@ export function useApiCall() {
   const reset = useCallback(() => {
     setLoading(false);
     setError(null);
-    setData(null);
-  }, []);
+    setData(initialData);
+  }, [initialData]);
 
   return { data, loading, error, execute, reset };
 }
