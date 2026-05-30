@@ -34,7 +34,7 @@ const ReceiptView = ({ receipt, loading, error }) => {
   const subtotal = Number(receipt.subtotal ?? 0);
   const taxAmount = Number(receipt.taxAmount ?? receipt.tax ?? 0);
   const taxLabel = receipt.taxLabel || 'Tax';
-  const taxEnabled = receipt.taxEnabled !== false && (receipt.taxRate > 0 || taxAmount > 0);
+  const taxEnabled = receipt.taxEnabled !== false && (receipt.taxRate > 0 || (receipt.taxRate == null && taxAmount > 0));
   const total = Number(receipt.total ?? 0);
   const customerName = receipt.customerName || receipt.customer?.name || [receipt.customer?.firstName, receipt.customer?.lastName].filter(Boolean).join(' ').trim() || '';
   const customerEmail = receipt.customerEmail || receipt.customer?.email || '';
