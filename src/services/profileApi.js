@@ -166,6 +166,51 @@ export async function getLocationDeletionInfo(id, authHeaders) {
 }
 
 /**
+ * Get tax settings.
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, data?: {taxEnabled, taxRate, taxLabel}}>}
+ */
+export async function getTaxSettings(authHeaders) {
+  const response = await fetch(`${config.apiUrl}/company/tax`, {
+    method: 'GET',
+    headers: authHeaders,
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to retrieve tax settings');
+  }
+
+  return result;
+}
+
+/**
+ * Update tax settings.
+ * @param {Object} payload - { taxEnabled: boolean, taxRate: number, taxLabel: string }
+ * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
+ * @returns {Promise<{success: boolean, data?: Object}>}
+ */
+export async function updateTaxSettings(payload, authHeaders) {
+  const response = await fetch(`${config.apiUrl}/company/tax`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to update tax settings');
+  }
+
+  return result;
+}
+
+/**
  * Delete a location.
  * @param {number} id - Location ID
  * @param {Object} options - { action?: 'delete_inventory' | 'reassign', targetLocationId?: number }

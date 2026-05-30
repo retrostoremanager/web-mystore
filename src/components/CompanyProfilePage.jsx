@@ -21,6 +21,8 @@ import {
   Snackbar,
   Alert,
   Divider,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { ArrowBack, Add, Edit, Delete, CloudUpload } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -35,6 +37,8 @@ import {
   updateLocation,
   deleteLocation,
   getLocationDeletionInfo,
+  getTaxSettings,
+  updateTaxSettings,
 } from '../services/profileApi';
 import { getTrialStatus } from '../services/billingApi';
 
@@ -121,6 +125,10 @@ export default function CompanyProfilePage() {
   });
   const [locationSaving, setLocationSaving] = useState(false);
 
+  const [taxForm, setTaxForm] = useState({ taxEnabled: false, taxRate: '', taxLabel: 'Sales Tax' });
+  const [taxSaving, setTaxSaving] = useState(false);
+  const [taxRateError, setTaxRateError] = useState('');
+
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deletionInfo, setDeletionInfo] = useState(null);
   const [deleteAction, setDeleteAction] = useState(null);
@@ -128,6 +136,20 @@ export default function CompanyProfilePage() {
 
   const showSnackbar = (severity, message) => {
     setSnackbar({ open: true, severity, message });
+  };
+
+  const loadTaxSettings = async () => {
+    try {
+      const result = await getTaxSettings(getAuthHeaders());
+      const t = result.data || {};
+      setTaxForm({
+        taxEnabled: t.taxEnabled ?? false,
+        taxRate: t.taxRate != null ? String(parseFloat((t.taxRate * 100).toFixed(2))) : '',
+        taxLabel: t.taxLabel || 'Sales Tax',
+      });
+    } catch (err) {
+      showSnackbar('error', err.message || 'Failed to load tax settings');
+    }
   };
 
   const loadProfile = async () => {
@@ -167,6 +189,7 @@ export default function CompanyProfilePage() {
   useEffect(() => {
     if (isAuthenticated && getAuthHeaders().Authorization) {
       loadProfile();
+      loadTaxSettings();
       getTrialStatus(getAuthHeaders())
         .then((res) => setTrialStatus(res.data || null))
         .catch(() => setTrialStatus(null));
@@ -177,6 +200,39 @@ export default function CompanyProfilePage() {
   const tier = (trialStatus?.subscriptionTier || 'Basic').replace(/^trial$/i, 'Basic');
   const locationLimit = TIER_LOCATION_LIMITS[tier] ?? TIER_LOCATION_LIMITS.Basic;
   const canAddLocation = locationLimit == null || locations.length < locationLimit;
+
+  const handleTaxChange = (field, value) => {
+    setTaxForm((prev) => ({ ...prev, [field]: value }));
+    if (field === 'taxRate') {
+      const num = parseFloat(value);
+      if (value !== '' && (isNaN(num) || num < 0 || num > 100)) {
+        setTaxRateError('Rate must be between 0 and 100.');
+      } else {
+        setTaxRateError('');
+      }
+    }
+  };
+
+  const handleTaxSave = async () => {
+    const rateNum = parseFloat(taxForm.taxRate);
+    if (taxForm.taxRate !== '' && (isNaN(rateNum) || rateNum < 0 || rateNum > 100)) return;
+    try {
+      setTaxSaving(true);
+      await updateTaxSettings(
+        {
+          taxEnabled: taxForm.taxEnabled,
+          taxRate: taxForm.taxRate === '' ? 0 : parseFloat((rateNum / 100).toFixed(6)),
+          taxLabel: taxForm.taxLabel || 'Sales Tax',
+        },
+        getAuthHeaders()
+      );
+      showSnackbar('success', 'Tax settings saved successfully.');
+    } catch (err) {
+      showSnackbar('error', err.message || 'Failed to save tax settings.');
+    } finally {
+      setTaxSaving(false);
+    }
+  };
 
   const handleInfoChange = (field, value) => {
     setInfoForm((prev) => ({ ...prev, [field]: value }));
@@ -597,6 +653,66 @@ export default function CompanyProfilePage() {
                 Remove Logo
               </Button>
             )}
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Tax
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Configure sales tax collection for your store.
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
+          <Stack spacing={2}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={taxForm.taxEnabled}
+                  onChange={(e) => handleTaxChange('taxEnabled', e.target.checked)}
+                  disabled={taxSaving}
+                />
+              }
+              label="Enable tax collection"
+            />
+            <TextField
+              fullWidth
+              label="Tax Rate (%)"
+              type="number"
+              value={taxForm.taxRate}
+              onChange={(e) => handleTaxChange('taxRate', e.target.value)}
+              disabled={taxSaving || !taxForm.taxEnabled}
+              inputProps={{ min: 0, max: 100, step: 0.01 }}
+              error={!!taxRateError}
+              helperText={taxRateError || 'Enter a percentage, e.g. 8.25 for 8.25%'}
+            />
+            <TextField
+              fullWidth
+              label="Tax Label"
+              value={taxForm.taxLabel}
+              onChange={(e) => handleTaxChange('taxLabel', e.target.value)}
+              disabled={taxSaving || !taxForm.taxEnabled}
+              placeholder="Sales Tax"
+            />
+            {taxForm.taxEnabled && (
+              <Typography variant="body2" color="text.secondary">
+                A $100.00 sale will include ${
+                  isNaN(parseFloat(taxForm.taxRate))
+                    ? '0.00'
+                    : (parseFloat(taxForm.taxRate) / 100 * 100).toFixed(2)
+                } in {taxForm.taxLabel || 'Sales Tax'}.
+              </Typography>
+            )}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                onClick={handleTaxSave}
+                disabled={taxSaving || !!taxRateError}
+                startIcon={taxSaving ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {taxSaving ? 'Saving…' : 'Save Tax Settings'}
+              </Button>
+            </Box>
           </Stack>
         </Paper>
 
