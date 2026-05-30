@@ -141,6 +141,19 @@ export async function getSubscription(authHeaders) {
     throw new Error(result.message || 'Failed to retrieve subscription');
   }
 
+  if (result.data) {
+    const d = result.data;
+    if (d.tier != null && d.plan == null) {
+      d.plan = d.tier;
+    }
+    if (d.nextInvoiceAmount == null) {
+      d.nextInvoiceAmount = null;
+    }
+    if (d.currency == null) {
+      d.currency = 'usd';
+    }
+  }
+
   return result;
 }
 
