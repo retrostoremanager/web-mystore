@@ -167,7 +167,7 @@ const RedeemPointsDialog = ({
 const LoyaltyTab = ({ customer, loyaltyData, loyaltyLoading, loyaltySettings, onRedeem, redeeming, showSnackbar, getAuthHeaders }) => {
   const balance = loyaltyData?.balance ?? customer.pointsBalance ?? 0;
   const transactions = loyaltyData?.transactions ?? [];
-  const loyaltyEnabled = loyaltySettings?.enabled !== false;
+  const loyaltyEnabled = loyaltySettings?.isEnabled !== false;
   const redemptionRate = loyaltySettings?.redemptionRate ?? 0;
 
   const [redeemOpen, setRedeemOpen] = useState(false);
