@@ -242,12 +242,12 @@ const LoyaltyTab = ({ customer, loyaltyData, loyaltyLoading, loyaltySettings, on
                 primary={
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2" fontWeight={500}>
-                      {TRANSACTION_TYPE_LABELS[tx.type] ?? tx.type}
+                      {TRANSACTION_TYPE_LABELS[tx.transactionType] ?? tx.transactionType}
                     </Typography>
                     <Chip
-                      label={`${tx.type === 'redeem' ? '-' : '+'}${tx.points} pts`}
+                      label={`${tx.transactionType === 'redeem' ? '-' : '+'}${tx.points} pts`}
                       size="small"
-                      color={tx.type === 'redeem' ? 'default' : 'success'}
+                      color={tx.transactionType === 'redeem' ? 'default' : 'success'}
                       variant="outlined"
                     />
                   </Box>
@@ -259,9 +259,9 @@ const LoyaltyTab = ({ customer, loyaltyData, loyaltyLoading, loyaltySettings, on
                         ? new Date(tx.createdAt).toLocaleDateString()
                         : '—'}
                     </Typography>
-                    {tx.reference && (
+                    {tx.referenceId && (
                       <Typography variant="caption" color="text.secondary">
-                        Ref: {tx.reference}
+                        Ref: {tx.referenceId}
                       </Typography>
                     )}
                   </Box>
