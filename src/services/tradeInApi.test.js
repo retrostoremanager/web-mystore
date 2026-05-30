@@ -80,7 +80,7 @@ describe('tradeInApi', () => {
 
       await expect(
         parseTradeInImage('base64data', 'image/png', {})
-      ).rejects.toThrow('Failed to parse image (404 Not Found)');
+      ).rejects.toThrow('AI image scanning is not available at this time. Please add items manually.');
     });
   });
 });
