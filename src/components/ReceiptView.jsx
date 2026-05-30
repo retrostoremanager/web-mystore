@@ -59,7 +59,7 @@ const ReceiptView = ({ receipt, loading, error }) => {
       )}
 
       <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5 }}>
-        Sale #{receipt.id}
+        Sale #{receipt.receiptNumber}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
         Date: {saleDate}
