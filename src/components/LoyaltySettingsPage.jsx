@@ -53,9 +53,9 @@ export default function LoyaltySettingsPage() {
       const result = await getLoyaltySettings(getAuthHeaders());
       const d = result.data || {};
       setForm({
-        enabled: d.enabled ?? false,
-        purchasePointsPerDollar: d.purchasePointsPerDollar != null ? String(d.purchasePointsPerDollar) : '',
-        tradeInPointsPerDollar: d.tradeInPointsPerDollar != null ? String(d.tradeInPointsPerDollar) : '',
+        enabled: d.isEnabled ?? false,
+        purchasePointsPerDollar: d.pointsPerDollarSpent != null ? String(d.pointsPerDollarSpent) : '',
+        tradeInPointsPerDollar: d.pointsPerDollarTradeIn != null ? String(d.pointsPerDollarTradeIn) : '',
         redemptionRate: d.redemptionRate != null ? String(d.redemptionRate) : '',
       });
     } catch (err) {
@@ -101,9 +101,9 @@ export default function LoyaltySettingsPage() {
       setSaving(true);
       await updateLoyaltySettings(
         {
-          enabled: form.enabled,
-          purchasePointsPerDollar: parseFloat(parseFloat(form.purchasePointsPerDollar).toFixed(2)),
-          tradeInPointsPerDollar: parseFloat(parseFloat(form.tradeInPointsPerDollar).toFixed(2)),
+          isEnabled: form.enabled,
+          pointsPerDollarSpent: parseFloat(parseFloat(form.purchasePointsPerDollar).toFixed(2)),
+          pointsPerDollarTradeIn: parseFloat(parseFloat(form.tradeInPointsPerDollar).toFixed(2)),
           redemptionRate: parseFloat(parseFloat(form.redemptionRate).toFixed(2)),
         },
         getAuthHeaders()
