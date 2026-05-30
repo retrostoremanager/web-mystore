@@ -245,7 +245,7 @@ const LoyaltyTab = ({ customer, loyaltyData, loyaltyLoading, loyaltySettings, on
                       {TRANSACTION_TYPE_LABELS[tx.transactionType] ?? tx.transactionType}
                     </Typography>
                     <Chip
-                      label={`${tx.transactionType === 'redeem' ? '-' : '+'}${tx.points} pts`}
+                      label={`${tx.transactionType === 'redeem' ? '-' : '+'}${Math.abs(tx.points)} pts`}
                       size="small"
                       color={tx.transactionType === 'redeem' ? 'default' : 'success'}
                       variant="outlined"
