@@ -49,6 +49,7 @@ const RolesPage = () => {
   const [roleDialog, setRoleDialog] = useState(null);
   const [roleForm, setRoleForm] = useState(emptyRoleForm);
   const [submitting, setSubmitting] = useState(false);
+  const [nameError, setNameError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const canManageRoles = hasPermission('users.manage');
@@ -87,6 +88,7 @@ const RolesPage = () => {
 
   const openAddDialog = () => {
     setRoleForm(emptyRoleForm);
+    setNameError('');
     setRoleDialog({ mode: 'add' });
   };
 
@@ -96,6 +98,7 @@ const RolesPage = () => {
       description: role.description || '',
       permissions: role.permissions || [],
     });
+    setNameError('');
     setRoleDialog({ mode: 'edit', role });
   };
 
@@ -110,9 +113,10 @@ const RolesPage = () => {
 
   const handleSaveRole = async () => {
     if (!roleForm.name?.trim()) {
-      setSnackbar({ severity: 'error', message: 'Role name is required' });
+      setNameError('Role name is required');
       return;
     }
+    setNameError('');
     try {
       setSubmitting(true);
       const headers = getAuthHeaders();
@@ -287,9 +291,18 @@ const RolesPage = () => {
               <TextField
                 label="Name"
                 value={roleForm.name}
-                onChange={(e) => setRoleForm((f) => ({ ...f, name: e.target.value }))}
+                onChange={(e) => {
+                  setRoleForm((f) => ({ ...f, name: e.target.value }));
+                  if (e.target.value.trim()) setNameError('');
+                }}
+                onBlur={() => {
+                  if (!roleForm.name?.trim()) setNameError('Name is required');
+                }}
                 required
                 fullWidth
+                error={!!nameError}
+                helperText={nameError}
+                inputProps={{ 'aria-invalid': !!nameError }}
               />
               <TextField
                 label="Description"
