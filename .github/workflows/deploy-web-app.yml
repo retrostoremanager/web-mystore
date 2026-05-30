@@ -37,26 +37,22 @@ jobs:
           output_location: "dist"
           app_build_command: "npm run build"
 
-      - name: Trigger test agent for recently merged PR
+      - name: Trigger test agent for merged PR
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         run: |
-          # Find the most recently merged PR into development
-          PR_DATA=$(GH_TOKEN="${{ secrets.GITHUB_TOKEN }}" gh pr list \
-            --repo retrostoremanager/web-mystore \
-            --base development --state merged \
-            --limit 1 \
-            --json number,body)
-          PR_NUMBER=$(echo "$PR_DATA" | jq -r ".[0].number // empty")
+          # Squash-merge commits include the PR number in the subject, e.g. "feat: something (#39)"
+          PR_NUMBER=$(git log -1 --format="%s" | grep -oP '\(#\K[0-9]+(?=\))' | head -1 || true)
           if [ -z "$PR_NUMBER" ]; then
-            echo "No recently merged PR found — skipping test agent trigger"
+            echo "No PR number found in commit message — skipping test agent trigger"
             exit 0
           fi
-          ORCHESTRATOR_ISSUE=$(echo "$PR_DATA" | jq -r ".[0].body" \
+          ORCHESTRATOR_ISSUE=$(gh pr view "$PR_NUMBER" --repo retrostoremanager/web-mystore \
+            --json body --jq '.body' \
             | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
           echo "Triggering test agent for PR #$PR_NUMBER (issue #${ORCHESTRATOR_ISSUE:-none})"
           jq -n --arg pr "$PR_NUMBER" --arg issue "${ORCHESTRATOR_ISSUE:-}" \
             '{"ref":"main","inputs":{"pr_numbers":$pr,"target_repo":"web-mystore","orchestrator_issues":$issue}}' | \
           gh api repos/retrostoremanager/fn-mystore/actions/workflows/test-agent.yml/dispatches \
             --method POST --input -
-
