@@ -63,6 +63,9 @@ export async function parseTradeInImage(imageBase64, mimeType, authHeaders) {
     3,
     1500
   );
+  if (response.status === 404) {
+    throw new Error('AI image scanning is not available at this time. Please add items manually.');
+  }
   const result = await parseJsonResponse(response, 'Failed to parse image');
   if (!response.ok) {
     throw new Error(result.message || 'Failed to parse image');
