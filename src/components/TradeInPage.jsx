@@ -268,7 +268,7 @@ const TradeInPage = () => {
             label="AI"
             size="small"
             color="info"
-            icon={<SmartToy sx={{ fontSize: '14px !important' }} />}
+            icon={<SmartToy sx={{ fontSize: '0.875rem !important' }} />}
             sx={{ fontSize: 11 }}
           />
         ) : null,
