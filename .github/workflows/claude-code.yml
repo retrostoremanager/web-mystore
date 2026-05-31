@@ -48,7 +48,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          model: claude-sonnet-4-6
+          model: claude-opus-4-7
           timeout_minutes: 30
 
   # Triggered by workflow_dispatch (manual/CLI) or repository_dispatch (orchestrator)
@@ -102,7 +102,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           direct_prompt: ${{ github.event.inputs.prompt || github.event.client_payload.prompt }}
           mode: agent
-          model: claude-sonnet-4-6
+          model: claude-opus-4-7
           allowed_tools: Bash,Edit,MultiEdit,Glob,Grep,LS,Read,Write,TodoWrite
           timeout_minutes: 30
           max_turns: 60
@@ -115,7 +115,7 @@ jobs:
           BRANCH: ${{ github.event.inputs.branch || github.event.client_payload.branch || 'development' }}
           PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
         run: |
-          STEP_OUTPUT="${{ steps.claude.outputs.output }}"
+          STEP_OUTPUT=$(cat "${{ steps.claude.outputs.execution_file }}" 2>/dev/null || echo "")
           if echo "$PROMPT" | grep -qF "You are a code reviewer"; then
             echo "Code review agent failure — skipping retry logic"
             exit 1
