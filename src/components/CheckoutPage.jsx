@@ -126,6 +126,7 @@ const CheckoutPage = () => {
   const [promotionsSnackbar, setPromotionsSnackbar] = useState({ open: false, message: '' });
   const [manualPromoId, setManualPromoId] = useState('');
   const [manualPromoOpen, setManualPromoOpen] = useState(false);
+  const [selectedManualPromoIds, setSelectedManualPromoIds] = useState(new Set());
 
   const [checkoutData, setCheckoutData] = useState({
     customer: null,
@@ -224,7 +225,10 @@ const CheckoutPage = () => {
     });
   };
 
-  const discountedItems = applyPromotions(checkoutData.items, activePromotions);
+  const applicablePromotions = activePromotions.filter(
+    (p) => !(p.applyManually ?? p.apply_manually) || selectedManualPromoIds.has(p.id)
+  );
+  const discountedItems = applyPromotions(checkoutData.items, applicablePromotions);
 
   const calculateSubtotal = () => {
     return discountedItems.reduce((total, item) => {
@@ -539,7 +543,9 @@ const CheckoutPage = () => {
                         variant="contained"
                         disabled={!manualPromoId}
                         onClick={() => {
+                          setSelectedManualPromoIds((prev) => new Set([...prev, manualPromoId]));
                           setManualPromoOpen(false);
+                          setManualPromoId('');
                         }}
                       >
                         Apply
