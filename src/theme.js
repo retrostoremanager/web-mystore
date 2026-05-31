@@ -26,6 +26,10 @@ const theme = createTheme({
       dark: '#e65100',
       contrastText: '#ffffff',
     },
+    background: {
+      default: '#f5f5f5',
+      paper: '#ffffff',
+    },
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
@@ -68,6 +72,11 @@ const theme = createTheme({
       fontSize: '0.875rem',
       fontWeight: 400,
       lineHeight: 1.43,
+    },
+  },
+  custom: {
+    gradient: {
+      brand: 'linear-gradient(135deg, #2c3e50 0%, #16a085 100%)',
     },
   },
   components: {
@@ -115,7 +124,7 @@ const theme = createTheme({
         root: {
           borderRadius: 8,
           '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: '#f5f5f5',
+            backgroundColor: 'rgba(0,0,0,0.04)',
             fontWeight: 600,
           },
         },

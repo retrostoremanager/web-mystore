@@ -29,6 +29,12 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 
+const STRIPE_ELEMENT_COLORS = {
+  text: '#424770',
+  placeholder: '#aab7c4',
+  error: '#9e2146',
+};
+
 /**
  * Subscription tier options available for new account registration.
  * Each tier includes a value, display label, and description for users.
@@ -58,8 +64,8 @@ const subscriptionTiers = [
 
 const cardElementOptions = {
   style: {
-    base: { fontSize: '16px', color: '#424770', '::placeholder': { color: '#aab7c4' } },
-    invalid: { color: '#9e2146' },
+    base: { fontSize: '1rem', color: STRIPE_ELEMENT_COLORS.text, '::placeholder': { color: STRIPE_ELEMENT_COLORS.placeholder } },
+    invalid: { color: STRIPE_ELEMENT_COLORS.error },
   },
 };
 
@@ -462,7 +468,7 @@ function SignUpFormInner() {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, #2c3e50 0%, #16a085 100%)',
         py: 4,
         display: 'flex',
         alignItems: 'center',
@@ -702,7 +708,7 @@ export default function SignUpForm() {
 
   if (!publishableKey) {
     return (
-      <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', py: 4, display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #2c3e50 0%, #16a085 100%)', py: 4, display: 'flex', alignItems: 'center' }}>
         <Container maxWidth="sm">
           <Paper elevation={24} sx={{ p: 4, borderRadius: 3 }}>
             <Alert severity="warning">

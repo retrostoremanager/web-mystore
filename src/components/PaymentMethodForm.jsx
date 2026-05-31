@@ -9,6 +9,12 @@ import {
 import { Box, Button, Paper, Typography, Alert, CircularProgress } from '@mui/material';
 import config from '../config';
 
+const STRIPE_ELEMENT_COLORS = {
+  text: '#424770',
+  placeholder: '#aab7c4',
+  error: '#9e2146',
+};
+
 /**
  * PaymentMethodForm - Stripe Elements integration for secure card collection
  *
@@ -65,14 +71,14 @@ function PaymentMethodFormInner({ onSuccess, onCancel, disabled = false }) {
   const cardElementOptions = {
     style: {
       base: {
-        fontSize: '16px',
-        color: '#424770',
+        fontSize: '1rem',
+        color: STRIPE_ELEMENT_COLORS.text,
         '::placeholder': {
-          color: '#aab7c4',
+          color: STRIPE_ELEMENT_COLORS.placeholder,
         },
       },
       invalid: {
-        color: '#9e2146',
+        color: STRIPE_ELEMENT_COLORS.error,
       },
     },
   };

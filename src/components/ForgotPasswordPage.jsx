@@ -60,7 +60,7 @@ const ForgotPasswordPage = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, #2c3e50 0%, #16a085 100%)',
         py: 4,
         display: 'flex',
         alignItems: 'center',

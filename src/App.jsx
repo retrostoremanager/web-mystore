@@ -1,5 +1,6 @@
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import theme from './theme';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { TrialStatusProvider } from './contexts/TrialStatusContext';
 import { FormattingProvider } from './contexts/FormattingContext';
@@ -36,44 +37,6 @@ import TrialExpiredPrompt from './components/TrialExpiredPrompt';
 import PermissionRoute from './components/PermissionRoute';
 import ConsignmentPage from './components/ConsignmentPage';
 import LoyaltySettingsPage from './components/LoyaltySettingsPage';
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0',
-    },
-    secondary: {
-      main: '#9c27b0',
-      light: '#ba68c8',
-      dark: '#7b1fa2',
-    },
-    background: {
-      default: '#f5f5f5',
-    },
-  },
-  typography: {
-    fontFamily: [
-      '-apple-system',
-      'BlinkMacSystemFont',
-      '"Segoe UI"',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif',
-    ].join(','),
-    h1: {
-      fontWeight: 700,
-    },
-    h2: {
-      fontWeight: 600,
-    },
-    h3: {
-      fontWeight: 600,
-    },
-  },
-});
 
 function App() {
   return (
