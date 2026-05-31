@@ -66,7 +66,7 @@ const Dashboard = () => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { data: inventory = [], isLoading: inventoryLoading } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
+  const { data: inventory = [], isLoading: inventoryLoading, error: inventoryQueryError } = useGetInventoryQuery(undefined, { pollingInterval: 60000 });
   const { auth, logout, isAuthenticated, getAuthHeaders } = useAuth();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const { formatNumber, locale, timezone } = useFormatting();
@@ -209,11 +209,16 @@ const Dashboard = () => {
   const totalQuantity = inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
   void totalQuantity;
 
+  const inventoryError = inventoryQueryError
+    ? (inventoryQueryError.message || 'Failed to load inventory')
+    : null;
+
   const statsConfig = [
     {
       label: 'Total Inventory Items',
       value: formatNumber(inventory.length),
       loading: inventoryLoading,
+      error: inventoryError,
       icon: <Inventory />,
       color: 'primary',
       permission: 'inventory.view',
@@ -222,6 +227,7 @@ const Dashboard = () => {
       label: 'Customers',
       value: customerCount != null ? formatNumber(customerCount) : '—',
       loading: customerLoading,
+      error: errors.customers || null,
       icon: <People />,
       color: 'success',
       permission: 'customers.view',
@@ -230,6 +236,7 @@ const Dashboard = () => {
       label: 'Users',
       value: userCount != null ? String(userCount) : '—',
       loading: false,
+      error: null,
       icon: <Badge />,
       color: 'info',
       permission: 'users.view',
@@ -238,6 +245,7 @@ const Dashboard = () => {
       label: "Today's Sales",
       value: todaySalesDisplay,
       loading: salesLoading,
+      error: errors.sales || null,
       icon: <PointOfSale />,
       color: 'warning',
       permission: 'sales.view',
@@ -258,8 +266,6 @@ const Dashboard = () => {
     { title: 'Subscription', description: 'View subscription tier, billing cycle, and usage limits', icon: <WorkspacePremium sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/subscription', permission: 'billing.view' },
     { title: 'Billing & Payment', description: 'Manage payment methods for your subscription', icon: <CreditCard sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/billing', permission: 'billing.view' },
   ].filter((s) => permissionsLoading || hasPermission(s.permission));
-
-  const activeErrors = Object.values(errors).filter(Boolean);
 
   const navItems = sections.map((section) => ({ ...section }));
 
@@ -363,49 +369,47 @@ const Dashboard = () => {
           </Alert>
         )}
 
-        {activeErrors.map((msg, i) => (
-          <Alert key={i} severity="error" sx={{ mb: 2 }}>
-            {msg}
-          </Alert>
-        ))}
-
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {statsConfig.map((stat, index) => (
             <Grid item xs={12} sm={6} md={3} key={index}>
               <Card elevation={2}>
                 <CardContent>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Box
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        bgcolor: `${stat.color}.light`,
-                        color: `${stat.color}.main`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {stat.icon}
-                    </Box>
-                    <Box sx={{ flexGrow: 1 }}>
-                      {stat.loading ? (
-                        <>
-                          <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1, mb: 0.5 }} />
-                          <Skeleton variant="text" width={120} />
-                        </>
-                      ) : (
-                        <>
-                          <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                            {stat.value}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {stat.label}
-                          </Typography>
-                        </>
-                      )}
-                    </Box>
-                  </Stack>
+                  {stat.error ? (
+                    <Alert severity="error">{stat.error}</Alert>
+                  ) : (
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: `${stat.color}.light`,
+                          color: `${stat.color}.main`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {stat.icon}
+                      </Box>
+                      <Box sx={{ flexGrow: 1 }}>
+                        {stat.loading ? (
+                          <>
+                            <Skeleton variant="rectangular" width={80} height={36} sx={{ borderRadius: 1, mb: 0.5 }} />
+                            <Skeleton variant="text" width={120} />
+                          </>
+                        ) : (
+                          <>
+                            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                              {stat.value}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {stat.label}
+                            </Typography>
+                          </>
+                        )}
+                      </Box>
+                    </Stack>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -417,64 +421,68 @@ const Dashboard = () => {
             <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
               Recent Sales
             </Typography>
-            <TableContainer component={Paper} elevation={2} sx={{ overflowX: 'auto' }}>
-              <Table size="small" sx={{ minWidth: 400 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Customer</TableCell>
-                    <TableCell align="right">Total</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {salesLoading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Skeleton variant="text" /></TableCell>
-                        <TableCell><Skeleton variant="text" /></TableCell>
-                        <TableCell><Skeleton variant="text" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : recentSales.length === 0 ? (
+            {errors.sales ? (
+              <Alert severity="error">{errors.sales}</Alert>
+            ) : (
+              <TableContainer component={Paper} elevation={2} sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 400 }}>
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={3} align="center">
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                          No recent sales found
-                        </Typography>
-                      </TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Customer</TableCell>
+                      <TableCell align="right">Total</TableCell>
                     </TableRow>
-                  ) : (
-                    recentSales.map((sale) => (
-                      <TableRow key={sale.id ?? sale.saleId}>
-                        <TableCell>
-                          {sale.saleDate
-                            ? new Intl.DateTimeFormat(locale, {
-                                timeZone: timezone,
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              }).format(new Date(sale.saleDate))
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {sale.customerName ||
-                            (sale.customer
-                              ? `${sale.customer.firstName || ''} ${sale.customer.lastName || ''}`.trim()
-                              : sale.customerId
-                                ? `Customer #${sale.customerId}`
-                                : 'Walk-in')}
-                        </TableCell>
-                        <TableCell align="right">
-                          {sale.total != null
-                            ? new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(Number(sale.total))
-                            : '—'}
+                  </TableHead>
+                  <TableBody>
+                    {salesLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton variant="text" /></TableCell>
+                          <TableCell><Skeleton variant="text" /></TableCell>
+                          <TableCell><Skeleton variant="text" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : recentSales.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} align="center">
+                          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                            No recent sales found
+                          </Typography>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                    ) : (
+                      recentSales.map((sale) => (
+                        <TableRow key={sale.id ?? sale.saleId}>
+                          <TableCell>
+                            {sale.saleDate
+                              ? new Intl.DateTimeFormat(locale, {
+                                  timeZone: timezone,
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                }).format(new Date(sale.saleDate))
+                              : '—'}
+                          </TableCell>
+                          <TableCell>
+                            {sale.customerName ||
+                              (sale.customer
+                                ? `${sale.customer.firstName || ''} ${sale.customer.lastName || ''}`.trim()
+                                : sale.customerId
+                                  ? `Customer #${sale.customerId}`
+                                  : 'Walk-in')}
+                          </TableCell>
+                          <TableCell align="right">
+                            {sale.total != null
+                              ? new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(Number(sale.total))
+                              : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Box>
         )}
 
