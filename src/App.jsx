@@ -80,6 +80,7 @@ function App() {
               {/* Company store routes - must be last so system routes take precedence */}
               <Route path="/:slug/login" element={<CompanyLoginPage />} />
               <Route path="/:slug/customer" element={<CompanyCustomerPage />} />
+              <Route path="/:slug/promotions" element={<PermissionRoute permission="promotion.manage" element={<PromotionsPage />} />} />
               <Route path="/:slug" element={<CompanyLandingPage />} />
             </Routes>
             </AuthRedirect>
