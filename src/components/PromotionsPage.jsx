@@ -307,7 +307,7 @@ const PromotionsPage = () => {
       field: 'value',
       headerName: 'Value',
       width: 140,
-      valueGetter: (_, row) => formatValue(row),
+      valueGetter: ({ row }) => formatValue(row),
     },
     {
       field: 'scope',
@@ -326,21 +326,21 @@ const PromotionsPage = () => {
       field: 'startDate',
       headerName: 'Start Date',
       width: 120,
-      valueGetter: (value, row) => value || row.start_date,
+      valueGetter: ({ value, row }) => value || row.start_date,
       renderCell: ({ value }) => <Typography variant="body2">{formatDate(value)}</Typography>,
     },
     {
       field: 'endDate',
       headerName: 'End Date',
       width: 120,
-      valueGetter: (value, row) => value || row.end_date,
+      valueGetter: ({ value, row }) => value || row.end_date,
       renderCell: ({ value }) => <Typography variant="body2">{formatDate(value)}</Typography>,
     },
     {
       field: 'isActive',
       headerName: 'Status',
       width: 120,
-      valueGetter: (value, row) => value ?? row.is_active,
+      valueGetter: ({ value, row }) => value ?? row.is_active,
       renderCell: ({ value, row }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {togglingId === row.id ? (
