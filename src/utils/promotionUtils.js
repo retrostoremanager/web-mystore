@@ -24,12 +24,17 @@ function applyPercentagePromotion(cartItems, promotion) {
       ? parseFloat(originalPrice.replace(/[^0-9.-]/g, '')) || 0
       : Number(originalPrice) || 0;
     const discountedPrice = Math.round(originalPriceNum * (1 - pct / 100) * 100) / 100;
-    return {
+    const updatedItem = {
       ...item,
       originalPrice: item.originalPrice ?? originalPriceNum,
       discountedPrice,
       discountApplied: true,
     };
+    if (item.lineTotal != null) {
+      const paidUnits = item.quantity - (item.bxgyFreeUnits || 0);
+      updatedItem.lineTotal = Math.round(discountedPrice * paidUnits * 100) / 100;
+    }
+    return updatedItem;
   });
 }
 
@@ -67,8 +72,12 @@ function applyBxgyPromotion(cartItems, promotion) {
       const raw = item.originalPrice ?? item.discountedPrice ?? (item.sellPrice ?? item.price ?? 0);
       return typeof raw === 'string' ? parseFloat(raw.replace(/[^0-9.-]/g, '')) || 0 : Number(raw) || 0;
     })();
+    const unitPrice = (() => {
+      const raw = item.discountedPrice ?? item.originalPrice ?? (item.sellPrice ?? item.price ?? 0);
+      return typeof raw === 'string' ? parseFloat(raw.replace(/[^0-9.-]/g, '')) || 0 : Number(raw) || 0;
+    })();
     const paidUnits = item.quantity - freeUnits;
-    const lineTotal = Math.round(originalPriceNum * paidUnits * 100) / 100;
+    const lineTotal = Math.round(unitPrice * paidUnits * 100) / 100;
     return {
       ...item,
       originalPrice: item.originalPrice ?? originalPriceNum,

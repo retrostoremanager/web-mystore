@@ -543,7 +543,9 @@ const CheckoutPage = () => {
                         variant="contained"
                         disabled={!manualPromoId}
                         onClick={() => {
-                          setSelectedManualPromoIds((prev) => new Set([...prev, manualPromoId]));
+                          if (manualPromoId) {
+                            setSelectedManualPromoIds((prev) => new Set([...prev, manualPromoId]));
+                          }
                           setManualPromoOpen(false);
                           setManualPromoId('');
                         }}
