@@ -8,6 +8,27 @@ async function parseResponse(response, fallbackMessage) {
   return result;
 }
 
+function validatePromotionPayload(body) {
+  if (body.type === 'bxgy') {
+    if (body.buyQuantity == null || body.buyQuantity < 1) {
+      throw new Error('buyQuantity must be at least 1 for bxgy promotions');
+    }
+    if (body.getQuantity == null || body.getQuantity < 1) {
+      throw new Error('getQuantity must be at least 1 for bxgy promotions');
+    }
+  }
+  if (body.scope === 'category' || body.scope === 'item') {
+    if (body.scopeValue == null || String(body.scopeValue).trim() === '') {
+      throw new Error('scopeValue is required when scope is category or item');
+    }
+  }
+  if (body.type === 'percentage') {
+    if (body.discountPercent == null || body.discountPercent < 0 || body.discountPercent > 100) {
+      throw new Error('discountPercent must be between 0 and 100');
+    }
+  }
+}
+
 export async function getPromotions(authHeaders) {
   const response = await fetch(`${config.apiUrl}/promotions`, {
     method: 'GET',
@@ -17,6 +38,7 @@ export async function getPromotions(authHeaders) {
 }
 
 export async function createPromotion(body, authHeaders) {
+  validatePromotionPayload(body);
   const response = await fetch(`${config.apiUrl}/promotions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders },
@@ -26,6 +48,7 @@ export async function createPromotion(body, authHeaders) {
 }
 
 export async function updatePromotion(id, body, authHeaders) {
+  validatePromotionPayload(body);
   const response = await fetch(`${config.apiUrl}/promotions/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders },
