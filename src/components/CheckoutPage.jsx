@@ -33,6 +33,7 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
+  Tooltip,
 } from '@mui/material';
 import {
   PointOfSale,
@@ -42,12 +43,15 @@ import {
   CheckCircle,
   Print,
   Email,
+  LocalOffer,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useGetInventoryQuery, inventoryApi } from '../store/inventoryApi';
 import { useAuth } from '../contexts/AuthContext';
 import { getCustomers, createCustomer } from '../services/customersApi';
 import { createSale, getSaleReceipt, emailSaleReceipt } from '../services/salesApi';
+import { getActivePromotions } from '../services/promotionsApi';
+import { applyPromotions, promotionChipLabel, calculateSavings } from '../utils/promotionUtils';
 import ReceiptView from './ReceiptView';
 
 const steps = ['Select Customer', 'Add Items', 'Review & Complete'];
@@ -118,12 +122,29 @@ const CheckoutPage = () => {
   const [emailSending, setEmailSending] = useState(false);
   const [emailSnackbar, setEmailSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  const [activePromotions, setActivePromotions] = useState([]);
+  const [promotionsSnackbar, setPromotionsSnackbar] = useState({ open: false, message: '' });
+  const [manualPromoId, setManualPromoId] = useState('');
+  const [manualPromoOpen, setManualPromoOpen] = useState(false);
+
   const [checkoutData, setCheckoutData] = useState({
     customer: null,
     customerName: '',
     customerEmail: '',
     items: [],
   });
+
+  const loadActivePromotions = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const result = await getActivePromotions(headers);
+      setActivePromotions(Array.isArray(result.data) ? result.data : []);
+    } catch {
+      setPromotionsSnackbar({ open: true, message: 'Failed to load promotions — checkout continues without discounts.' });
+      setActivePromotions([]);
+    }
+  }, [getAuthHeaders]);
 
   const loadCustomers = useCallback(async () => {
     const headers = getAuthHeaders();
@@ -138,6 +159,10 @@ const CheckoutPage = () => {
       setCustomerOptions([]);
     }
   }, [getAuthHeaders]);
+
+  useEffect(() => {
+    loadActivePromotions();
+  }, [loadActivePromotions]);
 
   useEffect(() => {
     loadCustomers();
@@ -199,12 +224,17 @@ const CheckoutPage = () => {
     });
   };
 
+  const discountedItems = applyPromotions(checkoutData.items, activePromotions);
+
   const calculateSubtotal = () => {
-    return checkoutData.items.reduce(
-      (total, item) => total + unitPriceFromLineItem(item) * item.quantity,
-      0
-    );
+    return discountedItems.reduce((total, item) => {
+      if (item.lineTotal != null) return total + item.lineTotal;
+      const price = item.discountedPrice ?? unitPriceFromLineItem(item);
+      return total + price * item.quantity;
+    }, 0);
   };
+
+  const totalSavings = calculateSavings(checkoutData.items, discountedItems);
 
   const getTaxValue = () => parseTaxInput(taxInput);
   const validateStep1 = () => {
@@ -309,10 +339,12 @@ const CheckoutPage = () => {
         throw new Error('Could not resolve customer for checkout.');
       }
 
-      const items = checkoutData.items.map((item) => ({
+      const items = discountedItems.map((item) => ({
         inventoryItemId: item.id,
         quantity: item.quantity,
-        unitPrice: unitPriceFromLineItem(item),
+        unitPrice: item.lineTotal != null
+          ? Math.round((item.lineTotal / item.quantity) * 100) / 100
+          : (item.discountedPrice ?? unitPriceFromLineItem(item)),
       }));
 
       const result = await createSale(
@@ -413,6 +445,7 @@ const CheckoutPage = () => {
         const taxSnap = getTaxValue();
         const taxAmountDisplay = taxSnap.ok ? taxSnap.value : 0;
         const grandTotal = calculateSubtotal() + taxAmountDisplay;
+        const discountedItemsMap = Object.fromEntries(discountedItems.map((d) => [d.id, d]));
 
         return (
           <Stack spacing={3}>
@@ -468,6 +501,62 @@ const CheckoutPage = () => {
               </TableContainer>
             )}
             
+            {activePromotions.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <LocalOffer fontSize="small" color="info" />
+                  {activePromotions.map((promo) => (
+                    <Tooltip key={promo.id} title={promo.scope !== 'store_wide' ? `Scope: ${promo.scope}` : 'Store wide'}>
+                      <Chip
+                        label={promotionChipLabel(promo)}
+                        color="info"
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Tooltip>
+                  ))}
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                  {manualPromoOpen ? (
+                    <>
+                      <FormControl size="small" sx={{ minWidth: 260 }}>
+                        <InputLabel id="manual-promo-label">Select promotion</InputLabel>
+                        <Select
+                          labelId="manual-promo-label"
+                          label="Select promotion"
+                          value={manualPromoId}
+                          onChange={(e) => setManualPromoId(e.target.value)}
+                        >
+                          {activePromotions.map((promo) => (
+                            <MenuItem key={promo.id} value={promo.id}>
+                              {promotionChipLabel(promo)}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={!manualPromoId}
+                        onClick={() => {
+                          setManualPromoOpen(false);
+                        }}
+                      >
+                        Apply
+                      </Button>
+                      <Button size="small" onClick={() => { setManualPromoOpen(false); setManualPromoId(''); }}>
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="small" variant="outlined" onClick={() => setManualPromoOpen(true)}>
+                      Apply Manually
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+            )}
+
             {checkoutData.items.length > 0 && (
               <Box sx={{ mt: 3 }}>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -486,12 +575,33 @@ const CheckoutPage = () => {
                     </TableHead>
                     <TableBody>
                       {checkoutData.items.map((item) => {
-                        const price = unitPriceFromLineItem(item);
-                        const subtotal = price * item.quantity;
+                        const origPrice = unitPriceFromLineItem(item);
+                        const disc = discountedItemsMap[item.id];
+                        const hasDiscount = disc?.discountApplied;
+                        const effectivePrice = disc?.discountedPrice ?? origPrice;
+                        const subtotal = disc?.lineTotal != null
+                          ? disc.lineTotal
+                          : effectivePrice * item.quantity;
                         return (
                           <TableRow key={item.id}>
                             <TableCell>{item.name}</TableCell>
-                            <TableCell align="right">{item.price || `$${price.toFixed(2)}`}</TableCell>
+                            <TableCell align="right">
+                              {hasDiscount ? (
+                                <Stack alignItems="flex-end" spacing={0}>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ textDecoration: 'line-through', color: 'text.secondary', fontSize: '0.75rem' }}
+                                  >
+                                    ${origPrice.toFixed(2)}
+                                  </Typography>
+                                  <Typography variant="body2" color="success.main" fontWeight={600}>
+                                    ${effectivePrice.toFixed(2)}
+                                  </Typography>
+                                </Stack>
+                              ) : (
+                                item.price || `$${origPrice.toFixed(2)}`
+                              )}
+                            </TableCell>
                             <TableCell align="right">
                               <TextField
                                 type="number"
@@ -555,6 +665,11 @@ const CheckoutPage = () => {
                       <Typography variant="body2" color="text.secondary">
                         Tax: ${taxSnap.ok ? taxSnap.value.toFixed(2) : '—'}
                       </Typography>
+                      {totalSavings > 0 && (
+                        <Typography variant="body2" color="success.main" fontWeight={600}>
+                          You save: ${totalSavings.toFixed(2)}
+                        </Typography>
+                      )}
                       <Typography variant="h6" sx={{ fontWeight: 700, mt: 0.5 }}>
                         Total: ${taxSnap.ok ? grandTotal.toFixed(2) : '—'}
                       </Typography>
@@ -753,6 +868,17 @@ const CheckoutPage = () => {
       >
         <Alert severity={emailSnackbar.severity} onClose={() => setEmailSnackbar((s) => ({ ...s, open: false }))}>
           {emailSnackbar.message}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={promotionsSnackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setPromotionsSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setPromotionsSnackbar((s) => ({ ...s, open: false }))}>
+          {promotionsSnackbar.message}
         </Alert>
       </Snackbar>
     </Box>

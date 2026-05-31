@@ -41,3 +41,11 @@ export async function deletePromotion(id, authHeaders) {
   });
   return parseResponse(response, 'Failed to delete promotion');
 }
+
+export async function getActivePromotions(authHeaders) {
+  const response = await fetch(`${config.apiUrl}/promotions/active`, {
+    method: 'GET',
+    headers: authHeaders,
+  });
+  return parseResponse(response, 'Failed to load active promotions');
+}
