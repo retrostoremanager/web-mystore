@@ -110,6 +110,7 @@ function App() {
               <Route path="/dashboard/billing" element={<PermissionRoute permission="billing.view" element={<BillingSettingsPage />} />} />
               <Route path="/dashboard/subscription" element={<PermissionRoute permission="billing.view" element={<SubscriptionPage />} />} />
               <Route path="/dashboard/profile" element={<PermissionRoute permission="settings.manage" element={<CompanyProfilePage />} />} />
+              <Route path="/settings/billing" element={<PermissionRoute permission="billing.view" element={<BillingSettingsPage />} />} />
               <Route path="/settings/loyalty" element={<PermissionRoute permission="loyalty.manage" element={<LoyaltySettingsPage />} />} />
               {/* Company store routes - must be last so system routes take precedence */}
               <Route path="/:slug/login" element={<CompanyLoginPage />} />
