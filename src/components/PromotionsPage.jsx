@@ -57,6 +57,7 @@ const EMPTY_ERRORS = {
   buyQuantity: '',
   getQuantity: '',
   scopeValue: '',
+  startDate: '',
 };
 
 function formatValue(row) {
@@ -202,6 +203,11 @@ const PromotionsPage = () => {
 
     if (form.scope !== 'store_wide' && !form.scopeValue.trim()) {
       errs.scopeValue = 'Scope value is required';
+      valid = false;
+    }
+
+    if (!form.startDate) {
+      errs.startDate = 'Start date is required';
       valid = false;
     }
 
@@ -562,11 +568,14 @@ const PromotionsPage = () => {
 
             <TextField
               label="Start Date"
+              required
               fullWidth
               type="date"
               value={form.startDate}
               onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
               InputLabelProps={{ shrink: true }}
+              error={!!fieldErrors.startDate}
+              helperText={fieldErrors.startDate}
               disabled={submitting}
             />
 
