@@ -603,11 +603,15 @@ const InventoryPage = () => {
                 <DataGrid
                   rows={filteredRows}
                   columns={columns}
-                  autoHeight
+                  autoHeight={filteredRows.length > 0}
                   pageSizeOptions={[25, 50, 100]}
                   initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
                   onRowClick={({ row }) => navigate(`/dashboard/inventory/${row.id}`)}
-                  sx={{ cursor: 'pointer', border: 'none' }}
+                  sx={{
+                    cursor: 'pointer',
+                    border: 'none',
+                    minHeight: filteredRows.length === 0 ? 360 : undefined,
+                  }}
                   slots={{
                     noRowsOverlay: () => (
                       <Box
@@ -617,14 +621,22 @@ const InventoryPage = () => {
                           alignItems: 'center',
                           justifyContent: 'center',
                           height: '100%',
+                          minHeight: 320,
                           py: 6,
+                          px: 2,
+                          textAlign: 'center',
                         }}
                       >
-                        <Inventory sx={{ color: 'text.disabled', mb: 1 }} fontSize="large" />
-                        <Typography variant="body1" color="text.secondary">
+                        <Inventory sx={{ color: 'text.disabled', mb: 1, fontSize: 48 }} />
+                        <Typography variant="h6" color="text.primary" sx={{ mb: 0.5 }}>
                           {searchQuery
-                            ? 'No items match your search.'
-                            : 'No items yet. Add your first item.'}
+                            ? 'No items match your search'
+                            : 'No items yet'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360 }}>
+                          {searchQuery
+                            ? 'Try adjusting your search or clearing the filter.'
+                            : 'Add your first inventory item to start tracking stock, prices, and sales.'}
                         </Typography>
                         {!searchQuery && (
                           <Button
