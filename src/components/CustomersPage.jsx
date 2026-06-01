@@ -611,20 +611,37 @@ const CustomersPage = () => {
                   pageSizeOptions={[10, 25, 50]}
                   initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
                   disableRowSelectionOnClick={false}
-                  sx={{ cursor: 'pointer' }}
+                  sx={{ cursor: 'pointer', '& .MuiDataGrid-overlayWrapper': { minHeight: 240 } }}
                   slots={{
                     noRowsOverlay: () => (
                       <Box
                         sx={{
                           display: 'flex',
+                          flexDirection: 'column',
                           alignItems: 'center',
                           justifyContent: 'center',
                           height: '100%',
+                          gap: 1.5,
+                          py: 4,
                         }}
                       >
-                        <Typography color="text.secondary">
-                          No customers yet — add your first customer above.
+                        <People sx={{ fontSize: 40, color: 'text.disabled' }} />
+                        <Typography variant="subtitle1" color="text.primary" sx={{ fontWeight: 600 }}>
+                          No customers yet
                         </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 320 }}>
+                          Add your first customer to start tracking purchases, contact info, and loyalty points.
+                        </Typography>
+                        {hasPermission('customers.edit') && (
+                          <Button
+                            variant="contained"
+                            startIcon={<Add />}
+                            onClick={openAdd}
+                            sx={{ mt: 1 }}
+                          >
+                            Add Customer
+                          </Button>
+                        )}
                       </Box>
                     ),
                   }}
