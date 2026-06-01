@@ -6,6 +6,13 @@ on:
       - development
   workflow_dispatch:  # Allows manual trigger from GitHub UI
 
+# Serialize deploys to the shared dev web app ($web in mystorestgdev). Concurrent
+# pushes to development previously raced on upload-batch and finished out of order,
+# leaving stale assets in dev. Run one at a time; let the newest queued deploy win.
+concurrency:
+  group: deploy-web-app-dev
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
