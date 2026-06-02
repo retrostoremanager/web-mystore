@@ -81,6 +81,7 @@ function App() {
               <Route path="/:slug/login" element={<CompanyLoginPage />} />
               <Route path="/:slug/customer" element={<CompanyCustomerPage />} />
               <Route path="/:slug/promotions" element={<PermissionRoute permission="promotion.manage" element={<PromotionsPage />} />} />
+              <Route path="/:slug/trade-ins" element={<PermissionRoute permission="trade_in.view" element={<TradeInPage />} />} />
               <Route path="/:slug" element={<CompanyLandingPage />} />
             </Routes>
             </AuthRedirect>
