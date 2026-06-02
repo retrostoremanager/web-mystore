@@ -145,6 +145,7 @@ const ConsignmentPage = () => {
       prev.map((it) => (it.id === updatedItem.id ? { ...it, ...updatedItem } : it))
     );
     setSelectedItem((prev) => (prev?.id === updatedItem.id ? { ...prev, ...updatedItem } : prev));
+    loadItems(activeTab);
   };
 
   const handleSave = async () => {
