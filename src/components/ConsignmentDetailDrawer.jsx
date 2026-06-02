@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Drawer,
   Box,
@@ -15,6 +15,10 @@ import {
   TextField,
   Tooltip,
   Alert,
+  List,
+  ListItem,
+  ListItemText,
+  Skeleton,
 } from '@mui/material';
 import { Close, AttachMoney, Payments, Undo } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,6 +26,7 @@ import {
   markConsignmentSold,
   recordConsignmentPayout,
   returnConsignmentToCustomer,
+  getConsignmentPayouts,
 } from '../services/consignmentApi';
 
 const fmt = (amount) =>
@@ -66,6 +71,33 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
 
   const [payoutConfirmOpen, setPayoutConfirmOpen] = useState(false);
   const [recordingPayout, setRecordingPayout] = useState(false);
+
+  const [payouts, setPayouts] = useState([]);
+  const [payoutsLoading, setPayoutsLoading] = useState(false);
+
+  const loadPayouts = useCallback(
+    async (id) => {
+      if (!id) return;
+      try {
+        setPayoutsLoading(true);
+        const res = await getConsignmentPayouts(id, getAuthHeaders());
+        setPayouts(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setPayouts([]);
+      } finally {
+        setPayoutsLoading(false);
+      }
+    },
+    [getAuthHeaders]
+  );
+
+  useEffect(() => {
+    if (open && item?.id) {
+      loadPayouts(item.id);
+    } else if (!open) {
+      setPayouts([]);
+    }
+  }, [open, item?.id, loadPayouts]);
 
   if (!item) return null;
 
@@ -128,6 +160,7 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
       setPayoutConfirmOpen(false);
       onItemUpdated(updatedItem);
       showSnackbar('Payout recorded successfully');
+      await loadPayouts(item.id);
     } catch (err) {
       showSnackbar(err.message || 'Failed to record payout', 'error');
     } finally {
@@ -228,6 +261,53 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               No asking price set.
             </Typography>
+          )}
+
+          <Divider sx={{ mb: 3 }} />
+
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            RECORDED PAYOUTS
+          </Typography>
+          {payoutsLoading ? (
+            <Box sx={{ mb: 3 }}>
+              {[...Array(2)].map((_, i) => (
+                <Skeleton key={i} variant="rectangular" height={48} sx={{ mb: 1, borderRadius: 1 }} />
+              ))}
+            </Box>
+          ) : payouts.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              No payouts recorded yet.
+            </Typography>
+          ) : (
+            <List disablePadding sx={{ mb: 3 }}>
+              {payouts.map((p, idx) => (
+                <ListItem
+                  key={p.id ?? idx}
+                  disablePadding
+                  sx={{
+                    py: 1,
+                    borderBottom: idx < payouts.length - 1 ? '1px solid' : 'none',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          {p.amount != null ? fmt(p.amount) : '—'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {p.paidAt || p.createdAt
+                            ? new Date(p.paidAt ?? p.createdAt).toLocaleDateString()
+                            : '—'}
+                        </Typography>
+                      </Box>
+                    }
+                    secondary={p.notes || p.method || null}
+                  />
+                </ListItem>
+              ))}
+            </List>
           )}
 
           <Divider sx={{ mb: 3 }} />

@@ -51,6 +51,20 @@ export async function markConsignmentSold(id, body, authHeaders) {
   return result;
 }
 
+export async function getConsignmentPayouts(id, authHeaders) {
+  const response = await fetchWithRetry(
+    `${config.apiUrl}/consignment/${id}/payouts`,
+    { method: 'GET', headers: authHeaders },
+    3,
+    1500
+  );
+  const result = await parseJsonResponse(response, 'Failed to retrieve payouts');
+  if (!response.ok) {
+    throw new Error(result.message || 'Failed to retrieve payouts');
+  }
+  return result;
+}
+
 export async function recordConsignmentPayout(id, authHeaders) {
   const response = await fetch(`${config.apiUrl}/consignment/${id}/payout`, {
     method: 'POST',
