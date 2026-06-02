@@ -40,13 +40,22 @@ const ReceiptView = ({ receipt, loading, error }) => {
   const customerEmail = receipt.customerEmail || receipt.customer?.email || '';
 
   return (
-    <Box id="receipt-print-area">
+    <Box id="receipt-print-area" className="receipt-print">
       <style>{`
         @media print {
-          body > *:not(#receipt-print-root) { display: none !important; }
-          #receipt-print-area { display: block !important; max-width: 480px; margin: 0 auto; }
+          body * { visibility: hidden !important; }
+          .receipt-print, .receipt-print * { visibility: visible !important; }
+          .receipt-print {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 480px !important;
+            margin: 0 auto !important;
+            padding: 16px !important;
+            background: #fff !important;
+          }
           .no-print { display: none !important; }
-          header, nav, aside, .MuiAppBar-root, .MuiDrawer-root { display: none !important; }
         }
       `}</style>
 

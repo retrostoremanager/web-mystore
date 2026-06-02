@@ -758,8 +758,10 @@ const CheckoutPage = () => {
     }
   };
 
+  const isValidEmail = (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((val ?? '').trim());
+
   const handleEmailSubmit = async () => {
-    if (!lastSale?.id || !emailInput.trim()) return;
+    if (!lastSale?.id || !isValidEmail(emailInput)) return;
     setEmailSending(true);
     try {
       await emailSaleReceipt(lastSale.id, emailInput.trim(), getAuthHeaders());
@@ -849,6 +851,12 @@ const CheckoutPage = () => {
             value={emailInput}
             onChange={(e) => setEmailInput(e.target.value)}
             disabled={emailSending}
+            error={emailInput.trim() !== '' && !isValidEmail(emailInput)}
+            helperText={
+              emailInput.trim() !== '' && !isValidEmail(emailInput)
+                ? 'Please enter a valid email address'
+                : ' '
+            }
             sx={{ mt: 1 }}
             autoFocus
           />
@@ -858,7 +866,7 @@ const CheckoutPage = () => {
           <Button
             variant="contained"
             onClick={handleEmailSubmit}
-            disabled={emailSending || !emailInput.trim()}
+            disabled={emailSending || !isValidEmail(emailInput)}
             startIcon={emailSending ? <CircularProgress size={18} color="inherit" /> : null}
           >
             {emailSending ? 'Sending...' : 'Send'}
