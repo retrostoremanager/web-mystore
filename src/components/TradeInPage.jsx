@@ -20,8 +20,14 @@ import {
   ToggleButton,
   Divider,
   Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  CircularProgress,
 } from '@mui/material';
-import { ArrowBack, Add, SwapHoriz, Delete, QrCodeScanner, SmartToy } from '@mui/icons-material';
+import { ArrowBack, Add, SwapHoriz, Delete, QrCodeScanner, SmartToy, Visibility } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -76,6 +82,8 @@ const TradeInPage = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [activeStatus, setActiveStatus] = useState(null);
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -173,7 +181,7 @@ const TradeInPage = () => {
     }
   };
 
-  const handleReject = async () => {
+  const handleRejectConfirm = async () => {
     if (!activeDraftId) return;
     const headers = getAuthHeaders();
     setSubmitting(true);
@@ -181,6 +189,8 @@ const TradeInPage = () => {
       await rejectTradeIn(activeDraftId, headers);
       showSnackbar('Trade-in rejected');
       setActiveDraftId(null);
+      setActiveStatus(null);
+      setRejectDialogOpen(false);
       await loadTradeIns(activeTab);
     } catch (err) {
       showSnackbar(err.message || 'Failed to reject trade-in', 'error');
@@ -188,6 +198,28 @@ const TradeInPage = () => {
       setSubmitting(false);
     }
   };
+
+  const handleViewTradeIn = useCallback((row) => {
+    const rowItems = Array.isArray(row.items) ? row.items : [];
+    setItems(
+      rowItems.map((it) => ({
+        id: it.id ?? `view-${nextRowId++}`,
+        gameTitle: it.gameTitle || it.title || '',
+        platform: it.platform || '',
+        condition: CONDITIONS.includes(it.condition) ? it.condition : 'good',
+        offeredValue: it.offeredValue ?? '',
+        aiGenerated: !!it.aiGenerated,
+      }))
+    );
+    setActiveDraftId(row.id ?? null);
+    setActiveStatus((row.status || '').toLowerCase() || null);
+    if (row.customer) {
+      setSelectedCustomer(row.customer);
+    } else {
+      setSelectedCustomer(null);
+    }
+    if (row.paymentType) setPaymentType(row.paymentType);
+  }, []);
 
   const listColumns = [
     {
@@ -222,12 +254,13 @@ const TradeInPage = () => {
       },
     },
     {
-      field: 'totalOffered',
-      headerName: 'Total Offered',
-      width: 140,
+      field: 'totalAccepted',
+      headerName: 'Total Accepted Value',
+      width: 170,
       valueGetter: (params) => {
         const row = params.row;
-        return row.totalOffered != null ? fmt(row.totalOffered) : '—';
+        const v = row.totalAccepted ?? row.totalAcceptedValue ?? row.totalOffered;
+        return v != null ? fmt(v) : '—';
       },
     },
     {
@@ -239,6 +272,23 @@ const TradeInPage = () => {
         const props = statusChipProps[s] || { label: params.value || '—', color: 'default' };
         return <Chip label={props.label} color={props.color} size="small" />;
       },
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 110,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      renderCell: (params) => (
+        <Button
+          size="small"
+          startIcon={<Visibility />}
+          onClick={() => handleViewTradeIn(params.row)}
+        >
+          View
+        </Button>
+      ),
     },
   ];
 
@@ -487,9 +537,18 @@ const TradeInPage = () => {
           </Paper>
 
           <Paper elevation={2} sx={{ flex: 1, p: { xs: 2, sm: 3 }, minWidth: 280 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-              Summary
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 1, flexWrap: 'wrap' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Summary
+              </Typography>
+              {activeStatus && (
+                <Chip
+                  size="small"
+                  label={(statusChipProps[activeStatus] || { label: activeStatus }).label}
+                  color={(statusChipProps[activeStatus] || { color: 'default' }).color}
+                />
+              )}
+            </Box>
 
             <Box sx={{ mb: 3 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -542,6 +601,7 @@ const TradeInPage = () => {
                 fullWidth
                 disabled={items.length === 0 || submitting}
                 onClick={handleCompleteTrade}
+                startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
               >
                 {submitting ? 'Processing…' : 'Complete Trade-in'}
               </Button>
@@ -552,7 +612,7 @@ const TradeInPage = () => {
                   color="error"
                   fullWidth
                   disabled={submitting}
-                  onClick={handleReject}
+                  onClick={() => setRejectDialogOpen(true)}
                 >
                   Reject
                 </Button>
@@ -568,6 +628,32 @@ const TradeInPage = () => {
         onItemsParsed={handleItemsParsed}
         onError={(msg) => showSnackbar(msg, 'error')}
       />
+
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={() => (!submitting ? setRejectDialogOpen(false) : null)}
+      >
+        <DialogTitle>Reject Trade-in?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to reject this trade-in? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleRejectConfirm}
+            disabled={submitting}
+            startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            Reject
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}
