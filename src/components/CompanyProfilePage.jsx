@@ -128,7 +128,8 @@ export default function CompanyProfilePage() {
   });
   const [locationSaving, setLocationSaving] = useState(false);
 
-  const [taxForm, setTaxForm] = useState({ taxEnabled: false, taxRate: '', taxLabel: 'Sales Tax' });
+  const [taxForm, setTaxForm] = useState({ taxEnabled: false, taxRate: '', taxLabel: '' });
+  const [taxLoading, setTaxLoading] = useState(true);
   const [taxSaving, setTaxSaving] = useState(false);
   const [taxRateError, setTaxRateError] = useState('');
 
@@ -143,15 +144,18 @@ export default function CompanyProfilePage() {
 
   const loadTaxSettings = async () => {
     try {
+      setTaxLoading(true);
       const result = await getTaxSettings(getAuthHeaders());
       const t = result.data || {};
       setTaxForm({
         taxEnabled: t.taxEnabled ?? false,
         taxRate: t.taxRate != null ? String(parseFloat((t.taxRate * 100).toFixed(2))) : '',
-        taxLabel: t.taxLabel || 'Sales Tax',
+        taxLabel: t.taxLabel || '',
       });
     } catch (err) {
       showSnackbar('error', err.message || 'Failed to load tax settings');
+    } finally {
+      setTaxLoading(false);
     }
   };
 
@@ -687,56 +691,67 @@ export default function CompanyProfilePage() {
             Configure sales tax collection for your store.
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          <Stack spacing={2}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={taxForm.taxEnabled}
-                  onChange={(e) => handleTaxChange('taxEnabled', e.target.checked)}
-                  disabled={taxSaving}
-                />
-              }
-              label="Enable tax collection"
-            />
-            <TextField
-              fullWidth
-              label="Tax Rate (%)"
-              type="number"
-              value={taxForm.taxRate}
-              onChange={(e) => handleTaxChange('taxRate', e.target.value)}
-              disabled={taxSaving || !taxForm.taxEnabled}
-              inputProps={{ min: 0, max: 100, step: 0.01 }}
-              error={!!taxRateError}
-              helperText={taxRateError || 'Enter a percentage, e.g. 8.25 for 8.25%'}
-            />
-            <TextField
-              fullWidth
-              label="Tax Label"
-              value={taxForm.taxLabel}
-              onChange={(e) => handleTaxChange('taxLabel', e.target.value)}
-              disabled={taxSaving || !taxForm.taxEnabled}
-              placeholder="Sales Tax"
-            />
-            {taxForm.taxEnabled && (
-              <Typography variant="body2" color="text.secondary">
-                A $100.00 sale will include ${
-                  isNaN(parseFloat(taxForm.taxRate))
-                    ? '0.00'
-                    : (parseFloat(taxForm.taxRate) / 100 * 100).toFixed(2)
-                } in {taxForm.taxLabel || 'Sales Tax'}.
-              </Typography>
-            )}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                onClick={handleTaxSave}
-                disabled={taxSaving || !!taxRateError}
-                startIcon={taxSaving ? <CircularProgress size={16} color="inherit" /> : null}
-              >
-                {taxSaving ? 'Saving…' : 'Save Tax Settings'}
-              </Button>
-            </Box>
-          </Stack>
+          {taxLoading ? (
+            <Stack spacing={2}>
+              <Skeleton variant="rounded" height={42} width={220} />
+              <Skeleton variant="rounded" height={56} />
+              <Skeleton variant="rounded" height={56} />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Skeleton variant="rounded" width={160} height={36} />
+              </Box>
+            </Stack>
+          ) : (
+            <Stack spacing={2}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={taxForm.taxEnabled}
+                    onChange={(e) => handleTaxChange('taxEnabled', e.target.checked)}
+                    disabled={taxSaving}
+                  />
+                }
+                label="Enable tax collection"
+              />
+              <TextField
+                fullWidth
+                label="Tax Rate (%)"
+                type="number"
+                value={taxForm.taxRate}
+                onChange={(e) => handleTaxChange('taxRate', e.target.value)}
+                disabled={taxSaving || !taxForm.taxEnabled}
+                inputProps={{ min: 0, max: 100, step: 0.01 }}
+                error={!!taxRateError}
+                helperText={taxRateError || 'Enter a percentage, e.g. 8.75 for 8.75%'}
+              />
+              <TextField
+                fullWidth
+                label="Tax Label"
+                value={taxForm.taxLabel}
+                onChange={(e) => handleTaxChange('taxLabel', e.target.value)}
+                disabled={taxSaving || !taxForm.taxEnabled}
+                placeholder="Sales Tax"
+              />
+              {taxForm.taxEnabled && (
+                <Typography variant="body2" color="text.secondary">
+                  A $100.00 sale will include ${
+                    isNaN(parseFloat(taxForm.taxRate))
+                      ? '0.00'
+                      : ((parseFloat(taxForm.taxRate) / 100) * 100).toFixed(2)
+                  } in {taxForm.taxLabel || 'Sales Tax'}.
+                </Typography>
+              )}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  onClick={handleTaxSave}
+                  disabled={taxSaving || !!taxRateError}
+                  startIcon={taxSaving ? <CircularProgress size={16} color="inherit" /> : null}
+                >
+                  {taxSaving ? 'Saving…' : 'Save Tax Settings'}
+                </Button>
+              </Box>
+            </Stack>
+          )}
         </Paper>
 
         <Paper sx={{ p: 3 }}>
