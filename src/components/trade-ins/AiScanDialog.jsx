@@ -83,6 +83,10 @@ export default function AiScanDialog({ open, onClose, onItemsParsed, onError }) 
       const imageBase64 = await readFileAsBase64(pendingFile);
       const result = await parseTradeInImage(imageBase64, pendingFile.type, getAuthHeaders());
       const parsedItems = result.data?.items || result.items || [];
+      if (parsedItems.length === 0) {
+        onError('No games could be identified in the image. Please try a clearer photo.');
+        return;
+      }
       if (preview) URL.revokeObjectURL(preview);
       setPreview(null);
       setPendingFile(null);
