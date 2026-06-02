@@ -130,6 +130,7 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
       setMarkSoldOpen(false);
       onItemUpdated(updatedItem);
       showSnackbar('Item marked as sold');
+      onClose();
     } catch (err) {
       showSnackbar(err.message || 'Failed to mark as sold', 'error');
     } finally {
@@ -145,6 +146,7 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
       setReturnConfirmOpen(false);
       onItemUpdated(updatedItem);
       showSnackbar('Item returned to customer');
+      onClose();
     } catch (err) {
       showSnackbar(err.message || 'Failed to return item', 'error');
     } finally {
@@ -160,7 +162,7 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
       setPayoutConfirmOpen(false);
       onItemUpdated(updatedItem);
       showSnackbar('Payout recorded successfully');
-      await loadPayouts(item.id);
+      onClose();
     } catch (err) {
       showSnackbar(err.message || 'Failed to record payout', 'error');
     } finally {
