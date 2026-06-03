@@ -40,14 +40,31 @@ jobs:
         VITE_ENTRA_CLIENT_ID: ${{ secrets.VITE_ENTRA_CLIENT_ID }}
       run: npm run build
 
-    - name: Deploy to Azure Static Web App
-      uses: Azure/static-web-apps-deploy@v1
+    - name: Azure Login
+      uses: azure/login@v1
       with:
-        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-        action: upload
-        app_location: dist
-        skip_app_build: true
-        skip_api_build: true
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Azure Static Web App
+      run: |
+        # dev.retrostoremanager.com is served by the SWA with default hostname
+        # jolly-cliff-047c0730f. Resolve its name/RG and pull the deployment token
+        # at runtime so no extra secret is required.
+        SWA_NAME=$(az staticwebapp list \
+          --query "[?contains(defaultHostname, 'jolly-cliff-047c0730f')].name | [0]" -o tsv)
+        if [ -z "$SWA_NAME" ]; then
+          echo "ERROR: Static Web App (jolly-cliff-047c0730f) not visible to this service principal." >&2
+          exit 1
+        fi
+        SWA_RG=$(az staticwebapp list \
+          --query "[?name=='${SWA_NAME}'].resourceGroup | [0]" -o tsv)
+        echo "Resolved Static Web App: ${SWA_NAME} (resource group: ${SWA_RG})"
+        SWA_TOKEN=$(az staticwebapp secrets list \
+          --name "$SWA_NAME" --resource-group "$SWA_RG" \
+          --query "properties.apiKey" -o tsv)
+        npx -y @azure/static-web-apps-cli@latest deploy ./dist \
+          --deployment-token "$SWA_TOKEN" \
+          --env production
 
     - name: Deployment Complete
       run: |
