@@ -351,7 +351,7 @@ const UsersPage = () => {
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Badge sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
+                <Badge fontSize="large" sx={{ mr: 1, color: 'primary.main' }} />
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
                   User List
                 </Typography>
