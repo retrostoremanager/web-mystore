@@ -88,6 +88,7 @@ export default function CompanyProfilePage() {
     companyCity: '',
     companyState: '',
     companyZipCode: '',
+    companyCountry: '',
     companyPhone: '',
     locale: 'en-US',
     logoUrl: '',
@@ -102,6 +103,7 @@ export default function CompanyProfilePage() {
     companyCity: '',
     companyState: '',
     companyZipCode: '',
+    companyCountry: '',
     companyPhone: '',
     locale: 'en-US',
   });
@@ -172,6 +174,7 @@ export default function CompanyProfilePage() {
         companyCity: p.companyCity || '',
         companyState: p.companyState || '',
         companyZipCode: p.companyZipCode || '',
+        companyCountry: p.companyCountry || '',
         companyPhone: p.companyPhone || '',
         locale: p.locale || 'en-US',
         logoUrl: p.logoUrl || '',
@@ -184,6 +187,7 @@ export default function CompanyProfilePage() {
         companyCity: profileData.companyCity,
         companyState: profileData.companyState,
         companyZipCode: profileData.companyZipCode,
+        companyCountry: profileData.companyCountry,
         companyPhone: profileData.companyPhone,
         locale: profileData.locale,
       });
@@ -499,6 +503,7 @@ export default function CompanyProfilePage() {
               </Stack>
               <Skeleton variant="rounded" height={56} />
               <Skeleton variant="rounded" height={56} />
+              <Skeleton variant="rounded" height={56} />
               <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Skeleton variant="rounded" width={100} height={36} />
               </Box>
@@ -552,6 +557,13 @@ export default function CompanyProfilePage() {
                   disabled={infoSaving}
                 />
               </Stack>
+              <TextField
+                fullWidth
+                label="Country"
+                value={infoForm.companyCountry}
+                onChange={(e) => handleInfoChange('companyCountry', e.target.value)}
+                disabled={infoSaving}
+              />
               <TextField
                 fullWidth
                 label="Phone"
