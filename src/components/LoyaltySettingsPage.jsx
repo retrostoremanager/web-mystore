@@ -73,8 +73,11 @@ export default function LoyaltySettingsPage() {
 
   const validateField = (field, value) => {
     const num = parseFloat(value);
-    if (value === '' || isNaN(num) || num <= 0) {
-      return 'Must be a number greater than 0';
+    if (value === '' || isNaN(num) || num < 0) {
+      return 'Must be a number greater than or equal to 0';
+    }
+    if (field === 'redemptionRate' && !Number.isInteger(num)) {
+      return 'Must be a whole number';
     }
     return '';
   };
@@ -104,7 +107,7 @@ export default function LoyaltySettingsPage() {
           isEnabled: form.enabled,
           pointsPerDollarSpent: parseFloat(parseFloat(form.purchasePointsPerDollar).toFixed(2)),
           pointsPerDollarTradeIn: parseFloat(parseFloat(form.tradeInPointsPerDollar).toFixed(2)),
-          redemptionRate: parseFloat(parseFloat(form.redemptionRate).toFixed(2)),
+          redemptionRate: parseInt(form.redemptionRate, 10),
         },
         getAuthHeaders()
       );
@@ -118,11 +121,11 @@ export default function LoyaltySettingsPage() {
 
   const purchasePoints = parseFloat(form.purchasePointsPerDollar);
   const redemptionRate = parseFloat(form.redemptionRate);
-  const examplePurchasePoints = !isNaN(purchasePoints) && purchasePoints > 0
-    ? (purchasePoints * 100).toFixed(2).replace(/\.00$/, '')
+  const examplePurchaseEarn = !isNaN(purchasePoints) && purchasePoints >= 0
+    ? (purchasePoints * 50).toFixed(2).replace(/\.00$/, '')
     : null;
-  const exampleRedemptionPoints = !isNaN(redemptionRate) && redemptionRate > 0
-    ? redemptionRate.toFixed(2).replace(/\.00$/, '')
+  const exampleRedemptionCredit = !isNaN(redemptionRate) && redemptionRate > 0
+    ? (100 / redemptionRate).toFixed(2)
     : null;
 
   return (
@@ -225,17 +228,17 @@ export default function LoyaltySettingsPage() {
                   value={form.redemptionRate}
                   onChange={(e) => handleChange('redemptionRate', e.target.value)}
                   disabled={saving || !form.enabled}
-                  inputProps={{ min: 0, step: 0.01 }}
+                  inputProps={{ min: 0, step: 1 }}
                   error={form.enabled && !!errors.redemptionRate}
                   helperText={
                     form.enabled && errors.redemptionRate
                       ? errors.redemptionRate
-                      : 'Number of points required to redeem $1.00 of store credit'
+                      : 'Number of points required to redeem $1.00 of store credit (whole number)'
                   }
                 />
               </Box>
 
-              {form.enabled && (examplePurchasePoints || exampleRedemptionPoints) && (
+              {form.enabled && (examplePurchaseEarn !== null || exampleRedemptionCredit !== null) && (
                 <Box>
                   <Typography variant="h6" gutterBottom>
                     Live Example
@@ -243,15 +246,16 @@ export default function LoyaltySettingsPage() {
                   <Divider sx={{ mb: 2 }} />
                   <Paper variant="outlined" sx={{ p: 2 }}>
                     <Stack spacing={1}>
-                      {examplePurchasePoints && (
+                      {examplePurchaseEarn !== null && (
                         <Typography variant="body2" color="text.secondary">
-                          A <strong>$100.00 purchase</strong> earns{' '}
-                          <strong>{examplePurchasePoints} points</strong>.
+                          A <strong>$50.00 purchase</strong> earns{' '}
+                          <strong>{examplePurchaseEarn} pts</strong>.
                         </Typography>
                       )}
-                      {exampleRedemptionPoints && (
+                      {exampleRedemptionCredit !== null && (
                         <Typography variant="body2" color="text.secondary">
-                          <strong>{exampleRedemptionPoints} points</strong> = <strong>$1.00 store credit</strong>.
+                          <strong>100 pts</strong> ={' '}
+                          <strong>${exampleRedemptionCredit} store credit</strong>.
                         </Typography>
                       )}
                     </Stack>
