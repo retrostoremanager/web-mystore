@@ -183,7 +183,7 @@ const RolesPage = () => {
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Security sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
+                <Security fontSize="large" sx={{ mr: 1, color: 'primary.main' }} />
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
                   Role List
                 </Typography>
