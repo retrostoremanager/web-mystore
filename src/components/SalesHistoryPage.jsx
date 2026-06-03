@@ -161,7 +161,14 @@ const SalesHistoryPage = () => {
     const headers = getAuthHeaders();
     try {
       const result = await getSaleReceipt(sale.id, headers);
-      setReceiptData(result.data ?? result ?? null);
+      const data = result.data ?? result ?? null;
+      if (data && !data.employeeName && !data.cashierName && !data.employee && !data.user) {
+        const fallbackEmployee = employeeLabel(sale);
+        if (fallbackEmployee && fallbackEmployee !== '—') {
+          data.employeeName = fallbackEmployee;
+        }
+      }
+      setReceiptData(data);
     } catch (e) {
       setReceiptError(e.message || 'Failed to load receipt');
     } finally {
