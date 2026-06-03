@@ -38,6 +38,14 @@ const ReceiptView = ({ receipt, loading, error }) => {
   const total = Number(receipt.total ?? 0);
   const customerName = receipt.customerName || receipt.customer?.name || [receipt.customer?.firstName, receipt.customer?.lastName].filter(Boolean).join(' ').trim() || '';
   const customerEmail = receipt.customerEmail || receipt.customer?.email || '';
+  const employeeName =
+    receipt.employeeName ||
+    receipt.cashierName ||
+    [receipt.employee?.firstName, receipt.employee?.lastName].filter(Boolean).join(' ').trim() ||
+    [receipt.user?.firstName, receipt.user?.lastName].filter(Boolean).join(' ').trim() ||
+    receipt.employee?.email ||
+    receipt.user?.email ||
+    '';
 
   return (
     <Box id="receipt-print-area" className="receipt-print">
@@ -79,8 +87,13 @@ const ReceiptView = ({ receipt, loading, error }) => {
         </Typography>
       )}
       {receipt.paymentMethod && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
           Payment: {receipt.paymentMethod}
+        </Typography>
+      )}
+      {employeeName && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Employee: {employeeName}
         </Typography>
       )}
 
