@@ -62,15 +62,15 @@ describe('getSubscriptionChipProps', () => {
     expect(result.color).toBe('success');
   });
 
-  it('returns warning color for trial status', () => {
+  it('returns info color for trial status', () => {
     const result = getSubscriptionChipProps('trial');
-    expect(result.color).toBe('warning');
+    expect(result.color).toBe('info');
     expect(result.label).toBe('Trial');
   });
 
-  it('returns warning color for trialing status', () => {
+  it('returns info color for trialing status', () => {
     const result = getSubscriptionChipProps('trialing');
-    expect(result.color).toBe('warning');
+    expect(result.color).toBe('info');
     expect(result.label).toBe('Trial');
   });
 
@@ -86,9 +86,9 @@ describe('getSubscriptionChipProps', () => {
     expect(result.label).toBe('Cancelled');
   });
 
-  it('returns error color for past_due status', () => {
+  it('returns warning color for past_due status', () => {
     const result = getSubscriptionChipProps('past_due');
-    expect(result.color).toBe('error');
+    expect(result.color).toBe('warning');
     expect(result.label).toBe('Past Due');
   });
 
@@ -153,6 +153,26 @@ describe('BillingSettingsPage render', () => {
     await waitFor(() => {
       expect(screen.getByText(/Premium/)).toBeInTheDocument();
       expect(screen.getByTestId('subscription-status-chip')).toHaveTextContent('Active');
+    });
+  });
+
+  it('shows trial info when subscription is in trial', async () => {
+    getSubscription.mockResolvedValue({
+      data: {
+        plan: 'Basic',
+        status: 'trialing',
+        trialEnd: '2025-03-01T00:00:00Z',
+        daysRemaining: 7,
+      },
+    });
+    getPaymentMethods.mockResolvedValue({ data: [] });
+    getInvoices.mockResolvedValue({ data: [], pagination: { totalPages: 1 } });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Trial ends:/)).toBeInTheDocument();
+      expect(screen.getByText(/7 days remaining/)).toBeInTheDocument();
     });
   });
 

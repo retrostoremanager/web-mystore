@@ -57,9 +57,9 @@ export function getSubscriptionChipProps(status) {
   if (!status) return { label: 'Unknown', color: 'default' };
   const s = status.toLowerCase();
   if (s === 'active') return { label: 'Active', color: 'success' };
-  if (s === 'trial' || s === 'trialing') return { label: 'Trial', color: 'warning' };
+  if (s === 'trial' || s === 'trialing') return { label: 'Trial', color: 'info' };
   if (s === 'cancelled' || s === 'canceled') return { label: 'Cancelled', color: 'error' };
-  if (s === 'past_due') return { label: 'Past Due', color: 'error' };
+  if (s === 'past_due') return { label: 'Past Due', color: 'warning' };
   if (s === 'paused') return { label: 'Paused', color: 'default' };
   return { label: status, color: 'default' };
 }
@@ -339,6 +339,15 @@ export default function BillingSettingsPage() {
               {subscription.currentPeriodEnd && (
                 <Typography variant="body2" color="text.secondary">
                   <strong>Period end:</strong> {formatDate(subscription.currentPeriodEnd)}
+                </Typography>
+              )}
+              {(subscription.trialEnd || subscription.trialEndDate) && (
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Trial ends:</strong>{' '}
+                  {formatDate(subscription.trialEnd || subscription.trialEndDate)}
+                  {subscription.daysRemaining != null
+                    ? ` (${subscription.daysRemaining} day${subscription.daysRemaining === 1 ? '' : 's'} remaining)`
+                    : ''}
                 </Typography>
               )}
               {subscription.nextInvoiceAmount != null && (
