@@ -322,7 +322,7 @@ export default function BillingSettingsPage() {
             <Stack spacing={1.5}>
               <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
                 <Typography variant="body1">
-                  <strong>Plan:</strong> {subscription.plan || subscription.tier || '—'}
+                  <strong>Plan:</strong> {subscription.planName || subscription.plan || subscription.tier || '—'}
                 </Typography>
                 <Chip
                   label={chipProps.label}
