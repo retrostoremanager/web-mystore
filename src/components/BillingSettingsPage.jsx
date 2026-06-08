@@ -83,9 +83,9 @@ function formatCurrency(amount, currency = 'usd') {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency.toUpperCase(),
-    }).format(amount / 100);
+    }).format(amount);
   } catch {
-    return `$${(amount / 100).toFixed(2)}`;
+    return `$${amount.toFixed(2)}`;
   }
 }
 
