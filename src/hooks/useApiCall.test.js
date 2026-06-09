@@ -163,6 +163,53 @@ describe('useApiCall', () => {
     expect(result.current.data).toEqual([]);
   });
 
+  it('supports re-fetching: calls execute again and updates data with the new result', async () => {
+    const apiFn = vi
+      .fn()
+      .mockResolvedValueOnce({ data: 'first' })
+      .mockResolvedValueOnce({ data: 'second' });
+
+    const { result } = renderHook(() => useApiCall());
+
+    await act(async () => {
+      await result.current.execute(apiFn);
+    });
+
+    expect(result.current.data).toBe('first');
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      await result.current.execute(apiFn);
+    });
+
+    expect(apiFn).toHaveBeenCalledTimes(2);
+    expect(result.current.data).toBe('second');
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('re-fetch clears a previous error when the next call succeeds', async () => {
+    const apiFn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Temporary failure'))
+      .mockResolvedValueOnce({ data: 'recovered' });
+
+    const { result } = renderHook(() => useApiCall());
+
+    await act(async () => {
+      await result.current.execute(apiFn);
+    });
+
+    expect(result.current.error).toBe('Temporary failure');
+
+    await act(async () => {
+      await result.current.execute(apiFn);
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).toBe('recovered');
+  });
+
   it('reset restores initialData when provided', async () => {
     const apiFn = vi.fn().mockResolvedValue({ data: 'loaded' });
 
