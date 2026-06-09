@@ -240,27 +240,32 @@ const LoyaltyTab = ({ customer, loyaltyData, loyaltyLoading, loyaltySettings, on
             >
               <ListItemText
                 primary={
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" fontWeight={500}>
-                      {TRANSACTION_TYPE_LABELS[tx.transactionType] ?? tx.transactionType}
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                     <Chip
-                      label={`${tx.transactionType === 'redeem' ? '-' : '+'}${Math.abs(tx.points)} pts`}
+                      label={
+                        tx.transactionType === 'redeem'
+                          ? 'redeem'
+                          : 'earn'
+                      }
                       size="small"
-                      color={tx.transactionType === 'redeem' ? 'default' : 'success'}
-                      variant="outlined"
+                      color={tx.transactionType === 'redeem' ? 'warning' : 'success'}
+                      sx={{ textTransform: 'capitalize', fontWeight: 600 }}
                     />
+                    <Typography variant="body2" fontWeight={600}>
+                      {`${tx.transactionType === 'redeem' ? '-' : '+'}${Math.abs(tx.points)} pts`}
+                    </Typography>
                   </Box>
                 }
                 secondary={
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.25 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.25, gap: 1 }}>
                     <Typography variant="caption" color="text.secondary">
                       {tx.createdAt
                         ? new Date(tx.createdAt).toLocaleDateString()
                         : '—'}
+                      {` • ${TRANSACTION_TYPE_LABELS[tx.transactionType] ?? tx.transactionType}`}
                     </Typography>
                     {tx.referenceId && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" noWrap>
                         Ref: {tx.referenceId}
                       </Typography>
                     )}
