@@ -31,6 +31,7 @@ import { ArrowBack, Add, Edit, Delete, LocalOffer } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../contexts/PermissionsContext';
 import {
   getPromotions,
   createPromotion,
@@ -88,6 +89,8 @@ function formatDate(dateStr) {
 const PromotionsPage = () => {
   const navigate = useNavigate();
   const { getAuthHeaders } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canManage = hasPermission('promotion.manage');
 
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -278,8 +281,13 @@ const PromotionsPage = () => {
   };
 
   const handleToggleActive = async (row) => {
+    if (!canManage) return;
     setTogglingId(row.id);
-    const newActive = !(row.isActive ?? row.is_active);
+    const prevActive = row.isActive ?? row.is_active;
+    const newActive = !prevActive;
+    setPromotions((prev) =>
+      prev.map((p) => (p.id === row.id ? { ...p, isActive: newActive } : p))
+    );
     try {
       const result = await updatePromotion(row.id, { isActive: newActive }, getAuthHeaders());
       const updated = result.data || { ...row, isActive: newActive };
@@ -288,6 +296,9 @@ const PromotionsPage = () => {
       );
       showSnackbar('success', `Promotion ${newActive ? 'activated' : 'deactivated'}`);
     } catch (err) {
+      setPromotions((prev) =>
+        prev.map((p) => (p.id === row.id ? { ...p, isActive: prevActive } : p))
+      );
       showSnackbar('error', err.message || 'Failed to update promotion');
     } finally {
       setTogglingId(null);
@@ -349,15 +360,17 @@ const PromotionsPage = () => {
       valueGetter: ({ value, row }) => value ?? row.is_active,
       renderCell: ({ value, row }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {togglingId === row.id ? (
-            <CircularProgress size={16} />
-          ) : (
-            <Switch
-              size="small"
-              checked={!!value}
-              onChange={() => handleToggleActive(row)}
-            />
-          )}
+          {canManage &&
+            (togglingId === row.id ? (
+              <CircularProgress size={16} />
+            ) : (
+              <Switch
+                size="small"
+                checked={!!value}
+                onChange={() => handleToggleActive(row)}
+                inputProps={{ 'aria-label': `Toggle ${row.name} active` }}
+              />
+            ))}
           <Chip
             label={value ? 'Active' : 'Inactive'}
             size="small"
@@ -374,11 +387,13 @@ const PromotionsPage = () => {
       filterable: false,
       renderCell: ({ row }) => (
         <Stack direction="row" spacing={0.5}>
-          <Tooltip title="Edit">
-            <IconButton size="small" onClick={() => openEdit(row)}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {canManage && (
+            <Tooltip title="Edit">
+              <IconButton size="small" onClick={() => openEdit(row)}>
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Delete">
             <IconButton size="small" color="error" onClick={() => openDelete(row)}>
               <Delete fontSize="small" />
