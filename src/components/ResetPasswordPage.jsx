@@ -99,7 +99,7 @@ const ResetPasswordPage = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #2c3e50 0%, #16a085 100%)',
+        background: (theme) => theme.custom?.gradient?.brand,
         py: 4,
         display: 'flex',
         alignItems: 'center',
