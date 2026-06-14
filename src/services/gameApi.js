@@ -33,7 +33,10 @@ export const getBoxArtUrl = (title, consoleName) => {
   if (!sys || !title) return null;
   // libretro filename sanitization: '&' -> '_' and the chars * " / : < > ? \ | -> '_'
   const name = String(title).replace(/&/g, '_').replace(/[*"/:<>?\\|]/g, '_');
-  return `https://raw.githubusercontent.com/libretro-thumbnails/${encodeURIComponent(sys)}/master/Named_Boxarts/${encodeURIComponent(name)}.png`;
+  // libretro-thumbnails per-system repos use underscores between tokens (e.g.
+  // "Nintendo_-_Super_Nintendo_Entertainment_System"), not spaces.
+  const repo = sys.replace(/ /g, '_');
+  return `https://raw.githubusercontent.com/libretro-thumbnails/${repo}/master/Named_Boxarts/${encodeURIComponent(name)}.png`;
 };
 
 /**
