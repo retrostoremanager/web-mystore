@@ -36,6 +36,11 @@ const ReceiptView = ({ receipt, loading, error }) => {
   const taxLabel = receipt.taxLabel || 'Tax';
   const taxEnabled = receipt.taxEnabled !== false && (receipt.taxRate > 0 || (receipt.taxRate == null && taxAmount > 0));
   const total = Number(receipt.total ?? 0);
+  const appliedPromotions = Array.isArray(receipt.appliedPromotions) ? receipt.appliedPromotions : [];
+  const totalSavings = appliedPromotions.reduce(
+    (sum, p) => sum + Number(p.discountAmount ?? p.discount ?? 0),
+    0
+  );
   const customerName = receipt.customerName || receipt.customer?.name || [receipt.customer?.firstName, receipt.customer?.lastName].filter(Boolean).join(' ').trim() || '';
   const customerEmail = receipt.customerEmail || receipt.customer?.email || '';
   const employeeName =
@@ -143,6 +148,33 @@ const ReceiptView = ({ receipt, loading, error }) => {
           <Typography variant="body2" color="text.secondary">Subtotal:</Typography>
           <Typography variant="body2">{formatUsd(subtotal)}</Typography>
         </Box>
+        {appliedPromotions.length > 0 && (
+          <Box
+            className="receipt-promotions"
+            sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5, width: '100%' }}
+          >
+            {appliedPromotions.map((promo, idx) => {
+              const promoName = promo.name || promo.promotionName || `Promotion #${promo.id ?? idx + 1}`;
+              const discount = Number(promo.discountAmount ?? promo.discount ?? 0);
+              return (
+                <Box key={promo.id ?? idx} sx={{ display: 'flex', gap: 3 }}>
+                  <Typography variant="body2" sx={{ color: 'error.main' }}>{promoName}:</Typography>
+                  <Typography variant="body2" sx={{ color: 'error.main' }}>
+                    -{formatUsd(discount)}
+                  </Typography>
+                </Box>
+              );
+            })}
+            <Box sx={{ display: 'flex', gap: 3 }}>
+              <Typography variant="body2" fontWeight={600} sx={{ color: 'error.main' }}>
+                Total Savings:
+              </Typography>
+              <Typography variant="body2" fontWeight={600} sx={{ color: 'error.main' }}>
+                -{formatUsd(totalSavings)}
+              </Typography>
+            </Box>
+          </Box>
+        )}
         {taxEnabled && (
           <Box sx={{ display: 'flex', gap: 3 }}>
             <Typography variant="body2" color="text.secondary">{taxLabel}:</Typography>
