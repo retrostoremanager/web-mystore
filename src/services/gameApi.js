@@ -1,14 +1,53 @@
 // Game catalog + pricing from api-gamedb (separate from MyStore VITE_API_URL)
 import config from '../config';
 
+// --- Box art: free / open-source libretro-thumbnails (no API key) --------------------
+// api-gamedb has no cover images, so derive a box-art URL from title + console.
+// Best-effort: libretro uses No-Intro naming, so not every retail title resolves; the UI
+// should use <img onError> to fall back to a placeholder when a cover 404s.
+const LIBRETRO_SYSTEM = {
+  'Nintendo Entertainment System': 'Nintendo - Nintendo Entertainment System',
+  'Super Nintendo Entertainment System': 'Nintendo - Super Nintendo Entertainment System',
+  'Nintendo 64': 'Nintendo - Nintendo 64',
+  'Nintendo GameCube': 'Nintendo - Nintendo GameCube',
+  'Nintendo Wii': 'Nintendo - Wii',
+  'Game Boy': 'Nintendo - Game Boy',
+  'Game Boy Color': 'Nintendo - Game Boy Color',
+  'Game Boy Advance': 'Nintendo - Game Boy Advance',
+  'Nintendo DS': 'Nintendo - Nintendo DS',
+  'Sega Genesis': 'Sega - Mega Drive - Genesis',
+  'Sega Master System': 'Sega - Master System - Mark III',
+  'Sega Saturn': 'Sega - Saturn',
+  'Dreamcast': 'Sega - Dreamcast',
+  'Sega Game Gear': 'Sega - Game Gear',
+  'PlayStation': 'Sony - PlayStation',
+  'PlayStation 2': 'Sony - PlayStation 2',
+  'PlayStation Portable': 'Sony - PlayStation Portable',
+  'Xbox': 'Microsoft - Xbox',
+  'TurboGrafx-16': 'NEC - PC Engine - TurboGrafx 16',
+  'Atari 2600': 'Atari - 2600',
+};
+
+export const getBoxArtUrl = (title, consoleName) => {
+  const sys = LIBRETRO_SYSTEM[consoleName];
+  if (!sys || !title) return null;
+  // libretro filename sanitization: '&' -> '_' and the chars * " / : < > ? \ | -> '_'
+  const name = String(title).replace(/&/g, '_').replace(/[*"/:<>?\\|]/g, '_');
+  return `https://raw.githubusercontent.com/libretro-thumbnails/${encodeURIComponent(sys)}/master/Named_Boxarts/${encodeURIComponent(name)}.png`;
+};
+
 /**
  * Map api-gamedb GET /games JSON (camelCase) into the shape the inventory UI expects.
  * @param {object} raw
  */
 export const normalizeGameFromGameDb = (raw) => {
   if (!raw || typeof raw !== 'object') return null;
-  const publishers = (raw.gamePublishers ?? [])
-    .map((gp) => gp?.publisher?.name)
+  // Tolerate both the flat DTO (publishers: [{name}]) and the older nested EF shape
+  // (gamePublishers: [{publisher: {name}}]).
+  const publishers = (
+    raw.publishers ?? (raw.gamePublishers ?? []).map((gp) => gp?.publisher)
+  )
+    .map((p) => p?.name)
     .filter(Boolean);
   const publisherLabel =
     publishers.length > 0 ? publishers.join(', ') : null;
@@ -25,7 +64,7 @@ export const normalizeGameFromGameDb = (raw) => {
     genre,
     region,
     releaseDate: raw.releaseDate ?? null,
-    imageUrl: raw.imageUrl ?? null,
+    imageUrl: raw.imageUrl ?? getBoxArtUrl(raw.title, raw.system?.name),
     systemId: raw.systemId,
     variantId: raw.variantId,
     _source: 'gamedb',
