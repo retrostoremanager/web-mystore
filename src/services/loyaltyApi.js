@@ -47,7 +47,7 @@ export async function redeemLoyaltyPoints(customerId, points, authHeaders) {
 /**
  * Get loyalty program settings.
  * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
- * @returns {Promise<{success: boolean, data?: {enabled, purchasePointsPerDollar, tradeInPointsPerDollar, redemptionRate}}>}
+ * @returns {Promise<{success: boolean, data?: {isEnabled, pointsPerDollarSpent, pointsPerDollarTradeIn, redemptionRate}}>}
  */
 export async function getLoyaltySettings(authHeaders) {
   const response = await fetch(`${config.apiUrl}/loyalty/settings`, {
@@ -66,7 +66,7 @@ export async function getLoyaltySettings(authHeaders) {
 
 /**
  * Update loyalty program settings.
- * @param {Object} payload - { enabled, purchasePointsPerDollar, tradeInPointsPerDollar, redemptionRate }
+ * @param {Object} payload - { isEnabled, pointsPerDollarSpent, pointsPerDollarTradeIn, redemptionRate }
  * @param {Object} authHeaders - Headers from useAuth().getAuthHeaders()
  * @returns {Promise<{success: boolean, data?: Object}>}
  */
