@@ -189,10 +189,10 @@ const TradeInPage = () => {
       if (!draftId) throw new Error('No trade-in ID returned from server');
       const completed = await completeTradeIn(draftId, paymentType, headers);
 
+      const backendAcceptedValue =
+        completed.data?.totalAcceptedValue ?? completed.data?.totalAccepted;
       const totalAcceptedValue =
-        completed.data?.totalAcceptedValue ??
-        completed.data?.totalAccepted ??
-        totalOffered;
+        Number(backendAcceptedValue) > 0 ? backendAcceptedValue : totalOffered;
       const loyaltyEnabled = loyaltySettings?.isEnabled ?? false;
       const pointsRate = Number(loyaltySettings?.pointsPerDollarTradeIn) || 0;
       const pointsEarned =
