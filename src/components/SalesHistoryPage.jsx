@@ -198,6 +198,9 @@ const SalesHistoryPage = () => {
           data.employeeName = fallbackEmployee;
         }
       }
+      if (data && (!data.appliedPromotions || data.appliedPromotions.length === 0) && Array.isArray(sale?.appliedPromotions) && sale.appliedPromotions.length > 0) {
+        data.appliedPromotions = sale.appliedPromotions;
+      }
       setReceiptData(data);
     } catch (e) {
       setReceiptError(e.message || 'Failed to load receipt');
