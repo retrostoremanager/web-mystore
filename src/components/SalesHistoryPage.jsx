@@ -17,6 +17,8 @@ import {
   Chip,
   TextField,
   CircularProgress,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   History,
@@ -51,7 +53,7 @@ function formatUsd(locale, amount) {
 }
 
 export function buildCsvContent(rows, locale) {
-  const headers = ['Date', 'Customer', 'Items', 'Total', 'Employee', 'Payment Method'];
+  const headers = ['Date', 'Customer', 'Items', 'Total', 'Employee', 'Payment Method', 'Type'];
   const lines = [headers.join(',')];
   for (const row of rows) {
     const cells = [
@@ -61,10 +63,21 @@ export function buildCsvContent(rows, locale) {
       `"${formatUsd(locale, row.total)}"`,
       `"${row.employeeLabel ?? ''}"`,
       `"${row.paymentMethod ?? ''}"`,
+      `"${row.saleTypeLabel ?? 'Regular'}"`,
     ];
     lines.push(cells.join(','));
   }
   return lines.join('\n');
+}
+
+export function getSaleType(sale) {
+  const t = (sale?.saleType || '').toString().toLowerCase();
+  return t === 'consignment' ? 'consignment' : 'regular';
+}
+
+export function filterSalesByType(sales, type) {
+  if (!type || type === 'all') return sales;
+  return sales.filter((s) => getSaleType(s) === type);
 }
 
 export function filterSalesByDateRange(sales, startDate, endDate) {
@@ -86,17 +99,22 @@ function employeeLabel(sale) {
 }
 
 function toGridRows(sales, formatDateTime, locale) {
-  return sales.map((sale) => ({
-    id: sale.id,
-    dateLabel: sale.saleDate ? formatDateTime(sale.saleDate) : '—',
-    customerLabel: saleCustomerLabel(sale),
-    itemCount: sale.items?.length ?? 0,
-    total: sale.total,
-    totalFormatted: formatUsd(locale, sale.total),
-    employeeLabel: employeeLabel(sale),
-    paymentMethod: sale.paymentMethod || '—',
-    _raw: sale,
-  }));
+  return sales.map((sale) => {
+    const saleType = getSaleType(sale);
+    return {
+      id: sale.id,
+      dateLabel: sale.saleDate ? formatDateTime(sale.saleDate) : '—',
+      customerLabel: saleCustomerLabel(sale),
+      itemCount: sale.items?.length ?? 0,
+      total: sale.total,
+      totalFormatted: formatUsd(locale, sale.total),
+      employeeLabel: employeeLabel(sale),
+      paymentMethod: sale.paymentMethod || '—',
+      saleType,
+      saleTypeLabel: saleType === 'consignment' ? 'Consignment' : 'Regular',
+      _raw: sale,
+    };
+  });
 }
 
 const SalesHistoryPage = () => {
@@ -108,6 +126,7 @@ const SalesHistoryPage = () => {
   const [error, setError] = useState(null);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
+  const [typeFilter, setTypeFilter] = useState('all');
   const [selectedSale, setSelectedSale] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
@@ -144,14 +163,25 @@ const SalesHistoryPage = () => {
   }, [loadSales]);
 
   const filteredSales = useMemo(
-    () => filterSalesByDateRange(sales, startDate, endDate),
-    [sales, startDate, endDate]
+    () => filterSalesByType(filterSalesByDateRange(sales, startDate, endDate), typeFilter),
+    [sales, startDate, endDate, typeFilter]
   );
 
   const rows = useMemo(
     () => toGridRows(filteredSales, formatDateTime, locale),
     [filteredSales, formatDateTime, locale]
   );
+
+  const typeCounts = useMemo(() => {
+    const base = filterSalesByDateRange(sales, startDate, endDate);
+    let consignment = 0;
+    let regular = 0;
+    for (const s of base) {
+      if (getSaleType(s) === 'consignment') consignment += 1;
+      else regular += 1;
+    }
+    return { all: base.length, regular, consignment };
+  }, [sales, startDate, endDate]);
 
   const openReceiptDialog = useCallback(async (sale) => {
     setSelectedSale(sale);
@@ -212,6 +242,20 @@ const SalesHistoryPage = () => {
       minWidth: 110,
       renderCell: (params) => (
         <Chip label={params.value} size="small" variant="outlined" />
+      ),
+    },
+    {
+      field: 'saleTypeLabel',
+      headerName: 'Type',
+      flex: 0.9,
+      minWidth: 120,
+      renderCell: (params) => (
+        <Chip
+          label={params.value}
+          size="small"
+          color={params.row.saleType === 'consignment' ? 'secondary' : 'default'}
+          variant={params.row.saleType === 'consignment' ? 'filled' : 'outlined'}
+        />
       ),
     },
     {
@@ -324,6 +368,18 @@ const SalesHistoryPage = () => {
             </Button>
           </Box>
 
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+            <Tabs
+              value={typeFilter}
+              onChange={(_, val) => setTypeFilter(val)}
+              aria-label="Sale type filter"
+            >
+              <Tab label={`All (${typeCounts.all})`} value="all" />
+              <Tab label={`Regular (${typeCounts.regular})`} value="regular" />
+              <Tab label={`Consignment (${typeCounts.consignment})`} value="consignment" />
+            </Tabs>
+          </Box>
+
           {loading ? (
             <Box>
               {[...Array(6)].map((_, i) => (
@@ -343,7 +399,11 @@ const SalesHistoryPage = () => {
                   noRowsOverlay: () => (
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                       <Typography color="text.secondary">
-                        No sales match the current filter. Try adjusting the date range.
+                        {typeFilter === 'consignment'
+                          ? 'No consignment sales match the current filter.'
+                          : typeFilter === 'regular'
+                            ? 'No regular sales match the current filter.'
+                            : 'No sales match the current filter. Try adjusting the date range or type filter.'}
                       </Typography>
                     </Box>
                   ),
@@ -372,11 +432,31 @@ const SalesHistoryPage = () => {
         >
           {selectedSale && (
             <>
-              <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Receipt />
                 Receipt — Sale #{selectedSale.id}
+                {getSaleType(selectedSale) === 'consignment' && (
+                  <Chip
+                    label="Consignment Sale"
+                    size="small"
+                    color="secondary"
+                    sx={{ ml: 1 }}
+                  />
+                )}
               </DialogTitle>
               <DialogContent>
+                {getSaleType(selectedSale) === 'consignment' && selectedSale.consignmentItemId != null && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Consignment Item ID:{' '}
+                    <Box
+                      component="a"
+                      href={`/consignment/items/${selectedSale.consignmentItemId}`}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      #{selectedSale.consignmentItemId}
+                    </Box>
+                  </Alert>
+                )}
                 <ReceiptView
                   receipt={receiptData}
                   loading={receiptLoading}

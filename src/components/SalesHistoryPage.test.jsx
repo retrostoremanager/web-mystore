@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import SalesHistoryPage, { buildCsvContent, filterSalesByDateRange } from './SalesHistoryPage';
+import SalesHistoryPage, {
+  buildCsvContent,
+  filterSalesByDateRange,
+  filterSalesByType,
+  getSaleType,
+} from './SalesHistoryPage';
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -202,7 +207,7 @@ describe('buildCsvContent', () => {
   it('returns a header line as the first row', () => {
     const csv = buildCsvContent([], locale);
     const lines = csv.split('\n');
-    expect(lines[0]).toBe('Date,Customer,Items,Total,Employee,Payment Method');
+    expect(lines[0]).toBe('Date,Customer,Items,Total,Employee,Payment Method,Type');
   });
 
   it('returns only header when rows is empty', () => {
@@ -317,5 +322,56 @@ describe('filterSalesByDateRange', () => {
     const result = filterSalesByDateRange(sales, '2024-01-10', '2024-01-10');
     const ids = result.map((s) => s.id);
     expect(ids).toContain(1);
+  });
+});
+
+describe('getSaleType', () => {
+  it('returns "consignment" for sales with saleType=consignment', () => {
+    expect(getSaleType({ saleType: 'consignment' })).toBe('consignment');
+  });
+
+  it('returns "consignment" for case-insensitive match', () => {
+    expect(getSaleType({ saleType: 'Consignment' })).toBe('consignment');
+  });
+
+  it('returns "regular" for sales with saleType=regular', () => {
+    expect(getSaleType({ saleType: 'regular' })).toBe('regular');
+  });
+
+  it('returns "regular" when saleType is missing', () => {
+    expect(getSaleType({})).toBe('regular');
+  });
+
+  it('returns "regular" when sale is null/undefined', () => {
+    expect(getSaleType(null)).toBe('regular');
+    expect(getSaleType(undefined)).toBe('regular');
+  });
+});
+
+describe('filterSalesByType', () => {
+  const mixedSales = [
+    { id: 1, saleType: 'regular' },
+    { id: 2, saleType: 'consignment' },
+    { id: 3 },
+    { id: 4, saleType: 'consignment' },
+  ];
+
+  it('returns all sales when type is "all"', () => {
+    expect(filterSalesByType(mixedSales, 'all')).toEqual(mixedSales);
+  });
+
+  it('returns all sales when type is undefined or null', () => {
+    expect(filterSalesByType(mixedSales, undefined)).toEqual(mixedSales);
+    expect(filterSalesByType(mixedSales, null)).toEqual(mixedSales);
+  });
+
+  it('returns only consignment sales when type is "consignment"', () => {
+    const result = filterSalesByType(mixedSales, 'consignment');
+    expect(result.map((s) => s.id)).toEqual([2, 4]);
+  });
+
+  it('returns only regular sales when type is "regular"', () => {
+    const result = filterSalesByType(mixedSales, 'regular');
+    expect(result.map((s) => s.id)).toEqual([1, 3]);
   });
 });
