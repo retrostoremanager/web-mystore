@@ -113,7 +113,7 @@ const LandingPage = () => {
       {/* Hero Section */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #2c3e50 0%, #16a085 100%)',
+          background: (theme) => theme.custom?.gradient?.brand,
           color: 'white',
           py: { xs: 8, md: 12 },
           position: 'relative',

@@ -1,19 +1,24 @@
 import { createTheme } from '@mui/material/styles'
 
+const brand = {
+  primary: {
+    light: '#4e6070',
+    main: '#2c3e50',
+    dark: '#1a252f',
+    contrastText: '#ffffff',
+  },
+  secondary: {
+    light: '#1dc9a4',
+    main: '#16a085',
+    dark: '#138d75',
+    contrastText: '#ffffff',
+  },
+}
+
 const theme = createTheme({
   palette: {
-    primary: {
-      light: '#4e6070',
-      main: '#2c3e50',
-      dark: '#1a252f',
-      contrastText: '#ffffff',
-    },
-    secondary: {
-      light: '#1dc9a4',
-      main: '#16a085',
-      dark: '#138d75',
-      contrastText: '#ffffff',
-    },
+    primary: brand.primary,
+    secondary: brand.secondary,
     error: {
       light: '#ef5350',
       main: '#d32f2f',
@@ -76,7 +81,7 @@ const theme = createTheme({
   },
   custom: {
     gradient: {
-      brand: 'linear-gradient(135deg, #2c3e50 0%, #16a085 100%)',
+      brand: `linear-gradient(135deg, ${brand.primary.main} 0%, ${brand.secondary.main} 100%)`,
     },
   },
   components: {
@@ -89,12 +94,12 @@ const theme = createTheme({
         },
         containedPrimary: {
           '&:hover': {
-            backgroundColor: '#1a252f',
+            backgroundColor: brand.primary.dark,
           },
         },
         containedSecondary: {
           '&:hover': {
-            backgroundColor: '#138d75',
+            backgroundColor: brand.secondary.dark,
           },
         },
       },
@@ -116,6 +121,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 8,
+          boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
         },
       },
     },
