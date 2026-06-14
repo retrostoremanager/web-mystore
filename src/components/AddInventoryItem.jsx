@@ -16,8 +16,10 @@ import {
   Paper,
   List,
   ListItem,
+  ListItemAvatar,
   ListItemText,
   ListItemButton,
+  Avatar,
   CircularProgress,
   Divider,
   Alert,
@@ -29,6 +31,7 @@ import {
   ArrowBack,
   Search,
   Add,
+  VideogameAsset,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { searchGames, getMarketPrices } from '../services/gameApi';
@@ -304,6 +307,12 @@ const AddInventoryItem = () => {
                     <Box key={game.id}>
                       <ListItem disablePadding>
                         <ListItemButton onClick={() => handleGameSelect(game)}>
+                          <ListItemAvatar>
+                            {/* Avatar falls back to the icon child if the cover image 404s */}
+                            <Avatar src={game.imageUrl || undefined} variant="rounded">
+                              <VideogameAsset />
+                            </Avatar>
+                          </ListItemAvatar>
                           <ListItemText
                             primary={game.title}
                             secondary={gameSearchSubtitle(game)}
