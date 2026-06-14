@@ -454,7 +454,12 @@ const Dashboard = () => {
                       </TableRow>
                     ) : (
                       recentSales.map((sale) => (
-                        <TableRow key={sale.id ?? sale.saleId}>
+                        <TableRow
+                          key={sale.id ?? sale.saleId}
+                          hover
+                          onClick={() => navigate('/dashboard/sales-history')}
+                          sx={{ cursor: 'pointer' }}
+                        >
                           <TableCell>
                             {sale.saleDate
                               ? new Intl.DateTimeFormat(locale, {
