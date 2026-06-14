@@ -33,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getCustomers } from '../services/customersApi';
 import { getTradeIns, createTradeIn, completeTradeIn, rejectTradeIn } from '../services/tradeInApi';
+import { getLoyaltySettings } from '../services/loyaltyApi';
 import AiScanDialog from './trade-ins/AiScanDialog';
 
 const STATUS_TABS = ['all', 'draft', 'completed', 'rejected'];
@@ -85,6 +86,9 @@ const TradeInPage = () => {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [activeStatus, setActiveStatus] = useState(null);
 
+  const [loyaltySettings, setLoyaltySettings] = useState(null);
+  const [completionResult, setCompletionResult] = useState(null);
+
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -131,6 +135,22 @@ const TradeInPage = () => {
     loadCustomers();
   }, [loadCustomers]);
 
+  useEffect(() => {
+    const headers = getAuthHeaders();
+    if (!headers.Authorization) return;
+    let cancelled = false;
+    getLoyaltySettings(headers)
+      .then((res) => {
+        if (!cancelled) setLoyaltySettings(res.data ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setLoyaltySettings(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [getAuthHeaders]);
+
   const totalOffered = items.reduce((sum, row) => {
     const v = parseFloat(row.offeredValue);
     return sum + (Number.isNaN(v) ? 0 : v);
@@ -167,18 +187,75 @@ const TradeInPage = () => {
       const created = await createTradeIn(body, headers);
       const draftId = created.data?.id;
       if (!draftId) throw new Error('No trade-in ID returned from server');
-      await completeTradeIn(draftId, paymentType, headers);
+      const completed = await completeTradeIn(draftId, paymentType, headers);
+
+      const totalAcceptedValue =
+        completed.data?.totalAcceptedValue ??
+        completed.data?.totalAccepted ??
+        totalOffered;
+      const pointsRate = Number(loyaltySettings?.tradeInPointsPerDollar) || 0;
+      const pointsEarned =
+        selectedCustomer && pointsRate > 0
+          ? Math.floor(Number(totalAcceptedValue) * pointsRate)
+          : 0;
+
+      setCompletionResult({
+        tradeInId: draftId,
+        paymentType,
+        totalAcceptedValue: Number(totalAcceptedValue) || 0,
+        customer: selectedCustomer,
+        pointsEarned,
+      });
+
+      setTradeIns((prev) => {
+        const exists = prev.some((r) => r.id === draftId);
+        if (exists) {
+          return prev.map((r) =>
+            r.id === draftId
+              ? {
+                  ...r,
+                  status: 'completed',
+                  paymentType,
+                  totalAcceptedValue,
+                }
+              : r
+          );
+        }
+        const newRow = {
+          id: draftId,
+          createdAt: new Date().toISOString(),
+          customer: selectedCustomer || null,
+          customerId: selectedCustomer?.id ?? null,
+          items: body.items,
+          totalAcceptedValue,
+          paymentType,
+          status: 'completed',
+        };
+        return [newRow, ...prev];
+      });
+
       showSnackbar('Trade-in completed successfully');
       setItems([]);
-      setSelectedCustomer(null);
       setPaymentType('cash');
       setActiveDraftId(null);
-      await loadTradeIns(activeTab);
+      setActiveStatus('completed');
     } catch (err) {
       showSnackbar(err.message || 'Failed to complete trade-in', 'error');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleStartNewTradeIn = () => {
+    setCompletionResult(null);
+    setSelectedCustomer(null);
+    setActiveStatus(null);
+  };
+
+  const handleViewCustomer = () => {
+    const customerId = completionResult?.customer?.id;
+    if (!customerId) return;
+    navigate('/dashboard/customers', { state: { openCustomerId: customerId } });
   };
 
   const handleRejectConfirm = async () => {
@@ -200,6 +277,7 @@ const TradeInPage = () => {
   };
 
   const handleViewTradeIn = useCallback((row) => {
+    setCompletionResult(null);
     const rowItems = Array.isArray(row.items) ? row.items : [];
     setItems(
       rowItems.map((it) => ({
@@ -550,74 +628,130 @@ const TradeInPage = () => {
               )}
             </Box>
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Total Offered Value
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                {fmt(totalOffered)}
-              </Typography>
-            </Box>
+            {completionResult ? (
+              <>
+                <Alert severity="success" sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    Trade-in completed
+                  </Typography>
+                  {completionResult.paymentType === 'store_credit' ? (
+                    <>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        Store credit awarded:{' '}
+                        <strong>{fmt(completionResult.totalAcceptedValue)}</strong>
+                      </Typography>
+                      {completionResult.customer ? (
+                        <Typography variant="body2">
+                          Loyalty points earned:{' '}
+                          <strong>{completionResult.pointsEarned}</strong>
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          No customer linked — points not awarded.
+                        </Typography>
+                      )}
+                    </>
+                  ) : (
+                    <Typography variant="body2">
+                      Cash to hand to customer:{' '}
+                      <strong>{fmt(completionResult.totalAcceptedValue)}</strong>
+                    </Typography>
+                  )}
+                </Alert>
 
-            <Divider sx={{ mb: 3 }} />
+                <Stack spacing={1.5}>
+                  {completionResult.customer && (
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      fullWidth
+                      onClick={handleViewCustomer}
+                    >
+                      View Customer
+                    </Button>
+                  )}
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    onClick={handleStartNewTradeIn}
+                  >
+                    Start New Trade-in
+                  </Button>
+                </Stack>
+              </>
+            ) : (
+              <>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Total Offered Value
+                  </Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                    {fmt(totalOffered)}
+                  </Typography>
+                </Box>
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Payment Type
-              </Typography>
-              <ToggleButtonGroup
-                value={paymentType}
-                exclusive
-                onChange={(_, val) => { if (val) setPaymentType(val); }}
-                fullWidth
-                size="small"
-              >
-                <ToggleButton value="cash">Cash</ToggleButton>
-                <ToggleButton value="store_credit">Store Credit</ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
+                <Divider sx={{ mb: 3 }} />
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Customer (optional)
-              </Typography>
-              <Autocomplete
-                options={customers}
-                loading={customersLoading}
-                getOptionLabel={(c) => customerDisplayName(c)}
-                isOptionEqualToValue={(a, b) => a.id === b.id}
-                value={selectedCustomer}
-                onChange={(_, val) => setSelectedCustomer(val)}
-                renderInput={(params) => (
-                  <TextField {...params} placeholder="Search customer..." size="small" />
-                )}
-              />
-            </Box>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Payment Type
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={paymentType}
+                    exclusive
+                    onChange={(_, val) => { if (val) setPaymentType(val); }}
+                    fullWidth
+                    size="small"
+                  >
+                    <ToggleButton value="cash">Cash</ToggleButton>
+                    <ToggleButton value="store_credit">Store Credit</ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
 
-            <Stack spacing={1.5}>
-              <Button
-                variant="contained"
-                color="success"
-                fullWidth
-                disabled={items.length === 0 || submitting}
-                onClick={handleCompleteTrade}
-                startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
-              >
-                {submitting ? 'Processing…' : 'Complete Trade-in'}
-              </Button>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Customer (optional)
+                  </Typography>
+                  <Autocomplete
+                    options={customers}
+                    loading={customersLoading}
+                    getOptionLabel={(c) => customerDisplayName(c)}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    value={selectedCustomer}
+                    onChange={(_, val) => setSelectedCustomer(val)}
+                    renderInput={(params) => (
+                      <TextField {...params} placeholder="Search customer..." size="small" />
+                    )}
+                  />
+                </Box>
 
-              {activeDraftId && (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  fullWidth
-                  disabled={submitting}
-                  onClick={() => setRejectDialogOpen(true)}
-                >
-                  Reject
-                </Button>
-              )}
-            </Stack>
+                <Stack spacing={1.5}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    fullWidth
+                    disabled={items.length === 0 || submitting}
+                    onClick={handleCompleteTrade}
+                    startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
+                  >
+                    {submitting ? 'Processing…' : 'Complete Trade-in'}
+                  </Button>
+
+                  {activeDraftId && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      fullWidth
+                      disabled={submitting}
+                      onClick={() => setRejectDialogOpen(true)}
+                    >
+                      Reject
+                    </Button>
+                  )}
+                </Stack>
+              </>
+            )}
           </Paper>
         </Box>
       </Container>

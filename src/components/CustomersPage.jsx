@@ -37,7 +37,7 @@ import {
   CardGiftcard,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
 import {
@@ -292,6 +292,7 @@ const LoyaltyTab = ({ customer, loyaltyData, loyaltyLoading, loyaltySettings, on
 
 const CustomersPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { getAuthHeaders } = useAuth();
   const { hasPermission } = usePermissions();
 
@@ -339,6 +340,19 @@ const CustomersPage = () => {
     if (!getAuthHeaders().Authorization) return;
     loadCustomers();
   }, [getAuthHeaders, loadCustomers]);
+
+  useEffect(() => {
+    const openId = location.state?.openCustomerId;
+    if (!openId || loading || customers.length === 0) return;
+    const target = customers.find((c) => c.id === openId);
+    if (!target) return;
+    setSelectedCustomer(target);
+    setDrawerTab(0);
+    setDrawerOpen(true);
+    loadLoyaltyData(target.id);
+    navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, loading, customers]);
 
   const loadLoyaltyData = useCallback(async (customerId) => {
     setLoyaltyLoading(true);
