@@ -193,9 +193,10 @@ const TradeInPage = () => {
         completed.data?.totalAcceptedValue ??
         completed.data?.totalAccepted ??
         totalOffered;
-      const pointsRate = Number(loyaltySettings?.tradeInPointsPerDollar) || 0;
+      const loyaltyEnabled = loyaltySettings?.isEnabled ?? false;
+      const pointsRate = Number(loyaltySettings?.pointsPerDollarTradeIn) || 0;
       const pointsEarned =
-        selectedCustomer && pointsRate > 0
+        selectedCustomer && loyaltyEnabled && pointsRate > 0
           ? Math.floor(Number(totalAcceptedValue) * pointsRate)
           : 0;
 
