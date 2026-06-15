@@ -559,6 +559,7 @@ export default function CompanyProfilePage() {
               </Stack>
               <TextField
                 fullWidth
+                id="companyCountry"
                 name="companyCountry"
                 label="Country"
                 value={infoForm.companyCountry}
