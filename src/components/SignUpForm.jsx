@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import { CardElement, Elements, useStripe, useElements } from '@stripe/react-stripe-js';
 import config from '../config';
 import {
   Box,
@@ -17,12 +19,21 @@ import {
   FormControl,
   InputLabel,
   FormHelperText,
+  FormControlLabel,
+  Checkbox,
+  Link,
 } from '@mui/material';
 import {
   Visibility,
   VisibilityOff,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+
+const STRIPE_ELEMENT_COLORS = {
+  text: '#424770',
+  placeholder: '#aab7c4',
+  error: '#9e2146',
+};
 
 /**
  * Subscription tier options available for new account registration.
@@ -51,40 +62,26 @@ const subscriptionTiers = [
   },
 ];
 
+const cardElementOptions = {
+  style: {
+    base: { fontSize: '1rem', color: STRIPE_ELEMENT_COLORS.text, '::placeholder': { color: STRIPE_ELEMENT_COLORS.placeholder } },
+    invalid: { color: STRIPE_ELEMENT_COLORS.error },
+  },
+};
+
 /**
- * SignUpForm Component
- * 
- * A comprehensive account registration form component that allows prospective store owners
- * to create accounts with email verification. The form includes:
- * - Email and password fields with validation
- * - Company name collection
- * - Subscription tier selection
- * - Client-side validation with real-time feedback
- * - Password visibility toggles for better UX
- * - Loading states during form submission
- * 
- * @component
- * @returns {JSX.Element} The rendered sign-up form component
- * 
- * @example
- * ```jsx
- * import SignUpForm from './components/SignUpForm';
- * 
- * function App() {
- *   return <SignUpForm />;
- * }
- * ```
- * 
- * @see {@link https://mui.com/components/text-fields/} Material UI TextField documentation
- * @see {@link https://mui.com/components/selects/} Material UI Select documentation
+ * SignUpFormInner - Form with Stripe Elements context (card required at sign-up)
  */
-const SignUpForm = () => {
+function SignUpFormInner() {
   const navigate = useNavigate();
+  const stripe = useStripe();
+  const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -99,6 +96,7 @@ const SignUpForm = () => {
     confirmPassword: '',
     companyName: '',
     subscriptionTier: '',
+    paymentMethod: '',
   });
 
   // Track which fields have been touched/blurred for real-time validation
@@ -317,9 +315,39 @@ const SignUpForm = () => {
       return;
     }
 
+    if (!acceptedTerms) {
+      setError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
+
+    if (!stripe || !elements) {
+      setError('Payment form is not ready. Please wait a moment and try again.');
+      return;
+    }
+
     setLoading(true);
-    
+    setError('');
+
     try {
+      // Create Stripe payment method first (card required at sign-up)
+      const cardElement = elements.getElement(CardElement);
+      const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+      });
+
+      if (stripeError) {
+        setFieldErrors((prev) => ({ ...prev, paymentMethod: stripeError.message || 'Card validation failed' }));
+        setLoading(false);
+        return;
+      }
+
+      if (!paymentMethod) {
+        setFieldErrors((prev) => ({ ...prev, paymentMethod: 'Please enter your card details' }));
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(`${config.apiUrl}/accounts/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -328,6 +356,7 @@ const SignUpForm = () => {
           password: formData.password,
           companyName: formData.companyName.trim(),
           subscriptionTier: formData.subscriptionTier,
+          paymentMethodId: paymentMethod.id,
         }),
       });
 
@@ -354,6 +383,7 @@ const SignUpForm = () => {
                             field === 'password' ? 'password' :
                             field === 'companyName' || field === 'company_name' ? 'companyName' :
                             field === 'subscriptionTier' || field === 'subscription_tier' ? 'subscriptionTier' :
+                            field === 'paymentMethod' || field === 'payment_method' ? 'paymentMethod' :
                             field;
             
             // fieldErrors is a Dictionary<string, List<string>>, so each field has an array of errors
@@ -394,8 +424,12 @@ const SignUpForm = () => {
         return;
       }
 
-      // Success - account created, navigate to verification page
-      navigate(`/verify?email=${encodeURIComponent(formData.email.trim())}`);
+      // Success - account created, navigate to verification page (include slug for login URL)
+      const slug = data.data?.slug;
+      const verifyUrl = slug
+        ? `/verify?email=${encodeURIComponent(formData.email.trim())}&slug=${encodeURIComponent(slug)}`
+        : `/verify?email=${encodeURIComponent(formData.email.trim())}`;
+      navigate(verifyUrl);
       
     } catch (err) {
       // Network errors, JSON parsing errors, or other exceptions
@@ -434,7 +468,7 @@ const SignUpForm = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: (theme) => theme.custom?.gradient?.brand,
         py: 4,
         display: 'flex',
         alignItems: 'center',
@@ -580,6 +614,57 @@ const SignUpForm = () => {
                 )}
               </FormControl>
 
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    data-testid="signup-accept-terms"
+                    checked={acceptedTerms}
+                    onChange={(e) => {
+                      setAcceptedTerms(e.target.checked);
+                      setError('');
+                    }}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="body2" component="span">
+                    I agree to the{' '}
+                    <Link component={RouterLink} to="/terms" target="_blank" rel="noopener noreferrer">
+                      Terms of Service
+                    </Link>
+                    {' '}and{' '}
+                    <Link component={RouterLink} to="/privacy" target="_blank" rel="noopener noreferrer">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </Typography>
+                }
+              />
+
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  Payment method (required)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Your card will not be charged until your 30-day free trial ends.
+                </Typography>
+                <Box
+                  sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: fieldErrors.paymentMethod ? 'error.main' : 'divider',
+                    borderRadius: 1,
+                    minHeight: 50,
+                    width: '100%',
+                  }}
+                >
+                  <CardElement options={cardElementOptions} />
+                </Box>
+                {fieldErrors.paymentMethod && (
+                  <FormHelperText error sx={{ mt: 0.5 }}>{fieldErrors.paymentMethod}</FormHelperText>
+                )}
+              </Box>
+
               <Button
                 type="submit"
                 variant="contained"
@@ -600,7 +685,7 @@ const SignUpForm = () => {
                   Already have an account?{' '}
                   <Button
                     variant="text"
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate('/')}
                     sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
                   >
                     Sign In
@@ -613,6 +698,32 @@ const SignUpForm = () => {
       </Container>
     </Box>
   );
-};
+}
 
-export default SignUpForm;
+/**
+ * SignUpForm - Wraps form in Stripe Elements (card required at sign-up)
+ */
+export default function SignUpForm() {
+  const publishableKey = config.stripePublishableKey;
+
+  if (!publishableKey) {
+    return (
+      <Box sx={{ minHeight: '100vh', background: (theme) => theme.custom?.gradient?.brand, py: 4, display: 'flex', alignItems: 'center' }}>
+        <Container maxWidth="sm">
+          <Paper elevation={24} sx={{ p: 4, borderRadius: 3 }}>
+            <Alert severity="warning">
+              Sign-up is not available. Payment processing (Stripe) must be configured. Add VITE_STRIPE_PUBLISHABLE_KEY to your environment.
+            </Alert>
+          </Paper>
+        </Container>
+      </Box>
+    );
+  }
+
+  const stripePromise = loadStripe(publishableKey);
+  return (
+    <Elements stripe={stripePromise}>
+      <SignUpFormInner />
+    </Elements>
+  );
+}

@@ -14,6 +14,27 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+// Mock Stripe. In jsdom/happy-dom the real Stripe.js script cannot load from
+// https://js.stripe.com, so loadStripe() never resolves and useStripe() stays
+// null forever — which makes handleSubmit bail at the "Payment form is not
+// ready" guard before ever calling fetch. These mocks provide a ready Stripe
+// instance so submission proceeds to the registration request, letting the
+// error-handling tests exercise the real fetch/response logic.
+const mockCreatePaymentMethod = vi.fn(async () => ({
+  paymentMethod: { id: 'pm_test_123' },
+}));
+
+vi.mock('@stripe/stripe-js', () => ({
+  loadStripe: vi.fn(() => Promise.resolve({})),
+}));
+
+vi.mock('@stripe/react-stripe-js', () => ({
+  Elements: ({ children }) => children,
+  CardElement: () => null,
+  useStripe: () => ({ createPaymentMethod: mockCreatePaymentMethod }),
+  useElements: () => ({ getElement: () => ({}) }),
+}));
+
 const renderSignUpForm = () => {
   return render(
     <BrowserRouter>
@@ -38,6 +59,7 @@ describe('SignUpForm', () => {
       expect(screen.getByLabelText(/company name/i)).toBeInTheDocument();
       // Subscription tier - use data-testid for reliable selection
       expect(screen.getByTestId('subscription-tier-select')).toBeInTheDocument();
+      expect(screen.getByTestId('signup-accept-terms')).toBeInTheDocument();
 
       // Check for submit button
       expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument();
@@ -109,6 +131,37 @@ describe('SignUpForm', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/email is required/i)).toBeInTheDocument();
+      });
+    });
+
+    it('requires accepting Terms and Privacy when all fields are valid', async () => {
+      const user = userEvent.setup();
+      renderSignUpForm();
+
+      await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
+      const passwordFields = screen.getAllByLabelText(/password/i);
+      await user.type(passwordFields[0], 'ValidPass123');
+      await user.type(passwordFields[1], 'ValidPass123');
+      await user.type(screen.getByLabelText(/company name/i), 'Test Company');
+
+      const tierSelectContainer = screen.getByTestId('subscription-tier-select');
+      const tierSelectButton =
+        tierSelectContainer.querySelector('[role="button"]') ||
+        tierSelectContainer.querySelector('div[tabindex]') ||
+        tierSelectContainer;
+      await user.click(tierSelectButton);
+      await waitFor(async () => {
+        const basicOption = await screen.findByText(/basic/i);
+        await user.click(basicOption);
+      }, { timeout: 2000 });
+
+      const submitButton = screen.getByRole('button', { name: /create account/i });
+      await user.click(submitButton);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/please accept the terms of service and privacy policy/i)
+        ).toBeInTheDocument();
       });
     });
 
@@ -432,6 +485,8 @@ describe('SignUpForm', () => {
         await user.click(basicOption);
       }, { timeout: 2000 });
 
+      await user.click(screen.getByTestId('signup-accept-terms'));
+
       const submitButton = screen.getByRole('button', { name: /create account/i });
       await user.click(submitButton);
 
@@ -482,6 +537,8 @@ describe('SignUpForm', () => {
         const basicOption = await screen.findByText(/basic/i);
         await user.click(basicOption);
       }, { timeout: 2000 });
+
+      await user.click(screen.getByTestId('signup-accept-terms'));
 
       const submitButton = screen.getByRole('button', { name: /create account/i });
       await user.click(submitButton);
@@ -613,6 +670,8 @@ describe('SignUpForm', () => {
         await user.click(basicOption);
       }, { timeout: 2000 });
 
+      await user.click(screen.getByTestId('signup-accept-terms'));
+
       // Submit form
       const submitButton = screen.getByRole('button', { name: /create account/i });
       await user.click(submitButton);
@@ -663,6 +722,8 @@ describe('SignUpForm', () => {
         await user.click(basicOption);
       }, { timeout: 2000 });
 
+      await user.click(screen.getByTestId('signup-accept-terms'));
+
       // Submit form
       const submitButton = screen.getByRole('button', { name: /create account/i });
       await user.click(submitButton);
@@ -704,6 +765,8 @@ describe('SignUpForm', () => {
         await user.click(basicOption);
       }, { timeout: 2000 });
 
+      await user.click(screen.getByTestId('signup-accept-terms'));
+
       // Submit form
       const submitButton = screen.getByRole('button', { name: /create account/i });
       await user.click(submitButton);
@@ -744,6 +807,8 @@ describe('SignUpForm', () => {
         const basicOption = await screen.findByText(/basic/i);
         await user.click(basicOption);
       }, { timeout: 2000 });
+
+      await user.click(screen.getByTestId('signup-accept-terms'));
 
       // Submit form
       const submitButton = screen.getByRole('button', { name: /create account/i });

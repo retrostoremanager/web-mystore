@@ -31,52 +31,65 @@ import {
   Close,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useInventory } from '../contexts/InventoryContext';
+import {
+  useGetInventoryItemQuery,
+  useGetInventoryItemLocationsQuery,
+  useUpdateInventoryItemMutation,
+} from '../store/inventoryApi';
+import { useFormatting } from '../contexts/FormattingContext';
+import { CircularProgress } from '@mui/material';
+import { LocationOn } from '@mui/icons-material';
+
+const defaultCompleteness = () => ({
+  box: false,
+  instructions: false,
+  game: false,
+  inserts: false,
+  other: false,
+});
+
+/** Safe value for MUI date input (API may return ISO string, Date, or epoch). */
+const releaseDateToInputValue = (val) => {
+  if (val == null || val === '') return '';
+  if (typeof val === 'string') {
+    return val.includes('T') ? val.split('T')[0] : val;
+  }
+  try {
+    const d = val instanceof Date ? val : new Date(val);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().split('T')[0];
+  } catch {
+    // ignore
+  }
+  return '';
+};
 
 const InventoryItemDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { inventory, updateInventoryItem } = useInventory();
+  const { data: item, isLoading, isError, error } = useGetInventoryItemQuery(Number(id), {
+    skip: !id || isNaN(Number(id)),
+  });
+  const { data: itemLocations = [] } = useGetInventoryItemLocationsQuery(Number(id), {
+    skip: !id || isNaN(Number(id)) || !item,
+  });
+  const [updateInventoryItem, { isLoading: isUpdating }] = useUpdateInventoryItemMutation();
+  const { formatDate } = useFormatting();
   const [isEditMode, setIsEditMode] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const item = inventory.find((i) => i.id === Number(id));
-
-  // Initialize form data from item
-  const [formData, setFormData] = useState(() => {
-    const currentItem = inventory.find((i) => i.id === Number(id));
-    if (!currentItem) return null;
-    return {
-      name: currentItem.name || '',
-      category: currentItem.category || '',
-      condition: currentItem.condition || 'New',
-      quantity: currentItem.quantity || 1,
-      buyPrice: currentItem.buyPrice || '',
-      sellPrice: currentItem.sellPrice || '0',
-      notes: currentItem.notes || '',
-      completeness: currentItem.completeness || {
-        box: false,
-        instructions: false,
-        game: false,
-        inserts: false,
-        other: false,
-      },
-      game: currentItem.game ? { ...currentItem.game } : null,
-    };
-  });
+  const [formData, setFormData] = useState(null);
 
   const conditionOptions = ['New', 'Like New', 'Very Good', 'Good', 'Fair', 'Poor'];
 
-  // Show loading state if inventory is still being loaded
-  if (inventory.length === 0 && !item) {
+  if (isLoading || (item && !formData)) {
     return (
       <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
         <AppBar 
           position="sticky" 
           elevation={1}
           sx={{
-            bgcolor: '#2c3e50',
-            color: '#ffffff',
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
           }}
         >
           <Toolbar>
@@ -101,15 +114,15 @@ const InventoryItemDetail = () => {
     );
   }
 
-  if (!item) {
+  if (isError || (!isLoading && !item)) {
     return (
       <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
         <AppBar 
           position="sticky" 
           elevation={1}
           sx={{
-            bgcolor: '#2c3e50', // Dark slate gray
-            color: '#ffffff',
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
           }}
         >
           <Toolbar>
@@ -142,7 +155,6 @@ const InventoryItemDetail = () => {
     { key: 'other', label: 'Other' },
   ];
 
-  // Update form data when item changes (but not when in edit mode)
   useEffect(() => {
     if (item && !isEditMode) {
       setFormData({
@@ -150,16 +162,10 @@ const InventoryItemDetail = () => {
         category: item.category || '',
         condition: item.condition || 'New',
         quantity: item.quantity || 1,
-        buyPrice: item.buyPrice || '',
-        sellPrice: item.sellPrice || '0',
+        buyPrice: item.buyPrice ?? '',
+        sellPrice: item.sellPrice != null ? String(item.sellPrice) : '0',
         notes: item.notes || '',
-        completeness: item.completeness || {
-          box: false,
-          instructions: false,
-          game: false,
-          inserts: false,
-          other: false,
-        },
+        completeness: item.completeness || defaultCompleteness(),
         game: item.game ? { ...item.game } : null,
       });
     }
@@ -203,7 +209,7 @@ const InventoryItemDetail = () => {
   const handleSave = () => {
     if (!formData) return;
 
-    // Validate that at least the game is checked
+    if (!formData) return;
     if (!formData.completeness.game) {
       alert('Please check at least "Game" in the completeness section.');
       return;
@@ -235,10 +241,27 @@ const InventoryItemDetail = () => {
       updates.game = null;
     }
 
-    updateInventoryItem(Number(id), updates);
-    setIsEditMode(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    updateInventoryItem({
+      id: Number(id),
+      name: updates.name,
+      category: updates.category,
+      condition: updates.condition,
+      quantity: updates.quantity,
+      sellPrice: parseFloat(updates.sellPrice || 0),
+      buyPrice: updates.buyPrice ? parseFloat(updates.buyPrice) : null,
+      notes: updates.notes || null,
+      completeness: updates.completeness,
+      gameId: formData.game?.id != null ? String(formData.game.id) : null,
+    })
+      .unwrap()
+      .then(() => {
+        setIsEditMode(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      })
+      .catch((err) => {
+        alert(err?.data?.message || err?.message || 'Failed to update item');
+      });
   };
 
   const handleCancel = () => {
@@ -252,13 +275,7 @@ const InventoryItemDetail = () => {
         buyPrice: item.buyPrice || '',
         sellPrice: item.sellPrice || '0',
         notes: item.notes || '',
-        completeness: item.completeness || {
-          box: false,
-          instructions: false,
-          game: false,
-          inserts: false,
-          other: false,
-        },
+        completeness: item.completeness || defaultCompleteness(),
         game: item.game ? { ...item.game } : null,
       });
     }
@@ -271,8 +288,8 @@ const InventoryItemDetail = () => {
         position="sticky" 
         elevation={1}
         sx={{
-          bgcolor: '#2c3e50', // Dark slate gray
-          color: '#ffffff',
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
         }}
       >
         <Toolbar>
@@ -292,10 +309,10 @@ const InventoryItemDetail = () => {
                 ml: 2,
                 fontWeight: 600,
                 boxShadow: 3,
-                bgcolor: '#16a085', // Teal green
-                color: '#ffffff',
+                bgcolor: 'secondary.main',
+                color: 'primary.contrastText',
                 '&:hover': {
-                  bgcolor: '#138d75', // Darker teal on hover
+                  bgcolor: 'secondary.dark',
                   boxShadow: 5,
                   transform: 'translateY(-1px)',
                 },
@@ -319,10 +336,10 @@ const InventoryItemDetail = () => {
                 startIcon={<Save />}
                 onClick={handleSave}
                 sx={{
-                  bgcolor: '#16a085', // Teal green
-                  color: '#ffffff',
+                  bgcolor: 'secondary.main',
+                  color: 'primary.contrastText',
                   '&:hover': {
-                    bgcolor: '#138d75', // Darker teal on hover
+                    bgcolor: 'secondary.dark',
                   },
                 }}
               >
@@ -384,7 +401,7 @@ const InventoryItemDetail = () => {
                               Title
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {item.game.title}
+                              {item.game?.title ?? '—'}
                             </Typography>
                           </>
                         )}
@@ -403,7 +420,7 @@ const InventoryItemDetail = () => {
                               Console
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {item.game.console}
+                              {item.game?.console ?? '—'}
                             </Typography>
                           </>
                         )}
@@ -422,7 +439,7 @@ const InventoryItemDetail = () => {
                               Publisher
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {item.game.publisher}
+                              {item.game?.publisher ?? '—'}
                             </Typography>
                           </>
                         )}
@@ -441,25 +458,22 @@ const InventoryItemDetail = () => {
                               Genre
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {item.game.genre}
+                              {item.game?.genre ?? '—'}
                             </Typography>
                           </>
                         )}
                       </Grid>
-                      {(item.game?.releaseDate || (isEditMode && formData?.game?.releaseDate)) && (
+                      {((isEditMode && formData?.game) ||
+                        (!isEditMode &&
+                          item.game?.releaseDate != null &&
+                          item.game.releaseDate !== '')) && (
                         <Grid item xs={12} sm={6}>
                           {isEditMode ? (
                             <TextField
                               fullWidth
                               label="Release Date"
                               type="date"
-                              value={
-                                formData?.game?.releaseDate
-                                  ? formData.game.releaseDate.includes('T')
-                                    ? formData.game.releaseDate.split('T')[0]
-                                    : formData.game.releaseDate
-                                  : ''
-                              }
+                              value={releaseDateToInputValue(formData?.game?.releaseDate)}
                               onChange={(e) => handleGameFieldChange('releaseDate')({ target: { value: e.target.value } })}
                               InputLabelProps={{ shrink: true }}
                             />
@@ -469,7 +483,7 @@ const InventoryItemDetail = () => {
                                 Release Date
                               </Typography>
                               <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                {new Date(item.game.releaseDate).toLocaleDateString()}
+                                {formatDate(item.game?.releaseDate)}
                               </Typography>
                             </>
                           )}
@@ -481,6 +495,58 @@ const InventoryItemDetail = () => {
 
                 {item.game && <Divider sx={{ mb: 3 }} />}
 
+                {/* Location & Availability */}
+                {(item.locationName || itemLocations.length > 0) && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LocationOn color="primary" /> Location
+                      </Box>
+                    </Typography>
+                    {!isEditMode && (
+                      <Grid container spacing={2}>
+                        {item.locationName && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary">
+                              This item
+                            </Typography>
+                            <Chip
+                              label={`${item.locationName} (qty ${item.quantity}, ${item.condition})`}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              icon={<LocationOn sx={{ fontSize: 14 }} />}
+                              sx={{ mt: 0.5 }}
+                            />
+                          </Grid>
+                        )}
+                        {itemLocations.length > 1 && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                              Also available at
+                            </Typography>
+                            <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 0.5 }}>
+                              {itemLocations
+                                .filter((loc) => loc.locationId !== item.locationId)
+                                .map((loc) => (
+                                  <Chip
+                                    key={loc.locationId}
+                                    label={`${loc.locationName}: ${loc.quantity} (${loc.condition})`}
+                                    size="small"
+                                    variant="outlined"
+                                    icon={<LocationOn sx={{ fontSize: 14 }} />}
+                                  />
+                                ))}
+                            </Stack>
+                          </Grid>
+                        )}
+                      </Grid>
+                    )}
+                  </Box>
+                )}
+
+                {(item.locationName || itemLocations.length > 0) && <Divider sx={{ mb: 3 }} />}
+
                 {/* Item Details */}
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -491,17 +557,27 @@ const InventoryItemDetail = () => {
                       {isEditMode ? (
                         <TextField
                           fullWidth
-                          label="Category"
+                          label="System"
                           value={formData?.category || ''}
                           onChange={handleInputChange('category')}
                         />
                       ) : (
                         <>
                           <Typography variant="body2" color="text.secondary">
-                            Category
+                            System
                           </Typography>
                           <Box sx={{ mt: 0.5 }}>
-                            <Chip label={item.category} size="small" color="primary" variant="outlined" />
+                            {(() => {
+                              const sys =
+                                item.category?.trim() || item.game?.console?.trim() || '';
+                              return sys ? (
+                                <Chip label={sys} size="small" color="primary" variant="outlined" />
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  —
+                                </Typography>
+                              );
+                            })()}
                           </Box>
                         </>
                       )}
@@ -604,7 +680,7 @@ const InventoryItemDetail = () => {
                           Added Date
                         </Typography>
                         <Typography variant="body1" sx={{ fontWeight: 500, mt: 0.5 }}>
-                          {new Date(item.addedDate).toLocaleDateString()}
+                          {formatDate(item.addedDate)}
                         </Typography>
                       </Grid>
                     )}
@@ -646,10 +722,10 @@ const InventoryItemDetail = () => {
                               p: 1.5,
                               display: 'flex',
                               alignItems: 'center',
-                              bgcolor: item.completeness[compItem.key] ? 'success.light' : 'grey.100',
+                              bgcolor: item.completeness?.[compItem.key] ? 'success.light' : 'grey.100',
                             }}
                           >
-                            {item.completeness[compItem.key] ? (
+                            {item.completeness?.[compItem.key] ? (
                               <CheckCircle sx={{ color: 'success.main', mr: 1 }} />
                             ) : (
                               <Cancel sx={{ color: 'error.main', mr: 1 }} />

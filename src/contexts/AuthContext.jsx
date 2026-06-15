@@ -32,8 +32,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const login = useCallback((token, companyId, email) => {
-    const authData = { token, companyId, email };
+  const login = useCallback((token, companyId, email, slug) => {
+    const authData = { token, companyId, email, slug };
     setAuth(authData);
     sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
   }, []);
@@ -45,10 +45,12 @@ export const AuthProvider = ({ children }) => {
 
   const getAuthHeaders = useCallback(() => {
     if (!auth?.token) return {};
-    return {
+    const headers = {
       Authorization: `Bearer ${auth.token}`,
       'X-Company-Id': String(auth.companyId),
     };
+    if (auth.email) headers['X-User-Email'] = auth.email;
+    return headers;
   }, [auth]);
 
   const value = {

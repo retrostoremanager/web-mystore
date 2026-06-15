@@ -1,164 +1,288 @@
-// Mock game API service
-// This simulates calls to Price Charting or GameEye API
-// Replace with actual API calls when ready
+// Game catalog + pricing from api-gamedb (separate from MyStore VITE_API_URL)
+import config from '../config';
 
-const MOCK_GAMES = [
-  {
-    id: 'pc-001',
-    title: 'The Legend of Zelda: Breath of the Wild',
-    console: 'Nintendo Switch',
-    releaseDate: '2017-03-03',
-    publisher: 'Nintendo',
-    genre: 'Action-Adventure',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-002',
-    title: 'Super Mario Odyssey',
-    console: 'Nintendo Switch',
-    releaseDate: '2017-10-27',
-    publisher: 'Nintendo',
-    genre: 'Platform',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-003',
-    title: 'Elden Ring',
-    console: 'PlayStation 5',
-    releaseDate: '2022-02-25',
-    publisher: 'Bandai Namco',
-    genre: 'Action RPG',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-004',
-    title: 'God of War Ragnarök',
-    console: 'PlayStation 5',
-    releaseDate: '2022-11-09',
-    publisher: 'Sony Interactive Entertainment',
-    genre: 'Action-Adventure',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-005',
-    title: 'Halo Infinite',
-    console: 'Xbox Series X',
-    releaseDate: '2021-12-08',
-    publisher: 'Xbox Game Studios',
-    genre: 'First-Person Shooter',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-006',
-    title: 'Pokémon Scarlet',
-    console: 'Nintendo Switch',
-    releaseDate: '2022-11-18',
-    publisher: 'Nintendo',
-    genre: 'RPG',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-007',
-    title: 'Mario Kart 8 Deluxe',
-    console: 'Nintendo Switch',
-    releaseDate: '2017-04-28',
-    publisher: 'Nintendo',
-    genre: 'Racing',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-008',
-    title: 'Call of Duty: Modern Warfare II',
-    console: 'PlayStation 5',
-    releaseDate: '2022-10-28',
-    publisher: 'Activision',
-    genre: 'First-Person Shooter',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-009',
-    title: 'Animal Crossing: New Horizons',
-    console: 'Nintendo Switch',
-    releaseDate: '2020-03-20',
-    publisher: 'Nintendo',
-    genre: 'Simulation',
-    imageUrl: null,
-  },
-  {
-    id: 'pc-010',
-    title: 'Horizon Forbidden West',
-    console: 'PlayStation 5',
-    releaseDate: '2022-02-18',
-    publisher: 'Sony Interactive Entertainment',
-    genre: 'Action RPG',
-    imageUrl: null,
-  },
-];
+// --- Box art: free / open-source libretro-thumbnails (no API key) --------------------
+// api-gamedb has no cover images, so derive a box-art URL from title + console.
+// Best-effort: libretro uses No-Intro naming, so not every retail title resolves; the UI
+// should use <img onError> to fall back to a placeholder when a cover 404s.
+const LIBRETRO_SYSTEM = {
+  'Nintendo Entertainment System': 'Nintendo - Nintendo Entertainment System',
+  'Super Nintendo Entertainment System': 'Nintendo - Super Nintendo Entertainment System',
+  'Nintendo 64': 'Nintendo - Nintendo 64',
+  'Nintendo GameCube': 'Nintendo - Nintendo GameCube',
+  'Nintendo Wii': 'Nintendo - Wii',
+  'Game Boy': 'Nintendo - Game Boy',
+  'Game Boy Color': 'Nintendo - Game Boy Color',
+  'Game Boy Advance': 'Nintendo - Game Boy Advance',
+  'Nintendo DS': 'Nintendo - Nintendo DS',
+  'Sega Genesis': 'Sega - Mega Drive - Genesis',
+  'Sega Master System': 'Sega - Master System - Mark III',
+  'Sega Saturn': 'Sega - Saturn',
+  'Dreamcast': 'Sega - Dreamcast',
+  'Sega Game Gear': 'Sega - Game Gear',
+  'PlayStation': 'Sony - PlayStation',
+  'PlayStation 2': 'Sony - PlayStation 2',
+  'PlayStation Portable': 'Sony - PlayStation Portable',
+  'Xbox': 'Microsoft - Xbox',
+  'TurboGrafx-16': 'NEC - PC Engine - TurboGrafx 16',
+  'Atari 2600': 'Atari - 2600',
+};
 
-// Simulate API search delay
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+export const getBoxArtUrl = (title, consoleName) => {
+  const sys = LIBRETRO_SYSTEM[consoleName];
+  if (!sys || !title) return null;
+  // libretro filename sanitization: '&' -> '_' and the chars * " / : < > ? \ | -> '_'
+  const name = String(title).replace(/&/g, '_').replace(/[*"/:<>?\\|]/g, '_');
+  // libretro-thumbnails per-system repos use underscores between tokens (e.g.
+  // "Nintendo_-_Super_Nintendo_Entertainment_System"), not spaces.
+  const repo = sys.replace(/ /g, '_');
+  return `https://raw.githubusercontent.com/libretro-thumbnails/${repo}/master/Named_Boxarts/${encodeURIComponent(name)}.png`;
+};
 
 /**
- * Search for games by title
- * @param {string} query - Search query
- * @returns {Promise<Array>} Array of matching games
+ * Map api-gamedb GET /games JSON (camelCase) into the shape the inventory UI expects.
+ * @param {object} raw
  */
-export const searchGames = async (query) => {
-  // Simulate API delay
-  await delay(500);
+export const normalizeGameFromGameDb = (raw) => {
+  if (!raw || typeof raw !== 'object') return null;
+  // Tolerate both the flat DTO (publishers: [{name}]) and the older nested EF shape
+  // (gamePublishers: [{publisher: {name}}]).
+  const publishers = (
+    raw.publishers ?? (raw.gamePublishers ?? []).map((gp) => gp?.publisher)
+  )
+    .map((p) => p?.name)
+    .filter(Boolean);
+  const publisherLabel =
+    publishers.length > 0 ? publishers.join(', ') : null;
+  const genre =
+    raw.genre && String(raw.genre).trim() ? String(raw.genre).trim() : null;
+  const region =
+    raw.region && String(raw.region).trim() ? String(raw.region).trim() : null;
 
+  return {
+    id: raw.id,
+    title: raw.title ?? '',
+    console: raw.system?.name ?? '',
+    publisher: publisherLabel,
+    genre,
+    region,
+    releaseDate: raw.releaseDate ?? null,
+    imageUrl: raw.imageUrl ?? getBoxArtUrl(raw.title, raw.system?.name),
+    systemId: raw.systemId,
+    variantId: raw.variantId,
+    _source: 'gamedb',
+  };
+};
+
+/**
+ * Derive loose/complete/CIB/new hints from GET /games/:id/pricing buckets.
+ * @param {object} pricing - GamePricingResponse JSON
+ */
+export const mapPricingResponseToLegacyPrices = (pricing) => {
+  const buckets = pricing?.buckets ?? [];
+  const byCode = new Map(buckets.map((b) => [b.code, b]));
+  const medianDollars = (code) => {
+    const c = byCode.get(code)?.latest?.medianCents;
+    return c == null ? null : c / 100;
+  };
+
+  const complete = medianDollars('complete');
+  const loose = medianDollars('cart_disc_only');
+  const discAndCase = medianDollars('cart_disc_and_case');
+
+  const base =
+    complete ??
+    loose ??
+    discAndCase ??
+    medianDollars('cart_disc_and_manual') ??
+    medianDollars('manual_only') ??
+    medianDollars('case_only');
+
+  const looseOut = loose ?? (base != null ? base * 0.65 : null);
+  const completeOut = complete ?? base;
+  const cibOut = complete ?? base;
+
+  return {
+    loose: looseOut,
+    complete: completeOut ?? looseOut,
+    cib: cibOut ?? completeOut,
+    new:
+      completeOut != null
+        ? completeOut * 1.25
+        : looseOut != null
+          ? looseOut * 1.4
+          : base != null
+            ? base * 1.25
+            : null,
+    dataQuality: pricing?.dataQuality ?? null,
+  };
+};
+
+const hasAnyMedian = (pricing) =>
+  (pricing?.buckets ?? []).some((b) => b.latest?.medianCents != null);
+
+/**
+ * Bulk-resolve trade-in line items to suggested store BUY (offer) prices via api-gamedb's
+ * offer engine: POST /pricing/bulk-lookup returns the best catalog match per item with
+ * loose/complete market value and a base-margin buy price. Results come back in input order.
+ * @param {Array<{title:string, platform:string}>} items
+ * @param {number} [margin] store buy margin 0-1 (omit to use the API's 0.50 default)
+ * @returns {Promise<Array>} BulkLookupResultDto[] aligned to the (title-bearing) input order
+ */
+export const bulkLookupOffers = async (items, margin) => {
+  requireGameDbBaseUrl();
+
+  const payload = (items ?? [])
+    .filter((it) => it && String(it.title ?? '').trim())
+    .map((it) => ({
+      title: String(it.title).trim(),
+      platform: String(it.platform ?? '').trim(),
+    }));
+  if (payload.length === 0) return [];
+
+  const qs = margin != null ? `?margin=${encodeURIComponent(String(margin))}` : '';
+  const url = `${config.gameDbApiUrl}/pricing/bulk-lookup${qs}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const msg =
+      data?.message || data?.error || response.statusText || 'Failed to look up offer prices';
+    throw new Error(msg);
+  }
+
+  return Array.isArray(data?.results) ? data.results : [];
+};
+
+/**
+ * Pick a suggested store OFFER (buy price, in USD) from a bulk-lookup result, scaled by
+ * trade-in condition. The API already returns market × buy-margin; condition shades between
+ * the complete (CIB) and loose buy price since the trade-in grid doesn't capture completeness.
+ * @param {object} result - one BulkLookupResultDto
+ * @param {string} condition - 'poor' | 'fair' | 'good' | 'excellent'
+ * @returns {number|null} suggested offer in USD, or null if the item has no priced snapshot
+ */
+export const suggestedOfferForCondition = (result, condition) => {
+  if (!result || !result.matched) return null;
+
+  const looseBuy = result.looseBuyCents != null ? result.looseBuyCents / 100 : null;
+  const completeBuy = result.completeBuyCents != null ? result.completeBuyCents / 100 : null;
+  if (looseBuy == null && completeBuy == null) return null;
+
+  // Fill the missing end from the one we have (loose ~= 65% of complete).
+  const complete = completeBuy ?? (looseBuy != null ? looseBuy / 0.65 : null);
+  const loose = looseBuy ?? (completeBuy != null ? completeBuy * 0.65 : null);
+
+  const byCondition = {
+    excellent: complete ?? loose,
+    good: complete != null ? complete * 0.85 : loose,
+    fair: loose ?? (complete != null ? complete * 0.6 : null),
+    poor: loose != null ? loose * 0.7 : complete != null ? complete * 0.45 : null,
+  };
+
+  const val = byCondition[String(condition || '').toLowerCase()] ?? loose ?? complete;
+  if (val == null || !Number.isFinite(val)) return null;
+  return Math.round(val * 100) / 100;
+};
+
+function requireGameDbBaseUrl() {
+  if (!config.gameDbApiUrl) {
+    throw new Error(
+      'Game catalog is not configured: VITE_GAMEDB_API_URL was empty at build time. Add it under GitHub → Settings → Secrets and variables → Actions → Variables (or Secrets), then redeploy. Note: Azure Static Web Apps application settings do not replace this for Vite.'
+    );
+  }
+}
+
+/**
+ * Search games by title (optional filters on api-gamedb: systemId, genre, etc.).
+ * @param {string} query
+ * @param {Object} authHeaders - Unused for gamedb (anonymous); kept for call-site compatibility.
+ * @returns {Promise<Array>} Normalized games for the inventory UI
+ */
+export const searchGames = async (query, authHeaders = {}) => {
   if (!query || query.trim().length === 0) {
     return [];
   }
 
-  const searchTerm = query.toLowerCase();
-  const results = MOCK_GAMES.filter(
-    (game) =>
-      game.title.toLowerCase().includes(searchTerm) ||
-      game.console.toLowerCase().includes(searchTerm) ||
-      game.publisher.toLowerCase().includes(searchTerm)
-  );
+  requireGameDbBaseUrl();
 
-  return results;
+  const params = new URLSearchParams({
+    search: query.trim(),
+    limit: '50',
+    offset: '0',
+  });
+  const url = `${config.gameDbApiUrl}/games?${params.toString()}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+  });
+
+  const text = await response.text();
+  let payload = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const msg =
+      payload?.message ||
+      payload?.error ||
+      payload?.errors?.[0] ||
+      response.statusText ||
+      'Failed to search games';
+    throw new Error(msg);
+  }
+
+  const list = Array.isArray(payload) ? payload : payload?.data ?? [];
+  return list.map(normalizeGameFromGameDb).filter(Boolean);
 };
 
 /**
- * Get game details by ID
- * @param {string} gameId - Game ID
- * @returns {Promise<Object|null>} Game details or null if not found
+ * Get game details by ID (from selected search result - no API call needed)
+ * @param {string|number} gameId
+ * @param {Array} searchResults
+ * @returns {Object|null}
  */
-export const getGameById = async (gameId) => {
-  await delay(300);
-  return MOCK_GAMES.find((game) => game.id === gameId) || null;
+export const getGameById = (gameId, searchResults = []) => {
+  return searchResults.find((game) => String(game.id) === String(gameId)) || null;
 };
 
 /**
- * Get market prices for a game (from Price Charting API)
- * This would normally call: https://www.pricecharting.com/api/product?t=TOKEN&id=GAME_ID
- * @param {string} gameId - Game ID
- * @returns {Promise<Object>} Market price data
+ * Market reference prices from api-gamedb eBay snapshots (GET /games/:id/pricing).
+ * @param {string|number} gameId
+ * @param {number} [trendDays]
+ * @returns {Promise<Object|null>} { loose, complete, cib, new } in USD or null if unavailable
  */
-export const getMarketPrices = async (gameId) => {
-  await delay(400);
-  
-  // Mock market price data
-  return {
-    loose: 29.99,
-    complete: 39.99,
-    new: 59.99,
-    cib: 39.99, // Complete in Box
-  };
-};
+export const getMarketPrices = async (gameId, trendDays = 7) => {
+  requireGameDbBaseUrl();
 
-// TODO: Replace with actual Price Charting API integration
-// Example implementation:
-/*
-export const searchGames = async (query, apiToken) => {
-  const response = await fetch(
-    `https://www.pricecharting.com/api/products?t=${apiToken}&q=${encodeURIComponent(query)}`
-  );
-  const data = await response.json();
-  return data.products || [];
+  const params = new URLSearchParams({
+    trendDays: String(Math.min(Math.max(Number(trendDays) || 7, 1), 90)),
+  });
+  const url = `${config.gameDbApiUrl}/games/${encodeURIComponent(String(gameId))}/pricing?${params}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    return null;
+  }
+  const pricing = await response.json();
+  if (!hasAnyMedian(pricing)) {
+    return null;
+  }
+  return mapPricingResponseToLegacyPrices(pricing);
 };
-*/
-

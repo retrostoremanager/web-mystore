@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -16,8 +16,10 @@ import {
   Paper,
   List,
   ListItem,
+  ListItemAvatar,
   ListItemText,
   ListItemButton,
+  Avatar,
   CircularProgress,
   Divider,
   Alert,
@@ -29,14 +31,21 @@ import {
   ArrowBack,
   Search,
   Add,
+  VideogameAsset,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { searchGames, getMarketPrices } from '../services/gameApi';
-import { useInventory } from '../contexts/InventoryContext';
+import { useCreateInventoryItemMutation } from '../store/inventoryApi';
+import { useAuth } from '../contexts/AuthContext';
+import { useFormatting } from '../contexts/FormattingContext';
+import { getCompanyProfile } from '../services/profileApi';
 
 const AddInventoryItem = () => {
   const navigate = useNavigate();
-  const { addInventoryItem } = useInventory();
+  const [createInventoryItem, { isLoading: isCreating }] = useCreateInventoryItemMutation();
+  const { getAuthHeaders } = useAuth();
+  const { formatYear } = useFormatting();
+  const [locationId, setLocationId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -58,6 +67,16 @@ const AddInventoryItem = () => {
   });
   const [showSuccess, setShowSuccess] = useState(false);
 
+  useEffect(() => {
+    getCompanyProfile(getAuthHeaders())
+      .then((res) => {
+        const locations = res?.data?.locations ?? [];
+        const primary = locations.find((l) => l.isPrimary) ?? locations[0];
+        if (primary) setLocationId(primary.id);
+      })
+      .catch(() => {});
+  }, [getAuthHeaders]);
+
   const conditionOptions = ['New', 'Like New', 'Very Good', 'Good', 'Fair', 'Poor'];
   const completenessItems = [
     { key: 'box', label: 'Box' },
@@ -67,6 +86,19 @@ const AddInventoryItem = () => {
     { key: 'other', label: 'Other' },
   ];
 
+  const gameSearchSubtitle = (game) => {
+    const parts = [];
+    if (game.console?.trim()) parts.push(game.console.trim());
+    if (game.publisher?.trim()) parts.push(game.publisher.trim());
+    if (game.genre?.trim()) parts.push(game.genre.trim());
+    if (game.region?.trim()) parts.push(game.region.trim());
+    if (game.releaseDate) {
+      const y = formatYear(game.releaseDate);
+      if (y) parts.push(y);
+    }
+    return parts.length > 0 ? parts.join(' • ') : 'Video game';
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -75,7 +107,7 @@ const AddInventoryItem = () => {
 
     setIsSearching(true);
     try {
-      const results = await searchGames(searchQuery);
+      const results = await searchGames(searchQuery, getAuthHeaders());
       setSearchResults(results);
     } catch (error) {
       console.error('Search error:', error);
@@ -87,18 +119,25 @@ const AddInventoryItem = () => {
 
   const getSuggestedPrice = (condition, prices) => {
     if (!prices) return null;
-    
-    // Map conditions to market price types
+    const complete = Number(prices.complete);
+    const loose = Number(prices.loose);
+    const newPrice = Number(prices.new);
+    const cib = Number.isFinite(complete) ? complete : Number(prices.cib);
+    const looseOk = Number.isFinite(loose) ? loose : Number.isFinite(cib) ? cib * 0.65 : NaN;
+    const newOk = Number.isFinite(newPrice) ? newPrice : Number.isFinite(cib) ? cib * 1.25 : NaN;
+    if (!Number.isFinite(cib) && !Number.isFinite(looseOk)) return null;
+
     const conditionMap = {
-      'New': prices.new,
-      'Like New': prices.new * 0.9,
-      'Very Good': prices.complete * 0.85,
-      'Good': prices.complete * 0.75,
-      'Fair': prices.loose * 0.9,
-      'Poor': prices.loose * 0.7,
+      New: newOk,
+      'Like New': Number.isFinite(newOk) ? newOk * 0.9 : cib * 0.95,
+      'Very Good': Number.isFinite(cib) ? cib * 0.85 : looseOk * 1.1,
+      Good: Number.isFinite(cib) ? cib * 0.75 : looseOk,
+      Fair: Number.isFinite(looseOk) ? looseOk * 0.9 : cib * 0.65,
+      Poor: Number.isFinite(looseOk) ? looseOk * 0.7 : cib * 0.55,
     };
-    
-    return conditionMap[condition] || prices.complete;
+
+    const fallback = Number.isFinite(cib) ? cib : looseOk;
+    return conditionMap[condition] ?? fallback;
   };
 
   const handleGameSelect = async (game) => {
@@ -155,35 +194,61 @@ const AddInventoryItem = () => {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    
-    // Validate that at least the game is checked
+
+    if (!locationId) {
+      alert('Please wait for locations to load, or add a location in your company profile.');
+      return;
+    }
+
     if (!formData.completeness.game) {
       alert('Please check at least "Game" in the completeness section.');
       return;
     }
-    
-    // Add item to inventory
-    const newItem = {
-      game: selectedGame,
-      condition: formData.condition,
-      completeness: formData.completeness,
-      quantity: parseInt(formData.quantity, 10),
-      buyPrice: formData.buyPrice || '',
-      sellPrice: formData.sellPrice || '0',
-      notes: formData.notes || '',
-    };
 
-    addInventoryItem(newItem);
+    const name = selectedGame
+      ? `${selectedGame.title} (${selectedGame.console})`
+      : formData.name || 'Unknown Item';
+    const category = selectedGame?.console || 'Video Games';
 
-    // Show success message
-    setShowSuccess(true);
-    
-    // Reset form after a delay and navigate back
-    setTimeout(() => {
-      navigate('/dashboard/inventory');
-    }, 2000);
+    // MyStore API expects gameId / game.id as strings (C# string?). Numeric JSON breaks deserialization.
+    const catalogGameId =
+      selectedGame?.id != null && selectedGame.id !== ''
+        ? String(selectedGame.id)
+        : null;
+
+    try {
+      await createInventoryItem({
+        locationId,
+        name,
+        category,
+        quantity: parseInt(formData.quantity, 10),
+        sellPrice: parseFloat(formData.sellPrice || 0),
+        buyPrice: formData.buyPrice ? parseFloat(formData.buyPrice) : null,
+        condition: formData.condition,
+        gameId: catalogGameId,
+        game:
+          selectedGame && catalogGameId
+            ? {
+                id: catalogGameId,
+                title: selectedGame.title,
+                console: selectedGame.console,
+                releaseDate: selectedGame.releaseDate || null,
+                publisher: selectedGame.publisher ?? null,
+                genre: selectedGame.genre ?? null,
+                imageUrl: selectedGame.imageUrl ?? null,
+              }
+            : null,
+        completeness: formData.completeness,
+        notes: formData.notes || null,
+      }).unwrap();
+
+      setShowSuccess(true);
+      setTimeout(() => navigate('/dashboard/inventory'), 2000);
+    } catch (err) {
+      alert(err?.data?.message || err?.message || 'Failed to add item');
+    }
   };
 
   return (
@@ -242,9 +307,15 @@ const AddInventoryItem = () => {
                     <Box key={game.id}>
                       <ListItem disablePadding>
                         <ListItemButton onClick={() => handleGameSelect(game)}>
+                          <ListItemAvatar>
+                            {/* Avatar falls back to the icon child if the cover image 404s */}
+                            <Avatar src={game.imageUrl || undefined} variant="rounded">
+                              <VideogameAsset />
+                            </Avatar>
+                          </ListItemAvatar>
                           <ListItemText
                             primary={game.title}
-                            secondary={`${game.console} • ${game.publisher} • ${game.genre}`}
+                            secondary={gameSearchSubtitle(game)}
                           />
                         </ListItemButton>
                       </ListItem>
@@ -261,7 +332,7 @@ const AddInventoryItem = () => {
                   Selected: {selectedGame.title}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {selectedGame.console} • Released: {new Date(selectedGame.releaseDate).getFullYear()}
+                  {selectedGame.console} • Released: {formatYear(selectedGame.releaseDate)}
                 </Typography>
               </Box>
             )}

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   Box,
   Container,
@@ -23,6 +24,16 @@ import {
   TableHead,
   TableRow,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Tooltip,
 } from '@mui/material';
 import {
   PointOfSale,
@@ -30,19 +41,93 @@ import {
   Add,
   Delete,
   CheckCircle,
+  Print,
+  Email,
+  LocalOffer,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useInventory } from '../contexts/InventoryContext';
+import { useGetInventoryQuery, inventoryApi } from '../store/inventoryApi';
+import { useAuth } from '../contexts/AuthContext';
+import { getCustomers, createCustomer } from '../services/customersApi';
+import { createSale, getSaleReceipt, emailSaleReceipt } from '../services/salesApi';
+import { getActivePromotions } from '../services/promotionsApi';
+import { applyPromotions, promotionChipLabel, calculateSavings } from '../utils/promotionUtils';
+import ReceiptView from './ReceiptView';
 
 const steps = ['Select Customer', 'Add Items', 'Review & Complete'];
 
+function customerRecordToOption(c) {
+  const displayName =
+    [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || c.email || `Customer #${c.id}`;
+  return {
+    id: c.id,
+    firstName: c.firstName,
+    lastName: c.lastName,
+    email: c.email || '',
+    displayName,
+    label: `${displayName}${c.email ? ` (${c.email})` : ''}`,
+  };
+}
+
+function unitPriceFromLineItem(item) {
+  const raw = item.sellPrice ?? item.price;
+  if (typeof raw === 'number' && !Number.isNaN(raw)) {
+    return raw;
+  }
+  if (typeof raw === 'string') {
+    const n = parseFloat(raw.replace(/[^0-9.-]/g, ''));
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
+const PAYMENT_OPTIONS = [
+  { value: 'Cash', label: 'Cash' },
+  { value: 'Credit/debit card', label: 'Credit/debit card' },
+  { value: 'Other', label: 'Other' },
+];
+
+function parseTaxInput(str) {
+  const t = (str ?? '').trim();
+  if (t === '') {
+    return { ok: true, value: 0 };
+  }
+  const n = parseFloat(t);
+  if (Number.isNaN(n) || n < 0) {
+    return { ok: false, value: 0 };
+  }
+  return { ok: true, value: Math.round(n * 100) / 100 };
+}
+
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { inventory } = useInventory();
+  const dispatch = useDispatch();
+  const { getAuthHeaders } = useAuth();
+  const { data: inventory = [] } = useGetInventoryQuery(undefined, { pollingInterval: 30000 });
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [customersLoadError, setCustomersLoadError] = useState(null);
+
+  const [taxInput, setTaxInput] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [lastSale, setLastSale] = useState(null);
+  const [receiptData, setReceiptData] = useState(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSnackbar, setEmailSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const [activePromotions, setActivePromotions] = useState([]);
+  const [promotionsSnackbar, setPromotionsSnackbar] = useState({ open: false, message: '' });
+  const [manualPromoId, setManualPromoId] = useState('');
+  const [manualPromoOpen, setManualPromoOpen] = useState(false);
+  const [selectedManualPromoIds, setSelectedManualPromoIds] = useState(new Set());
+
   const [checkoutData, setCheckoutData] = useState({
     customer: null,
     customerName: '',
@@ -50,22 +135,47 @@ const CheckoutPage = () => {
     items: [],
   });
 
-  // Mock customer list
-  const customers = [
-    { id: 1, name: 'John Smith', email: 'john.smith@email.com' },
-    { id: 2, name: 'Sarah Johnson', email: 'sarah.j@email.com' },
-    { id: 3, name: 'Mike Chen', email: 'mike.chen@email.com' },
-    { id: 4, name: 'Emily Davis', email: 'emily.d@email.com' },
-    { id: 5, name: 'David Wilson', email: 'david.w@email.com' },
-  ];
+  const loadActivePromotions = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const result = await getActivePromotions(headers);
+      setActivePromotions(Array.isArray(result.data) ? result.data : []);
+    } catch {
+      setPromotionsSnackbar({ open: true, message: 'Failed to load promotions — checkout continues without discounts.' });
+      setActivePromotions([]);
+    }
+  }, [getAuthHeaders]);
+
+  const loadCustomers = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers.Authorization) return;
+    setCustomersLoadError(null);
+    try {
+      const result = await getCustomers(headers);
+      const list = Array.isArray(result.data) ? result.data : [];
+      setCustomerOptions(list.map(customerRecordToOption));
+    } catch (e) {
+      setCustomersLoadError(e.message || 'Failed to load customers');
+      setCustomerOptions([]);
+    }
+  }, [getAuthHeaders]);
+
+  useEffect(() => {
+    loadActivePromotions();
+  }, [loadActivePromotions]);
+
+  useEffect(() => {
+    loadCustomers();
+  }, [loadCustomers]);
 
   const handleCustomerSelect = (event, value) => {
     if (value) {
       setCheckoutData({
         ...checkoutData,
         customer: value,
-        customerName: value.name,
-        customerEmail: value.email,
+        customerName: value.displayName,
+        customerEmail: value.email || '',
       });
     } else {
       setCheckoutData({
@@ -76,15 +186,6 @@ const CheckoutPage = () => {
       });
     }
     setError('');
-  };
-
-  const handleNewCustomer = () => {
-    setCheckoutData({
-      ...checkoutData,
-      customer: null,
-      customerName: '',
-      customerEmail: '',
-    });
   };
 
   const handleAddItem = (item) => {
@@ -124,13 +225,22 @@ const CheckoutPage = () => {
     });
   };
 
-  const calculateTotal = () => {
-    return checkoutData.items.reduce((total, item) => {
-      const price = parseFloat(item.sellPrice || item.price?.replace('$', '') || 0);
+  const applicablePromotions = activePromotions.filter(
+    (p) => !(p.applyManually ?? p.apply_manually) || selectedManualPromoIds.has(p.id)
+  );
+  const discountedItems = applyPromotions(checkoutData.items, applicablePromotions);
+
+  const calculateSubtotal = () => {
+    return discountedItems.reduce((total, item) => {
+      if (item.lineTotal != null) return total + item.lineTotal;
+      const price = item.discountedPrice ?? unitPriceFromLineItem(item);
       return total + price * item.quantity;
     }, 0);
   };
 
+  const totalSavings = calculateSavings(checkoutData.items, discountedItems);
+
+  const getTaxValue = () => parseTaxInput(taxInput);
   const validateStep1 = () => {
     if (!checkoutData.customerName.trim()) {
       setError('Customer name is required');
@@ -182,27 +292,94 @@ const CheckoutPage = () => {
   const handleComplete = async () => {
     setLoading(true);
     setError('');
-    
+
+    if (!validateStep2()) {
+      setLoading(false);
+      return;
+    }
+
+    const taxParsed = getTaxValue();
+    if (!taxParsed.ok) {
+      setError('Tax must be a valid non-negative number, or leave the field blank.');
+      setLoading(false);
+      return;
+    }
+
+    const auth = getAuthHeaders();
+    const email = checkoutData.customerEmail.trim().toLowerCase();
+
     try {
-      // Simulate API call to process transaction
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // In a real app, you would make an API call here to:
-      // 1. Create/update customer record
-      // 2. Create transaction record
-      // 3. Update inventory quantities
-      
-      console.log('Transaction completed:', {
-        customer: checkoutData.customerName,
-        email: checkoutData.customerEmail,
-        items: checkoutData.items,
-        total: calculateTotal(),
-      });
-      
-      // Move to completion step
+      let customerId = checkoutData.customer?.id ?? null;
+      if (!customerId) {
+        const match = customerOptions.find((c) => c.email && c.email.toLowerCase() === email);
+        if (match) customerId = match.id;
+      }
+
+      if (!customerId) {
+        const nameParts = checkoutData.customerName.trim().split(/\s+/);
+        const firstName = nameParts[0]?.trim() || 'Customer';
+        const lastName = nameParts.slice(1).join(' ').trim() || '';
+        try {
+          const res = await createCustomer({ firstName, lastName, email }, auth);
+          customerId = res.data?.id;
+        } catch (createErr) {
+          const msg = createErr.message || '';
+          if (msg.includes('already exists')) {
+            const refreshed = await getCustomers(auth);
+            const list = Array.isArray(refreshed.data) ? refreshed.data : [];
+            setCustomerOptions(list.map(customerRecordToOption));
+            const found = list.find((c) => c.email?.toLowerCase() === email);
+            if (found) {
+              customerId = found.id;
+            }
+          }
+          if (!customerId) {
+            throw createErr;
+          }
+        }
+      }
+
+      if (!customerId) {
+        throw new Error('Could not resolve customer for checkout.');
+      }
+
+      const items = discountedItems.map((item) => ({
+        inventoryItemId: item.id,
+        quantity: item.quantity,
+        unitPrice: item.lineTotal != null
+          ? Math.round((item.lineTotal / item.quantity) * 100) / 100
+          : (item.discountedPrice ?? unitPriceFromLineItem(item)),
+      }));
+
+      const result = await createSale(
+        {
+          customerId,
+          tax: taxParsed.value,
+          paymentMethod,
+          items,
+        },
+        auth
+      );
+
+      dispatch(inventoryApi.util.invalidateTags([{ type: 'Inventory', id: 'LIST' }]));
+      const sale = result.data ?? null;
+      setLastSale(sale);
       setActiveStep(2);
+      if (sale?.id != null) {
+        setReceiptLoading(true);
+        setReceiptError(null);
+        setReceiptData(null);
+        try {
+          const receiptResult = await getSaleReceipt(sale.id, auth);
+          setReceiptData(receiptResult.data ?? receiptResult ?? null);
+        } catch (receiptErr) {
+          setReceiptError(receiptErr.message || 'Failed to load receipt');
+        } finally {
+          setReceiptLoading(false);
+        }
+      }
     } catch (err) {
-      setError('Failed to process transaction. Please try again.');
+      setError(err.message || 'Failed to process transaction. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -216,9 +393,15 @@ const CheckoutPage = () => {
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
               Select Customer
             </Typography>
+            {customersLoadError && (
+              <Alert severity="warning">
+                {customersLoadError} You can still type a new customer below if you have access to create customers.
+              </Alert>
+            )}
             <Autocomplete
-              options={customers}
-              getOptionLabel={(option) => `${option.name} (${option.email})`}
+              options={customerOptions}
+              getOptionLabel={(option) => option.label || ''}
+              isOptionEqualToValue={(a, b) => a?.id === b?.id}
               value={checkoutData.customer}
               onChange={handleCustomerSelect}
               renderInput={(params) => (
@@ -261,8 +444,13 @@ const CheckoutPage = () => {
           </Stack>
         );
       
-      case 1:
+      case 1: {
         const availableItems = inventory.filter((item) => (item.quantity || 0) > 0);
+        const taxSnap = getTaxValue();
+        const taxAmountDisplay = taxSnap.ok ? taxSnap.value : 0;
+        const grandTotal = calculateSubtotal() + taxAmountDisplay;
+        const discountedItemsMap = Object.fromEntries(discountedItems.map((d) => [d.id, d]));
+
         return (
           <Stack spacing={3}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -317,6 +505,64 @@ const CheckoutPage = () => {
               </TableContainer>
             )}
             
+            {activePromotions.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <LocalOffer fontSize="small" color="info" />
+                  {activePromotions.map((promo) => (
+                    <Tooltip key={promo.id} title={promo.scope !== 'store_wide' ? `Scope: ${promo.scope}` : 'Store wide'}>
+                      <Chip
+                        label={promotionChipLabel(promo)}
+                        color="info"
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Tooltip>
+                  ))}
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                  {manualPromoOpen ? (
+                    <>
+                      <FormControl size="small" sx={{ minWidth: 260 }}>
+                        <InputLabel id="manual-promo-label">Select promotion</InputLabel>
+                        <Select
+                          labelId="manual-promo-label"
+                          label="Select promotion"
+                          value={manualPromoId}
+                          onChange={(e) => setManualPromoId(e.target.value)}
+                        >
+                          {activePromotions.map((promo) => (
+                            <MenuItem key={promo.id} value={promo.id}>
+                              {promotionChipLabel(promo)}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={!manualPromoId}
+                        onClick={() => {
+                          setSelectedManualPromoIds((prev) => new Set([...prev, manualPromoId]));
+                          setManualPromoOpen(false);
+                          setManualPromoId('');
+                        }}
+                      >
+                        Apply
+                      </Button>
+                      <Button size="small" onClick={() => { setManualPromoOpen(false); setManualPromoId(''); }}>
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="small" variant="outlined" onClick={() => setManualPromoOpen(true)}>
+                      Apply Manually
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+            )}
+
             {checkoutData.items.length > 0 && (
               <Box sx={{ mt: 3 }}>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -335,12 +581,33 @@ const CheckoutPage = () => {
                     </TableHead>
                     <TableBody>
                       {checkoutData.items.map((item) => {
-                        const price = parseFloat(item.sellPrice || item.price?.replace('$', '') || 0);
-                        const subtotal = price * item.quantity;
+                        const origPrice = unitPriceFromLineItem(item);
+                        const disc = discountedItemsMap[item.id];
+                        const hasDiscount = disc?.discountApplied;
+                        const effectivePrice = disc?.discountedPrice ?? origPrice;
+                        const subtotal = disc?.lineTotal != null
+                          ? disc.lineTotal
+                          : effectivePrice * item.quantity;
                         return (
                           <TableRow key={item.id}>
                             <TableCell>{item.name}</TableCell>
-                            <TableCell align="right">{item.price || `$${price.toFixed(2)}`}</TableCell>
+                            <TableCell align="right">
+                              {hasDiscount ? (
+                                <Stack alignItems="flex-end" spacing={0}>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ textDecoration: 'line-through', color: 'text.secondary', fontSize: '0.75rem' }}
+                                  >
+                                    ${origPrice.toFixed(2)}
+                                  </Typography>
+                                  <Typography variant="body2" color="success.main" fontWeight={600}>
+                                    ${effectivePrice.toFixed(2)}
+                                  </Typography>
+                                </Stack>
+                              ) : (
+                                item.price || `$${origPrice.toFixed(2)}`
+                              )}
+                            </TableCell>
                             <TableCell align="right">
                               <TextField
                                 type="number"
@@ -368,31 +635,109 @@ const CheckoutPage = () => {
                     </TableBody>
                   </Table>
                 </TableContainer>
-                <Box sx={{ mt: 2, textAlign: 'right' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Total: ${calculateTotal().toFixed(2)}
-                  </Typography>
+                <Box sx={{ mt: 2 }}>
+                  <Stack spacing={2} sx={{ maxWidth: 360, ml: 'auto' }}>
+                    <TextField
+                      label="Tax (optional)"
+                      type="number"
+                      size="small"
+                      value={taxInput}
+                      onChange={(e) => {
+                        setTaxInput(e.target.value);
+                        setError('');
+                      }}
+                      inputProps={{ min: 0, step: '0.01' }}
+                      helperText="Sales tax or other tax for this transaction"
+                    />
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="checkout-payment-method-label">Payment method</InputLabel>
+                      <Select
+                        labelId="checkout-payment-method-label"
+                        label="Payment method"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                      >
+                        {PAYMENT_OPTIONS.map((opt) => (
+                          <MenuItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Subtotal: ${calculateSubtotal().toFixed(2)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Tax: ${taxSnap.ok ? taxSnap.value.toFixed(2) : '—'}
+                      </Typography>
+                      {totalSavings > 0 && (
+                        <Typography variant="body2" color="success.main" fontWeight={600}>
+                          You save: ${totalSavings.toFixed(2)}
+                        </Typography>
+                      )}
+                      <Typography variant="h6" sx={{ fontWeight: 700, mt: 0.5 }}>
+                        Total: ${taxSnap.ok ? grandTotal.toFixed(2) : '—'}
+                      </Typography>
+                    </Box>
+                  </Stack>
                 </Box>
               </Box>
             )}
           </Stack>
         );
-      
+      }
+
       case 2:
         return (
-          <Stack spacing={3} alignItems="center" sx={{ py: 4 }}>
-            <CheckCircle sx={{ fontSize: 80, color: 'success.main' }} />
-            <Typography variant="h4" sx={{ fontWeight: 700, textAlign: 'center' }}>
-              Transaction Complete!
+          <Stack spacing={3} sx={{ py: 2 }}>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <CheckCircle sx={{ fontSize: 40, color: 'success.main' }} />
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                Sale Complete!
+              </Typography>
+            </Stack>
+            <Typography variant="body1" color="text.secondary">
+              The sale was saved and inventory quantities were updated.
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 500 }}>
-              The transaction has been processed successfully. A receipt has been generated.
-            </Typography>
-            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+
+            <Paper variant="outlined" sx={{ p: 3 }}>
+              <ReceiptView
+                receipt={receiptData}
+                loading={receiptLoading}
+                error={receiptError}
+              />
+            </Paper>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} className="no-print">
+              <Button
+                variant="outlined"
+                startIcon={<Print />}
+                disabled={receiptLoading || !receiptData}
+                onClick={() => window.print()}
+              >
+                Print Receipt
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Email />}
+                disabled={receiptLoading || !lastSale}
+                onClick={() => {
+                  setEmailInput(checkoutData.customerEmail || '');
+                  setEmailDialogOpen(true);
+                }}
+              >
+                Email Receipt
+              </Button>
               <Button
                 variant="outlined"
                 onClick={() => {
                   setCheckoutData({ customer: null, customerName: '', customerEmail: '', items: [] });
+                  setTaxInput('');
+                  setPaymentMethod('Cash');
+                  setLastSale(null);
+                  setReceiptData(null);
+                  setReceiptError(null);
                   setActiveStep(0);
                 }}
               >
@@ -413,9 +758,25 @@ const CheckoutPage = () => {
     }
   };
 
+  const isValidEmail = (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((val ?? '').trim());
+
+  const handleEmailSubmit = async () => {
+    if (!lastSale?.id || !isValidEmail(emailInput)) return;
+    setEmailSending(true);
+    try {
+      await emailSaleReceipt(lastSale.id, emailInput.trim(), getAuthHeaders());
+      setEmailDialogOpen(false);
+      setEmailSnackbar({ open: true, message: 'Receipt sent successfully!', severity: 'success' });
+    } catch (err) {
+      setEmailSnackbar({ open: true, message: err.message || 'Failed to send receipt', severity: 'error' });
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
-      <AppBar position="sticky" elevation={1}>
+      <AppBar position="sticky" elevation={1} className="no-print">
         <Toolbar>
           <IconButton edge="start" color="inherit" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }}>
             <ArrowBack />
@@ -427,7 +788,7 @@ const CheckoutPage = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }} id="receipt-print-root">
         <Paper
           elevation={2}
           sx={{
@@ -454,7 +815,7 @@ const CheckoutPage = () => {
           </Box>
 
           {activeStep < 2 && (
-            <Stack direction="row" spacing={2} justifyContent="space-between">
+            <Stack direction="row" spacing={2} justifyContent="space-between" className="no-print">
               <Button
                 disabled={activeStep === 0}
                 onClick={handleBack}
@@ -479,6 +840,61 @@ const CheckoutPage = () => {
           )}
         </Paper>
       </Container>
+
+      <Dialog open={emailDialogOpen} onClose={() => !emailSending && setEmailDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Email Receipt</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Email address"
+            type="email"
+            fullWidth
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            disabled={emailSending}
+            error={emailInput.trim() !== '' && !isValidEmail(emailInput)}
+            helperText={
+              emailInput.trim() !== '' && !isValidEmail(emailInput)
+                ? 'Please enter a valid email address'
+                : ' '
+            }
+            sx={{ mt: 1 }}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEmailDialogOpen(false)} disabled={emailSending}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleEmailSubmit}
+            disabled={emailSending || !isValidEmail(emailInput)}
+            startIcon={emailSending ? <CircularProgress size={18} color="inherit" /> : null}
+          >
+            {emailSending ? 'Sending...' : 'Send'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={emailSnackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setEmailSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={emailSnackbar.severity} onClose={() => setEmailSnackbar((s) => ({ ...s, open: false }))}>
+          {emailSnackbar.message}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={promotionsSnackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setPromotionsSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setPromotionsSnackbar((s) => ({ ...s, open: false }))}>
+          {promotionsSnackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

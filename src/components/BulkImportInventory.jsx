@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -35,7 +35,9 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useInventory } from '../contexts/InventoryContext';
+import { useCreateInventoryItemMutation } from '../store/inventoryApi';
+import { useAuth } from '../contexts/AuthContext';
+import { getCompanyProfile } from '../services/profileApi';
 
 const STEPS = ['Upload Data', 'Map Columns', 'Review & Import'];
 
@@ -57,8 +59,20 @@ const FIELD_OPTIONS = [
 
 const BulkImportInventory = () => {
   const navigate = useNavigate();
-  const { addInventoryItem } = useInventory();
-  
+  const [createInventoryItem] = useCreateInventoryItemMutation();
+  const { getAuthHeaders } = useAuth();
+  const [locationId, setLocationId] = useState(null);
+
+  useEffect(() => {
+    getCompanyProfile(getAuthHeaders())
+      .then((res) => {
+        const locations = res?.data?.locations ?? [];
+        const primary = locations.find((l) => l.isPrimary) ?? locations[0];
+        if (primary) setLocationId(primary.id);
+      })
+      .catch(() => {});
+  }, [getAuthHeaders]);
+
   const [activeStep, setActiveStep] = useState(0);
   const [csvData, setCsvData] = useState('');
   const [parsedData, setParsedData] = useState([]);
@@ -185,7 +199,7 @@ const BulkImportInventory = () => {
     }));
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     setErrors([]);
     const results = {
       success: 0,
@@ -193,7 +207,8 @@ const BulkImportInventory = () => {
       errors: [],
     };
 
-    parsedData.forEach((row, index) => {
+    for (let index = 0; index < parsedData.length; index++) {
+      const row = parsedData[index];
       try {
         // Build item object from mapped columns
         const item = {
@@ -257,23 +272,34 @@ const BulkImportInventory = () => {
           }
         });
 
-        // Validate required fields
         if (!item.name) {
           throw new Error('Item name is required');
         }
-
-        // Ensure game checkbox is checked if not specified
+        if (!locationId) {
+          throw new Error('No location available. Add a location in company profile first.');
+        }
         if (!item.completeness.game && !Object.values(columnMapping).includes('game')) {
           item.completeness.game = true;
         }
 
-        addInventoryItem(item);
+        await createInventoryItem({
+          locationId,
+          name: item.name,
+          category: item.category || 'Video Games',
+          quantity: item.quantity || 1,
+          sellPrice: parseFloat(item.sellPrice || 0),
+          buyPrice: item.buyPrice ? parseFloat(item.buyPrice) : null,
+          condition: item.condition || 'Good',
+          gameId: null,
+          completeness: item.completeness,
+          notes: item.notes || null,
+        }).unwrap();
         results.success++;
       } catch (error) {
         results.failed++;
         results.errors.push(`Row ${index + 2}: ${error.message}`);
       }
-    });
+    }
 
     setImportResults(results);
     setActiveStep(2);
