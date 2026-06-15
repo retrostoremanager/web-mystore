@@ -559,6 +559,7 @@ export default function CompanyProfilePage() {
               </Stack>
               <TextField
                 fullWidth
+                name="companyCountry"
                 label="Country"
                 value={infoForm.companyCountry}
                 onChange={(e) => handleInfoChange('companyCountry', e.target.value)}
