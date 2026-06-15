@@ -564,6 +564,7 @@ export default function CompanyProfilePage() {
                 onChange={(e) => handleInfoChange('companyCountry', e.target.value)}
                 placeholder="e.g. United States"
                 helperText="Country name or code (e.g. USA, Canada, United Kingdom)"
+                autoComplete="country-name"
                 disabled={infoSaving}
               />
               <TextField
