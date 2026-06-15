@@ -14,6 +14,7 @@ import {
   TextField,
   InputAdornment,
   FormControl,
+  FormHelperText,
   InputLabel,
   Select,
   MenuItem,
@@ -74,6 +75,7 @@ const emptyForm = {
 
 const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations }) => {
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState({});
   const [gameSearch, setGameSearch] = useState('');
   const [gameResults, setGameResults] = useState([]);
   const [gameSearching, setGameSearching] = useState(false);
@@ -82,6 +84,7 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
   useEffect(() => {
     if (open) {
       setForm(initialValues ? { ...initialValues } : emptyForm);
+      setErrors({});
       if (!initialValues) {
         setGameSearch('');
         setGameResults([]);
@@ -91,7 +94,31 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
   }, [open, initialValues]);
 
   const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    const value = e.target.value;
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  };
+
+  const validate = () => {
+    const next = {};
+    if (!form.name.trim()) {
+      next.name = 'Name is required';
+    }
+    if (form.sellPrice === '' || form.sellPrice === null || form.sellPrice === undefined) {
+      next.sellPrice = 'Price is required';
+    } else if (Number.isNaN(Number(form.sellPrice)) || Number(form.sellPrice) < 0) {
+      next.sellPrice = 'Price must be a non-negative number';
+    }
+    if (form.quantity === '' || form.quantity === null || form.quantity === undefined) {
+      next.quantity = 'Quantity is required';
+    } else if (!Number.isInteger(Number(form.quantity)) || Number(form.quantity) < 0) {
+      next.quantity = 'Quantity must be a non-negative whole number';
+    }
+    if (!form.locationId) {
+      next.locationId = 'Location is required';
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
   const handleGameSearch = async () => {
@@ -122,6 +149,7 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
   };
 
   const handleSubmit = () => {
+    if (!validate()) return;
     onSubmit(form, selectedGame);
   };
 
@@ -184,6 +212,8 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
             required
             fullWidth
             autoFocus={isEdit}
+            error={Boolean(errors.name)}
+            helperText={errors.name || ''}
           />
           <TextField
             label="Platform / Category"
@@ -213,19 +243,25 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
             type="number"
             value={form.sellPrice}
             onChange={handleChange('sellPrice')}
+            required
             fullWidth
             inputProps={{ min: 0, step: 0.01 }}
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+            error={Boolean(errors.sellPrice)}
+            helperText={errors.sellPrice || ''}
           />
           <TextField
             label="Quantity"
             type="number"
             value={form.quantity}
             onChange={handleChange('quantity')}
+            required
             fullWidth
             inputProps={{ min: 0, step: 1 }}
+            error={Boolean(errors.quantity)}
+            helperText={errors.quantity || ''}
           />
-          <FormControl fullWidth required>
+          <FormControl fullWidth required error={Boolean(errors.locationId)}>
             <InputLabel>Location</InputLabel>
             <Select
               value={form.locationId}
@@ -241,6 +277,9 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
                 </MenuItem>
               ))}
             </Select>
+            {errors.locationId && (
+              <FormHelperText>{errors.locationId}</FormHelperText>
+            )}
           </FormControl>
         </Stack>
       </DialogContent>
@@ -251,7 +290,7 @@ const ItemDialog = ({ open, onClose, onSubmit, initialValues, loading, locations
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !form.name.trim() || !form.locationId || (!isEdit && !selectedGame)}
+          disabled={loading || (!isEdit && !selectedGame)}
           startIcon={loading ? <CircularProgress size={16} /> : null}
         >
           {isEdit ? 'Save' : 'Add Item'}
@@ -627,7 +666,7 @@ const InventoryPage = () => {
                           textAlign: 'center',
                         }}
                       >
-                        <Inventory sx={{ color: 'text.disabled', mb: 1, fontSize: 48 }} />
+                        <Inventory sx={{ color: 'text.disabled', mb: 1 }} fontSize="large" />
                         <Typography variant="h6" color="text.primary" sx={{ mb: 0.5 }}>
                           {searchQuery
                             ? 'No items match your search'
