@@ -121,6 +121,81 @@ export const mapPricingResponseToLegacyPrices = (pricing) => {
 const hasAnyMedian = (pricing) =>
   (pricing?.buckets ?? []).some((b) => b.latest?.medianCents != null);
 
+/**
+ * Bulk-resolve trade-in line items to suggested store BUY (offer) prices via api-gamedb's
+ * offer engine: POST /pricing/bulk-lookup returns the best catalog match per item with
+ * loose/complete market value and a base-margin buy price. Results come back in input order.
+ * @param {Array<{title:string, platform:string}>} items
+ * @param {number} [margin] store buy margin 0-1 (omit to use the API's 0.50 default)
+ * @returns {Promise<Array>} BulkLookupResultDto[] aligned to the (title-bearing) input order
+ */
+export const bulkLookupOffers = async (items, margin) => {
+  requireGameDbBaseUrl();
+
+  const payload = (items ?? [])
+    .filter((it) => it && String(it.title ?? '').trim())
+    .map((it) => ({
+      title: String(it.title).trim(),
+      platform: String(it.platform ?? '').trim(),
+    }));
+  if (payload.length === 0) return [];
+
+  const qs = margin != null ? `?margin=${encodeURIComponent(String(margin))}` : '';
+  const url = `${config.gameDbApiUrl}/pricing/bulk-lookup${qs}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const msg =
+      data?.message || data?.error || response.statusText || 'Failed to look up offer prices';
+    throw new Error(msg);
+  }
+
+  return Array.isArray(data?.results) ? data.results : [];
+};
+
+/**
+ * Pick a suggested store OFFER (buy price, in USD) from a bulk-lookup result, scaled by
+ * trade-in condition. The API already returns market × buy-margin; condition shades between
+ * the complete (CIB) and loose buy price since the trade-in grid doesn't capture completeness.
+ * @param {object} result - one BulkLookupResultDto
+ * @param {string} condition - 'poor' | 'fair' | 'good' | 'excellent'
+ * @returns {number|null} suggested offer in USD, or null if the item has no priced snapshot
+ */
+export const suggestedOfferForCondition = (result, condition) => {
+  if (!result || !result.matched) return null;
+
+  const looseBuy = result.looseBuyCents != null ? result.looseBuyCents / 100 : null;
+  const completeBuy = result.completeBuyCents != null ? result.completeBuyCents / 100 : null;
+  if (looseBuy == null && completeBuy == null) return null;
+
+  // Fill the missing end from the one we have (loose ~= 65% of complete).
+  const complete = completeBuy ?? (looseBuy != null ? looseBuy / 0.65 : null);
+  const loose = looseBuy ?? (completeBuy != null ? completeBuy * 0.65 : null);
+
+  const byCondition = {
+    excellent: complete ?? loose,
+    good: complete != null ? complete * 0.85 : loose,
+    fair: loose ?? (complete != null ? complete * 0.6 : null),
+    poor: loose != null ? loose * 0.7 : complete != null ? complete * 0.45 : null,
+  };
+
+  const val = byCondition[String(condition || '').toLowerCase()] ?? loose ?? complete;
+  if (val == null || !Number.isFinite(val)) return null;
+  return Math.round(val * 100) / 100;
+};
+
 function requireGameDbBaseUrl() {
   if (!config.gameDbApiUrl) {
     throw new Error(

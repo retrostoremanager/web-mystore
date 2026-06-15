@@ -27,13 +27,14 @@ import {
   DialogActions,
   CircularProgress,
 } from '@mui/material';
-import { ArrowBack, Add, SwapHoriz, Delete, QrCodeScanner, SmartToy, Visibility } from '@mui/icons-material';
+import { ArrowBack, Add, SwapHoriz, Delete, QrCodeScanner, SmartToy, Visibility, Paid } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getCustomers } from '../services/customersApi';
 import { getTradeIns, createTradeIn, completeTradeIn, rejectTradeIn } from '../services/tradeInApi';
 import { getLoyaltySettings } from '../services/loyaltyApi';
+import { bulkLookupOffers, suggestedOfferForCondition } from '../services/gameApi';
 import AiScanDialog from './trade-ins/AiScanDialog';
 
 const STATUS_TABS = ['all', 'draft', 'completed', 'rejected'];
@@ -81,6 +82,7 @@ const TradeInPage = () => {
 
   const [activeDraftId, setActiveDraftId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
 
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -158,6 +160,51 @@ const TradeInPage = () => {
 
   const handleAddItem = () => {
     setItems((prev) => [...prev, makeBlankRow()]);
+  };
+
+  // Fill in suggested offer prices from gamedb's offer engine (market value x buy margin,
+  // shaded by condition). Only rows that have a title are looked up; the API returns results
+  // in input order, and rows with no priced snapshot yet are left for manual entry.
+  const handleSuggestOffers = async () => {
+    const priceable = items.filter((r) => String(r.gameTitle || '').trim());
+    if (priceable.length === 0) {
+      showSnackbar('Add at least one item with a game title first.', 'warning');
+      return;
+    }
+    setSuggesting(true);
+    try {
+      const results = await bulkLookupOffers(
+        priceable.map((r) => ({ title: r.gameTitle, platform: r.platform }))
+      );
+      const offerByRowId = new Map();
+      priceable.forEach((row, i) => {
+        const offer = suggestedOfferForCondition(results[i], row.condition);
+        if (offer != null) offerByRowId.set(row.id, offer);
+      });
+
+      if (offerByRowId.size === 0) {
+        showSnackbar(
+          'No market prices available yet for those titles — enter offers manually.',
+          'info'
+        );
+        return;
+      }
+
+      setItems((prev) =>
+        prev.map((r) =>
+          offerByRowId.has(r.id)
+            ? { ...r, offeredValue: offerByRowId.get(r.id).toFixed(2), suggested: true }
+            : r
+        )
+      );
+      showSnackbar(
+        `Suggested offers for ${offerByRowId.size} of ${priceable.length} item(s).`
+      );
+    } catch (err) {
+      showSnackbar(err.message || 'Failed to suggest offers', 'error');
+    } finally {
+      setSuggesting(false);
+    }
   };
 
   const handleRemoveItem = useCallback((id) => {
@@ -386,8 +433,8 @@ const TradeInPage = () => {
   const itemColumns = [
     {
       field: 'aiGenerated',
-      headerName: 'AI',
-      width: 56,
+      headerName: 'Src',
+      width: 64,
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
@@ -399,6 +446,15 @@ const TradeInPage = () => {
             color="info"
             icon={<SmartToy sx={{ fontSize: '0.875rem !important' }} />}
             sx={{ fontSize: 11 }}
+          />
+        ) : params.row.suggested ? (
+          <Chip
+            label="$"
+            size="small"
+            color="secondary"
+            icon={<Paid sx={{ fontSize: '0.875rem !important' }} />}
+            sx={{ fontSize: 11 }}
+            title="Offer suggested from gamedb market pricing"
           />
         ) : null,
     },
@@ -570,6 +626,16 @@ const TradeInPage = () => {
                   size="small"
                 >
                   Scan Games
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={suggesting ? <CircularProgress size={16} color="inherit" /> : <Paid />}
+                  onClick={handleSuggestOffers}
+                  size="small"
+                  disabled={suggesting || items.length === 0}
+                >
+                  Suggest Offers
                 </Button>
                 <Button
                   variant="contained"
