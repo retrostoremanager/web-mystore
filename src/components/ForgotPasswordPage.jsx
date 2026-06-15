@@ -60,7 +60,7 @@ const ForgotPasswordPage = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: (theme) => theme.custom?.gradient?.brand,
         py: 4,
         display: 'flex',
         alignItems: 'center',
@@ -98,7 +98,7 @@ const ForgotPasswordPage = () => {
           variant="contained"
           fullWidth
           size="large"
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/')}
           sx={{ py: 1.5, textTransform: 'none' }}
         >
           Back to Sign In
@@ -111,7 +111,7 @@ const ForgotPasswordPage = () => {
     <>
       <Box sx={{ mb: 4 }}>
         <Button
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/')}
           sx={{ mb: 3, textTransform: 'none' }}
         >
           ← Back to Sign In
@@ -157,7 +157,7 @@ const ForgotPasswordPage = () => {
               Remember your password?{' '}
               <Button
                 variant="text"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/')}
                 sx={{ textTransform: 'none', p: 0, minWidth: 'auto' }}
               >
                 Sign In
