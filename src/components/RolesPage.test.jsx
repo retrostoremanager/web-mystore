@@ -9,11 +9,15 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => vi.fn() };
 });
 
-vi.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({
-    getAuthHeaders: () => ({ Authorization: 'Bearer tok', 'X-Company-Id': '1' }),
-  }),
-}));
+// getAuthHeaders must keep a stable identity across renders (the real
+// AuthContext memoizes it). A fresh function each render makes RolesPage's
+// loadRoles/loadPermissions useCallbacks change every render, re-firing their
+// effects in a loop that starves the scheduler under full-suite load.
+vi.mock('../contexts/AuthContext', () => {
+  const getAuthHeaders = () => ({ Authorization: 'Bearer tok', 'X-Company-Id': '1' });
+  const auth = { getAuthHeaders };
+  return { useAuth: () => auth };
+});
 
 vi.mock('../contexts/PermissionsContext', () => ({
   usePermissions: () => ({

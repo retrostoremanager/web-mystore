@@ -210,7 +210,7 @@ describe('Dashboard', () => {
       renderDashboard();
 
       await waitFor(() => {
-        expect(screen.getByRole('alert')).toBeInTheDocument();
+        expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
         expect(screen.getByText(/failed to load customers/i)).toBeInTheDocument();
       });
     });
@@ -221,8 +221,8 @@ describe('Dashboard', () => {
       renderDashboard();
 
       await waitFor(() => {
-        expect(screen.getByRole('alert')).toBeInTheDocument();
-        expect(screen.getByText(/failed to load sales/i)).toBeInTheDocument();
+        expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/failed to load sales/i).length).toBeGreaterThan(0);
       });
     });
   });

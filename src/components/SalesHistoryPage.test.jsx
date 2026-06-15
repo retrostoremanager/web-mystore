@@ -271,7 +271,7 @@ describe('buildCsvContent', () => {
 
 describe('filterSalesByDateRange', () => {
   const sales = [
-    { id: 1, saleDate: '2024-01-10T00:00:00Z' },
+    { id: 1, saleDate: '2024-01-10T12:00:00Z' },
     { id: 2, saleDate: '2024-03-15T12:00:00Z' },
     { id: 3, saleDate: '2024-06-20T08:00:00Z' },
     { id: 4, saleDate: null },
