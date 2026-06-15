@@ -562,9 +562,9 @@ export default function CompanyProfilePage() {
                 label="Country"
                 value={infoForm.companyCountry}
                 onChange={(e) => handleInfoChange('companyCountry', e.target.value)}
-                disabled={infoSaving}
                 placeholder="e.g. United States"
                 helperText="Country name or code (e.g. USA, Canada, United Kingdom)"
+                disabled={infoSaving}
               />
               <TextField
                 fullWidth
