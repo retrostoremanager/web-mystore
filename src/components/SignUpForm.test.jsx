@@ -14,6 +14,27 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+// Mock Stripe. In jsdom/happy-dom the real Stripe.js script cannot load from
+// https://js.stripe.com, so loadStripe() never resolves and useStripe() stays
+// null forever — which makes handleSubmit bail at the "Payment form is not
+// ready" guard before ever calling fetch. These mocks provide a ready Stripe
+// instance so submission proceeds to the registration request, letting the
+// error-handling tests exercise the real fetch/response logic.
+const mockCreatePaymentMethod = vi.fn(async () => ({
+  paymentMethod: { id: 'pm_test_123' },
+}));
+
+vi.mock('@stripe/stripe-js', () => ({
+  loadStripe: vi.fn(() => Promise.resolve({})),
+}));
+
+vi.mock('@stripe/react-stripe-js', () => ({
+  Elements: ({ children }) => children,
+  CardElement: () => null,
+  useStripe: () => ({ createPaymentMethod: mockCreatePaymentMethod }),
+  useElements: () => ({ getElement: () => ({}) }),
+}));
+
 const renderSignUpForm = () => {
   return render(
     <BrowserRouter>

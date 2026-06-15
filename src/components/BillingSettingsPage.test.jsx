@@ -9,11 +9,16 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => vi.fn() };
 });
 
-vi.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({
-    getAuthHeaders: () => ({ Authorization: 'Bearer tok' }),
-  }),
-}));
+// getAuthHeaders must keep a stable identity across renders. The real
+// AuthContext memoizes it; if the mock returns a fresh function each render,
+// BillingSettingsPage's load* useCallbacks (which depend on getAuthHeaders)
+// change every render, re-firing the mount effect in an endless loader loop
+// that eventually starves the scheduler and hangs later tests.
+vi.mock('../contexts/AuthContext', () => {
+  const stableAuthHeaders = () => ({ Authorization: 'Bearer tok' });
+  const auth = { getAuthHeaders: stableAuthHeaders };
+  return { useAuth: () => auth };
+});
 
 vi.mock('../contexts/TrialStatusContext', () => ({
   useTrialStatus: () => ({ refreshTrialStatus: vi.fn() }),
