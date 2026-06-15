@@ -218,4 +218,17 @@ describe('CompanyProfilePage integration', () => {
       expect(screen.getByText(/server exploded/i)).toBeInTheDocument();
     });
   });
+
+  it('Country field renders placeholder and helperText', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Acme Co')).toBeInTheDocument();
+    });
+
+    const countryField = screen.getByLabelText(/country/i);
+    expect(countryField).toHaveAttribute('placeholder', 'e.g. United States');
+    expect(
+      screen.getByText(/Country name or code \(e\.g\. USA, Canada, United Kingdom\)/i)
+    ).toBeInTheDocument();
+  });
 });
