@@ -566,7 +566,7 @@ export default function CompanyProfilePage() {
                 placeholder="e.g. United States"
                 helperText="Country name or code (e.g. USA, Canada, United Kingdom)"
                 autoComplete="country-name"
-                inputProps={{ maxLength: 56 }}
+                inputProps={{ maxLength: 60 }}
                 disabled={infoSaving}
               />
               <TextField
