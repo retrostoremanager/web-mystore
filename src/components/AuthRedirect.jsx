@@ -6,7 +6,7 @@ import AccountSuspendedPage from './AccountSuspendedPage';
 import TrialExpiredPrompt from './TrialExpiredPrompt';
 
 const PUBLIC_PATHS = ['/', '/signup', '/verify', '/forgot-password', '/reset-password', '/set-password'];
-const RESERVED_SLUGS = new Set(['dashboard', 'signup', 'verify', 'forgot-password', 'reset-password', 'set-password', 'login', 'c', 'api', 'admin']);
+const RESERVED_SLUGS = new Set(['dashboard', 'signup', 'verify', 'forgot-password', 'reset-password', 'set-password', 'login', 'c', 'api', 'admin', 'consignment', 'trade-ins', 'settings', 'privacy', 'terms']);
 
 const isCompanyPath = (path) => {
   const m = path.match(/^\/([^/]+)(?:\/(login|customer))?$/);
