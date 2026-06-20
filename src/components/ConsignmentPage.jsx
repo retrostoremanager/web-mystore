@@ -259,12 +259,12 @@ const ConsignmentPage = () => {
                 </IconButton>
               </span>
             </Tooltip>
-            <Tooltip title={status !== 'active' ? 'Only active items can be returned' : 'Return to Customer'}>
+            <Tooltip title={status !== 'active' && status !== 'sold' ? 'Only active or sold items can be returned' : 'Return to Customer'}>
               <span>
                 <IconButton
                   size="small"
                   color="warning"
-                  disabled={status !== 'active'}
+                  disabled={status !== 'active' && status !== 'sold'}
                   onClick={() => {
                     setSelectedItem(params.row);
                     setDrawerOpen(true);

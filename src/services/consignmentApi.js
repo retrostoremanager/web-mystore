@@ -65,13 +65,17 @@ export async function getConsignmentPayouts(id, authHeaders) {
   return result;
 }
 
-export async function recordConsignmentPayout(id, authHeaders) {
+export async function recordConsignmentPayout(id, bodyOrHeaders, maybeHeaders) {
+  const hasBody = maybeHeaders !== undefined;
+  const body = hasBody ? bodyOrHeaders : null;
+  const authHeaders = hasBody ? maybeHeaders : bodyOrHeaders;
   const response = await fetch(`${config.apiUrl}/consignment/${id}/payout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...authHeaders,
     },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const result = await parseJsonResponse(response, 'Failed to record payout');
   if (!response.ok) {
