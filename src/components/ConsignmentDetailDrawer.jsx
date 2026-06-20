@@ -387,12 +387,8 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
             </Tooltip>
 
             <Tooltip
-              title={
-                status !== 'active' && status !== 'sold'
-                  ? 'Only active or sold items can be returned'
-                  : ''
-              }
-              disableHoverListener={status === 'active' || status === 'sold'}
+              title={status !== 'active' ? 'Only active items can be returned' : ''}
+              disableHoverListener={status === 'active'}
             >
               <span>
                 <Button
@@ -400,7 +396,7 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
                   color="warning"
                   startIcon={<Undo />}
                   fullWidth
-                  disabled={status !== 'active' && status !== 'sold'}
+                  disabled={status !== 'active'}
                   onClick={() => setReturnConfirmOpen(true)}
                 >
                   Return to Customer
