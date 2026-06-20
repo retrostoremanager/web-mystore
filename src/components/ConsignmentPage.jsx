@@ -177,7 +177,9 @@ const ConsignmentPage = () => {
       headerName: 'Customer',
       flex: 1,
       minWidth: 160,
-      valueGetter: (_, row) => {
+      valueGetter: (params) => {
+        const row = params.row;
+        if (!row) return '—';
         if (row.customer) return customerDisplayName(row.customer);
         if (row.customerName) return row.customerName;
         return row.customerId ? `Customer #${row.customerId}` : '—';
@@ -188,16 +190,16 @@ const ConsignmentPage = () => {
       headerName: 'Description',
       flex: 2,
       minWidth: 200,
-      valueGetter: (_, row) => row.description || '—',
+      valueGetter: (params) => params.row?.description || '—',
     },
     {
       field: 'askingPrice',
       headerName: 'Asking Price',
       width: 140,
-      valueGetter: (_, row) =>
-        row.askingPrice != null
+      valueGetter: (params) =>
+        params.row?.askingPrice != null
           ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-              Number(row.askingPrice)
+              Number(params.row.askingPrice)
             )
           : '—',
     },
@@ -205,8 +207,8 @@ const ConsignmentPage = () => {
       field: 'splitPercent',
       headerName: 'Split %',
       width: 100,
-      valueGetter: (_, row) =>
-        row.splitPercent != null ? `${row.splitPercent}%` : '—',
+      valueGetter: (params) =>
+        params.row?.splitPercent != null ? `${params.row.splitPercent}%` : '—',
     },
     {
       field: 'status',
