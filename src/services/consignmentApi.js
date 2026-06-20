@@ -75,7 +75,7 @@ export async function recordConsignmentPayout(id, bodyOrHeaders, maybeHeaders) {
       'Content-Type': 'application/json',
       ...authHeaders,
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    body: JSON.stringify(body || {}),
   });
   const result = await parseJsonResponse(response, 'Failed to record payout');
   if (!response.ok) {
