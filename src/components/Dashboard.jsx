@@ -258,7 +258,7 @@ const Dashboard = () => {
     { title: 'Customers', description: 'Manage customer information and purchase history', icon: <People sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/customers', permission: 'customers.view' },
     { title: 'Users', description: 'View and manage user accounts and roles', icon: <Badge sx={{ fontSize: 48 }} />, color: 'info', route: '/dashboard/users', permission: 'users.view' },
     { title: 'Roles', description: 'View roles and permissions', icon: <Security sx={{ fontSize: 48 }} />, color: 'secondary', route: '/dashboard/roles', permission: 'users.view' },
-    { title: 'Trade-in', description: 'Process trade-in requests and offers', icon: <SwapHoriz sx={{ fontSize: 48 }} />, color: 'warning', route: '/dashboard/trade-in', permission: 'inventory.create' },
+    { title: 'Trade-in', description: 'Process trade-in requests and offers', icon: <SwapHoriz sx={{ fontSize: 48 }} />, color: 'warning', route: '/trade-ins', permission: 'inventory.create' },
     { title: 'Checkout', description: 'Process new customer transactions and checkout', icon: <PointOfSale sx={{ fontSize: 48 }} />, color: 'secondary', route: '/dashboard/checkout', permission: 'sales.create' },
     { title: 'Historical Sales Records', description: 'View transaction history and sales records', icon: <History sx={{ fontSize: 48 }} />, color: 'primary', route: '/dashboard/sales-history', permission: 'sales.view' },
     { title: 'Consignment', description: 'Manage consignment items and track their status', icon: <Handshake sx={{ fontSize: 48 }} />, color: 'warning', route: '/dashboard/consignment', permission: 'inventory.view' },
