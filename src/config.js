@@ -20,10 +20,15 @@ const GAME_DB_API_URL = (
 const STRIPE_PUBLISHABLE_KEY =
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
 
+// Lot Scanner web app -- a separate hosted app (Expo/React Native), linked to from the
+// dashboard rather than routed internally.
+const LOT_SCANNER_URL = (import.meta.env.VITE_LOT_SCANNER_URL || '').trim();
+
 export const config = {
   apiUrl: API_URL,
   gameDbApiUrl: GAME_DB_API_URL,
   stripePublishableKey: STRIPE_PUBLISHABLE_KEY,
+  lotScannerUrl: LOT_SCANNER_URL,
 };
 
 export default config;
