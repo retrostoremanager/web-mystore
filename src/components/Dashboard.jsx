@@ -6,7 +6,6 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActionArea,
   AppBar,
   Toolbar,
   Button,
@@ -40,7 +39,6 @@ import {
   SwapHoriz,
   PointOfSale,
   ExitToApp,
-  ArrowForward,
   History,
   CreditCard,
   Schedule,
@@ -280,17 +278,15 @@ const Dashboard = () => {
     <Box sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
       <AppBar position="sticky" elevation={1}>
         <Toolbar>
-          {isMobile && (
-            <IconButton
-              edge="start"
-              color="inherit"
-              aria-label="open navigation menu"
-              onClick={() => setMobileNavOpen(true)}
-              sx={{ mr: 1 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
+          <IconButton
+            edge="start"
+            color="inherit"
+            aria-label="open navigation menu"
+            onClick={() => setMobileNavOpen(true)}
+            sx={{ mr: 1 }}
+          >
+            <MenuIcon />
+          </IconButton>
           <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
             {companyName ? `${companyName} Dashboard` : 'Dashboard'}
           </Typography>
@@ -501,78 +497,6 @@ const Dashboard = () => {
             )}
           </Box>
         )}
-
-        <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
-          Manage Your Store
-        </Typography>
-        <Grid container spacing={3}>
-          {sections.map((section, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
-              <Card
-                elevation={2}
-                sx={{
-                  height: '100%',
-                  transition: 'transform 0.3s, box-shadow 0.3s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: 6,
-                  },
-                }}
-              >
-                <CardActionArea
-                  onClick={() =>
-                    section.externalUrl
-                      ? window.open(section.externalUrl, '_blank', 'noopener')
-                      : navigate(section.route)
-                  }
-                  sx={{ height: '100%' }}
-                >
-                  <CardContent sx={{ p: 3 }}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        textAlign: 'center',
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          p: 2,
-                          borderRadius: 2,
-                          bgcolor: `${section.color}.light`,
-                          color: `${section.color}.main`,
-                          mb: 2,
-                        }}
-                      >
-                        {section.icon}
-                      </Box>
-                      <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                        {section.title}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {section.description}
-                      </Typography>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          color: `${section.color}.main`,
-                          fontWeight: 600,
-                        }}
-                      >
-                        <Typography variant="body2" sx={{ mr: 0.5 }}>
-                          View Details
-                        </Typography>
-                        <ArrowForward sx={{ fontSize: 18 }} />
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
       </Container>
     </Box>
   );
