@@ -123,6 +123,7 @@ const CheckoutPage = () => {
   const [emailSnackbar, setEmailSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const [activePromotions, setActivePromotions] = useState([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(false);
   const [promotionsSnackbar, setPromotionsSnackbar] = useState({ open: false, message: '' });
   const [manualPromoId, setManualPromoId] = useState('');
   const [manualPromoOpen, setManualPromoOpen] = useState(false);
@@ -138,12 +139,15 @@ const CheckoutPage = () => {
   const loadActivePromotions = useCallback(async () => {
     const headers = getAuthHeaders();
     if (!headers.Authorization) return;
+    setPromotionsLoading(true);
     try {
       const result = await getActivePromotions(headers);
       setActivePromotions(Array.isArray(result.data) ? result.data : []);
     } catch {
       setPromotionsSnackbar({ open: true, message: 'Failed to load promotions — checkout continues without discounts.' });
       setActivePromotions([]);
+    } finally {
+      setPromotionsLoading(false);
     }
   }, [getAuthHeaders]);
 
@@ -164,6 +168,16 @@ const CheckoutPage = () => {
   useEffect(() => {
     loadActivePromotions();
   }, [loadActivePromotions]);
+
+  const cartSignature = checkoutData.items
+    .map((i) => `${i.id}:${i.quantity}`)
+    .join(',');
+
+  useEffect(() => {
+    if (checkoutData.items.length === 0) return;
+    loadActivePromotions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartSignature]);
 
   useEffect(() => {
     loadCustomers();
@@ -351,12 +365,14 @@ const CheckoutPage = () => {
           : (item.discountedPrice ?? unitPriceFromLineItem(item)),
       }));
 
+      const appliedPromotionIds = applicablePromotions.map((p) => p.id);
       const result = await createSale(
         {
           customerId,
           tax: taxParsed.value,
           paymentMethod,
           items,
+          appliedPromotionIds,
         },
         auth
       );
@@ -505,6 +521,14 @@ const CheckoutPage = () => {
               </TableContainer>
             )}
             
+            {promotionsLoading && activePromotions.length === 0 && (
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                <CircularProgress size={16} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading promotions...
+                </Typography>
+              </Stack>
+            )}
             {activePromotions.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>

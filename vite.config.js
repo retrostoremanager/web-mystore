@@ -23,6 +23,9 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: './src/test/setup.js',
     css: true,
+    // tests/e2e/** are Playwright specs (run via `npm run test:e2e`), not vitest --
+    // vitest's default glob otherwise picks them up and fails on `test.describe()`.
+    exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**'],
   },
 })
 

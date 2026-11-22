@@ -9,7 +9,7 @@ import { fetchWithRetry, parseJsonResponse } from '../utils/fetchWithRetry';
 const normalizeCustomer = (c) => ({
   ...c,
   createdAt: c.createdAt ?? c.createdDate ?? null,
-  pointsBalance: c.pointsBalance ?? 0,
+  pointsBalance: c.pointsBalance ?? null,
 });
 
 export async function getCustomers(authHeaders) {

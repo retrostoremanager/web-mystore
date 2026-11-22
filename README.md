@@ -179,3 +179,7 @@ The component is automatically routed at `/signup` in the application. It handle
 - [ ] Multi-location support
 - [ ] Receipt printing
 - [ ] Barcode scanning integration
+
+## QA Triage Notes
+
+- Issue #371 (Bug: QA found 1 issue(s) in PR #370): PR #370 does not exist in this repository — the highest PR number is #125. The QA failure was caused by stale or invalid orchestrator metadata referencing a non-existent PR. No frontend code change is required; the orchestrator should be re-triggered against a valid PR number.
