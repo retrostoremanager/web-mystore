@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import UsersPage from './UsersPage';
 
@@ -206,16 +205,15 @@ describe('UsersPage', () => {
     });
 
     it('calls createUser with correct payload when form is valid', async () => {
-      const user = userEvent.setup();
       renderPage();
       await waitFor(() => document.querySelector('.MuiDataGrid-root'));
-      await user.click(screen.getByRole('button', { name: /invite user/i }));
+      fireEvent.click(screen.getByRole('button', { name: /invite user/i }));
       await waitFor(() => screen.getByRole('dialog'));
       const dialog = screen.getByRole('dialog');
-      await user.type(within(dialog).getByLabelText(/first name/i), 'Dave');
-      await user.type(within(dialog).getByLabelText(/last name/i), 'Brown');
-      await user.type(within(dialog).getByLabelText(/email/i), 'dave@example.com');
-      await user.click(within(dialog).getByRole('button', { name: /send invite/i }));
+      fireEvent.change(within(dialog).getByLabelText(/first name/i), { target: { value: 'Dave' } });
+      fireEvent.change(within(dialog).getByLabelText(/last name/i), { target: { value: 'Brown' } });
+      fireEvent.change(within(dialog).getByLabelText(/email/i), { target: { value: 'dave@example.com' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: /send invite/i }));
       await waitFor(() => {
         expect(createUser).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -229,16 +227,15 @@ describe('UsersPage', () => {
     });
 
     it('closes dialog after successful invite', async () => {
-      const user = userEvent.setup();
       renderPage();
       await waitFor(() => document.querySelector('.MuiDataGrid-root'));
-      await user.click(screen.getByRole('button', { name: /invite user/i }));
+      fireEvent.click(screen.getByRole('button', { name: /invite user/i }));
       await waitFor(() => screen.getByRole('dialog'));
       const dialog = screen.getByRole('dialog');
-      await user.type(within(dialog).getByLabelText(/first name/i), 'Dave');
-      await user.type(within(dialog).getByLabelText(/last name/i), 'Brown');
-      await user.type(within(dialog).getByLabelText(/email/i), 'dave@example.com');
-      await user.click(within(dialog).getByRole('button', { name: /send invite/i }));
+      fireEvent.change(within(dialog).getByLabelText(/first name/i), { target: { value: 'Dave' } });
+      fireEvent.change(within(dialog).getByLabelText(/last name/i), { target: { value: 'Brown' } });
+      fireEvent.change(within(dialog).getByLabelText(/email/i), { target: { value: 'dave@example.com' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: /send invite/i }));
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       });
