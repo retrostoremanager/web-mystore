@@ -195,7 +195,7 @@ const LoyaltyTab = ({ customer, loyaltyData, loyaltyLoading, loyaltySettings, on
               label={loyaltyLoading ? '…' : `${balance} pts`}
               color="primary"
               icon={<CardGiftcard />}
-              sx={{ fontWeight: 700, fontSize: '1rem', height: 36, px: 1 }}
+              sx={{ fontWeight: 700, typography: 'body1', height: (theme) => theme.spacing(4.5), px: 1 }}
             />
           </Box>
         </Box>
@@ -529,14 +529,24 @@ const CustomersPage = () => {
       headerName: 'Points Balance',
       width: 140,
       sortable: false,
-      renderCell: (params) => (
-        <Chip
-          label={params.row.pointsBalance ?? 0}
-          size="small"
-          variant="outlined"
-          color="primary"
-        />
-      ),
+      renderCell: (params) => {
+        const value = params.row.pointsBalance;
+        if (value === null || value === undefined) {
+          return (
+            <Typography variant="body2" color="text.disabled">
+              —
+            </Typography>
+          );
+        }
+        return (
+          <Chip
+            label={value}
+            size="small"
+            variant="outlined"
+            color="primary"
+          />
+        );
+      },
     },
     {
       field: 'actions',
@@ -602,7 +612,7 @@ const CustomersPage = () => {
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <People sx={{ mr: 1, fontSize: 28, color: 'primary.main' }} />
+                <People sx={{ mr: 1, fontSize: (theme) => theme.spacing(3.5), color: 'primary.main' }} />
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
                   Customer List
                 </Typography>
@@ -644,7 +654,7 @@ const CustomersPage = () => {
                           py: 4,
                         }}
                       >
-                        <People sx={{ fontSize: 40, color: 'text.disabled' }} />
+                        <People sx={{ fontSize: (theme) => theme.spacing(5), color: 'text.disabled' }} />
                         <Typography variant="subtitle1" color="text.primary" sx={{ fontWeight: 600 }}>
                           No customers yet
                         </Typography>
@@ -795,7 +805,7 @@ const CustomersPage = () => {
                       label={loyaltyData?.balance ?? selectedCustomer.pointsBalance ?? 0}
                       size="small"
                       color="primary"
-                      sx={{ height: 18, fontSize: '0.65rem' }}
+                      sx={{ height: (theme) => theme.spacing(2.25), typography: 'caption' }}
                     />
                   </Box>
                 }
@@ -843,7 +853,12 @@ const CustomersPage = () => {
                   />
                   <DetailRow
                     label="Points Balance"
-                    value={String(selectedCustomer.pointsBalance ?? 0)}
+                    value={
+                      selectedCustomer.pointsBalance === null ||
+                      selectedCustomer.pointsBalance === undefined
+                        ? '—'
+                        : String(selectedCustomer.pointsBalance)
+                    }
                   />
                 </Box>
 

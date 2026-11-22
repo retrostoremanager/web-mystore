@@ -50,6 +50,7 @@ import {
   Menu as MenuIcon,
   Stars,
   LocalOffer,
+  PhotoCamera,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetInventoryQuery } from '../store/inventoryApi';
@@ -58,6 +59,7 @@ import { usePermissions } from '../contexts/PermissionsContext';
 import { useFormatting } from '../contexts/FormattingContext';
 import { getCompanyProfile } from '../services/profileApi';
 import { getTrialStatus } from '../services/billingApi';
+import config from '../config';
 import { getUsers } from '../services/usersApi';
 import { getCustomers } from '../services/customersApi';
 import { getSalesByDateRange } from '../services/salesApi';
@@ -258,7 +260,7 @@ const Dashboard = () => {
     { title: 'Customers', description: 'Manage customer information and purchase history', icon: <People sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/customers', permission: 'customers.view' },
     { title: 'Users', description: 'View and manage user accounts and roles', icon: <Badge sx={{ fontSize: 48 }} />, color: 'info', route: '/dashboard/users', permission: 'users.view' },
     { title: 'Roles', description: 'View roles and permissions', icon: <Security sx={{ fontSize: 48 }} />, color: 'secondary', route: '/dashboard/roles', permission: 'users.view' },
-    { title: 'Trade-in', description: 'Process trade-in requests and offers', icon: <SwapHoriz sx={{ fontSize: 48 }} />, color: 'warning', route: '/dashboard/trade-in', permission: 'inventory.create' },
+    { title: 'Trade-in', description: 'Process trade-in requests and offers', icon: <SwapHoriz sx={{ fontSize: 48 }} />, color: 'warning', route: '/trade-ins', permission: 'inventory.create' },
     { title: 'Checkout', description: 'Process new customer transactions and checkout', icon: <PointOfSale sx={{ fontSize: 48 }} />, color: 'secondary', route: '/dashboard/checkout', permission: 'sales.create' },
     { title: 'Historical Sales Records', description: 'View transaction history and sales records', icon: <History sx={{ fontSize: 48 }} />, color: 'primary', route: '/dashboard/sales-history', permission: 'sales.view' },
     { title: 'Consignment', description: 'Manage consignment items and track their status', icon: <Handshake sx={{ fontSize: 48 }} />, color: 'warning', route: '/dashboard/consignment', permission: 'inventory.view' },
@@ -267,6 +269,9 @@ const Dashboard = () => {
     { title: 'Loyalty Program', description: 'Configure customer loyalty points and redemption rates', icon: <Stars sx={{ fontSize: 48 }} />, color: 'secondary', route: '/settings/loyalty', permission: 'loyalty.manage' },
     { title: 'Subscription', description: 'View subscription tier, billing cycle, and usage limits', icon: <WorkspacePremium sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/subscription', permission: 'billing.view' },
     { title: 'Billing & Payment', description: 'Manage payment methods for your subscription', icon: <CreditCard sx={{ fontSize: 48 }} />, color: 'success', route: '/dashboard/billing', permission: 'billing.view' },
+    ...(config.lotScannerUrl
+      ? [{ title: 'Lot Scanner', description: 'Photograph a customer\'s game lot for an instant AI-assisted quote', icon: <PhotoCamera sx={{ fontSize: 48 }} />, color: 'primary', externalUrl: config.lotScannerUrl, permission: 'inventory.create' }]
+      : []),
   ].filter((s) => permissionsLoading || hasPermission(s.permission));
 
   const navItems = sections.map((section) => ({ ...section }));
@@ -314,7 +319,11 @@ const Dashboard = () => {
             <ListItem key={index} disablePadding>
               <ListItemButton
                 onClick={() => {
-                  navigate(item.route);
+                  if (item.externalUrl) {
+                    window.open(item.externalUrl, '_blank', 'noopener');
+                  } else {
+                    navigate(item.route);
+                  }
                   setMobileNavOpen(false);
                 }}
               >
@@ -510,7 +519,14 @@ const Dashboard = () => {
                   },
                 }}
               >
-                <CardActionArea onClick={() => navigate(section.route)} sx={{ height: '100%' }}>
+                <CardActionArea
+                  onClick={() =>
+                    section.externalUrl
+                      ? window.open(section.externalUrl, '_blank', 'noopener')
+                      : navigate(section.route)
+                  }
+                  sx={{ height: '100%' }}
+                >
                   <CardContent sx={{ p: 3 }}>
                     <Box
                       sx={{

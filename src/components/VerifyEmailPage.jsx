@@ -21,6 +21,10 @@ import {
 const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
   const slug = searchParams.get('slug');
+  // Set only if the user arrived here via a signup that started elsewhere (e.g. Lot
+  // Scanner's "Sign up" link) -- carried through the verification email link itself since
+  // this page loads straight from that link, not from client-side navigation state.
+  const returnTo = searchParams.get('returnTo');
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
@@ -100,6 +104,11 @@ const VerifyEmailPage = () => {
   }, [searchParams]);
 
   const handleGoToLogin = () => {
+    if (returnTo) {
+      const separator = returnTo.includes('?') ? '&' : '?';
+      window.location.href = slug ? `${returnTo}${separator}slug=${encodeURIComponent(slug)}` : returnTo;
+      return;
+    }
     if (slug) {
       navigate(`/${slug}/login`);
     } else {
@@ -305,7 +314,7 @@ const VerifyEmailPage = () => {
                   onClick={handleGoToLogin}
                   sx={{ mt: 2, py: 1.5, textTransform: 'none' }}
                 >
-                  Go to Login
+                  {returnTo ? 'Continue' : 'Go to Login'}
                 </Button>
               </Stack>
             </>

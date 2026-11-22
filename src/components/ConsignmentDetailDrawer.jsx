@@ -70,6 +70,7 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
   const [returning, setReturning] = useState(false);
 
   const [payoutConfirmOpen, setPayoutConfirmOpen] = useState(false);
+  const [payoutNotes, setPayoutNotes] = useState('');
   const [recordingPayout, setRecordingPayout] = useState(false);
 
   const [payouts, setPayouts] = useState([]);
@@ -154,10 +155,17 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
     }
   };
 
+  const openPayoutConfirm = () => {
+    setPayoutNotes('');
+    setPayoutConfirmOpen(true);
+  };
+
   const handlePayout = async () => {
     try {
       setRecordingPayout(true);
-      const result = await recordConsignmentPayout(item.id, getAuthHeaders());
+      const trimmedNotes = payoutNotes.trim();
+      const body = trimmedNotes ? { notes: trimmedNotes } : null;
+      const result = await recordConsignmentPayout(item.id, body, getAuthHeaders());
       const updatedItem = result.data || { ...item, payoutRecorded: true };
       setPayoutConfirmOpen(false);
       onItemUpdated(updatedItem);
@@ -233,6 +241,24 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
               <Typography variant="caption" color="text.secondary">Created</Typography>
               <Typography variant="body1">{createdDate}</Typography>
             </Box>
+            {status === 'sold' && (
+              <>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Sale Price</Typography>
+                  <Typography variant="body1">
+                    {item.salePrice != null ? fmt(item.salePrice) : '—'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Payout Amount (Customer)</Typography>
+                  <Typography variant="body1">
+                    {item.salePrice != null
+                      ? fmt(calcPayout(item.salePrice, splitPercent).customerAmount)
+                      : '—'}
+                  </Typography>
+                </Box>
+              </>
+            )}
           </Box>
 
           <Divider sx={{ mb: 3 }} />
@@ -353,7 +379,7 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
                   startIcon={<Payments />}
                   fullWidth
                   disabled={status !== 'sold' || Boolean(item.payoutRecorded)}
-                  onClick={() => setPayoutConfirmOpen(true)}
+                  onClick={openPayoutConfirm}
                 >
                   Record Payout
                 </Button>
@@ -423,9 +449,20 @@ const ConsignmentDetailDrawer = ({ item, open, onClose, onItemUpdated, showSnack
       <Dialog open={payoutConfirmOpen} onClose={() => setPayoutConfirmOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Record Payout</DialogTitle>
         <DialogContent>
-          <Typography>
-            Confirm that you have paid out the customer for this consignment item. This action cannot be undone.
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Typography>
+              Confirm that you have paid out the customer for this consignment item. This action cannot be undone.
+            </Typography>
+            <TextField
+              label="Notes (optional)"
+              value={payoutNotes}
+              onChange={(e) => setPayoutNotes(e.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+              placeholder="e.g. paid by check #1234"
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPayoutConfirmOpen(false)}>Cancel</Button>

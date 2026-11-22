@@ -71,6 +71,7 @@ function App() {
               <Route path="/dashboard/checkout" element={<PermissionRoute permission="sales.create" element={<CheckoutPage />} />} />
               <Route path="/dashboard/sales-history" element={<PermissionRoute permission="sales.view" element={<SalesHistoryPage />} />} />
               <Route path="/dashboard/consignment" element={<PermissionRoute permission="consignment.view" element={<ConsignmentPage />} />} />
+              <Route path="/consignment" element={<PermissionRoute permission="consignment.view" element={<ConsignmentPage />} />} />
               <Route path="/dashboard/billing" element={<PermissionRoute permission="billing.view" element={<BillingSettingsPage />} />} />
               <Route path="/dashboard/subscription" element={<PermissionRoute permission="billing.view" element={<SubscriptionPage />} />} />
               <Route path="/dashboard/profile" element={<PermissionRoute permission="settings.manage" element={<CompanyProfilePage />} />} />

@@ -27,7 +27,7 @@ import {
   Visibility,
   VisibilityOff,
 } from '@mui/icons-material';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 
 const STRIPE_ELEMENT_COLORS = {
   text: '#424770',
@@ -74,6 +74,11 @@ const cardElementOptions = {
  */
 function SignUpFormInner() {
   const navigate = useNavigate();
+  // Where to send the user after they verify their email -- e.g. back to Lot Scanner if
+  // that's where they came from (?returnTo=...). Opaque to us; just threaded through to
+  // the backend so it ends up in the verification email link.
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -357,6 +362,7 @@ function SignUpFormInner() {
           companyName: formData.companyName.trim(),
           subscriptionTier: formData.subscriptionTier,
           paymentMethodId: paymentMethod.id,
+          returnUrl: returnTo || undefined,
         }),
       });
 
@@ -426,10 +432,10 @@ function SignUpFormInner() {
 
       // Success - account created, navigate to verification page (include slug for login URL)
       const slug = data.data?.slug;
-      const verifyUrl = slug
-        ? `/verify?email=${encodeURIComponent(formData.email.trim())}&slug=${encodeURIComponent(slug)}`
-        : `/verify?email=${encodeURIComponent(formData.email.trim())}`;
-      navigate(verifyUrl);
+      const verifyParams = new URLSearchParams({ email: formData.email.trim() });
+      if (slug) verifyParams.set('slug', slug);
+      if (returnTo) verifyParams.set('returnTo', returnTo);
+      navigate(`/verify?${verifyParams.toString()}`);
       
     } catch (err) {
       // Network errors, JSON parsing errors, or other exceptions

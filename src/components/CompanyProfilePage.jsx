@@ -559,9 +559,15 @@ export default function CompanyProfilePage() {
               </Stack>
               <TextField
                 fullWidth
+                id="companyCountry"
+                name="companyCountry"
                 label="Country"
                 value={infoForm.companyCountry}
                 onChange={(e) => handleInfoChange('companyCountry', e.target.value)}
+                placeholder="e.g. United States"
+                helperText="Country name or code (e.g. USA, Canada, United Kingdom)"
+                autoComplete="country-name"
+                inputProps={{ maxLength: 64 }}
                 disabled={infoSaving}
               />
               <TextField
