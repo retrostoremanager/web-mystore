@@ -1,18 +1,26 @@
+import { useState } from 'react';
 import {
   Box,
   Typography,
   Grid,
   Card,
   CardContent,
-  CardActionArea,
   AppBar,
   Toolbar,
+  IconButton,
   Button,
   Stack,
   Alert,
   Chip,
+  Collapse,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
 } from '@mui/material';
 import {
+  Menu as MenuIcon,
   Inventory,
   People,
   Badge,
@@ -20,16 +28,19 @@ import {
   SwapHoriz,
   PointOfSale,
   ExitToApp,
-  ArrowForward,
   Schedule,
   History,
 } from '@mui/icons-material';
 
 /**
  * Static dashboard preview for the landing hero. Deliberately non-numeric so we do not
- * imply fake business results—only layout and navigation patterns.
+ * imply fake business results—only layout and navigation patterns. The hamburger menu
+ * actually toggles, so it demonstrates the real (standard, mobile-first) nav pattern
+ * rather than just describing it.
  */
 const DashboardPreview = () => {
+  const [menuOpen, setMenuOpen] = useState(true);
+
   const stats = [
     { label: 'Total Inventory Items', value: '—', icon: <Inventory />, color: 'primary' },
     { label: 'Active Customers', value: '—', icon: <People />, color: 'success' },
@@ -37,14 +48,14 @@ const DashboardPreview = () => {
     { label: "Today's Sales", value: '—', icon: <PointOfSale />, color: 'warning' },
   ];
 
-  const sections = [
-    { title: 'Store Inventory', icon: <Inventory sx={{ fontSize: 32 }} />, color: 'primary' },
-    { title: 'Customers', icon: <People sx={{ fontSize: 32 }} />, color: 'success' },
-    { title: 'Checkout', icon: <PointOfSale sx={{ fontSize: 32 }} />, color: 'secondary' },
-    { title: 'Sales history', icon: <History sx={{ fontSize: 32 }} />, color: 'primary' },
-    { title: 'Users', icon: <Badge sx={{ fontSize: 32 }} />, color: 'info' },
-    { title: 'Roles', icon: <Security sx={{ fontSize: 32 }} />, color: 'secondary' },
-    { title: 'Trade-in', icon: <SwapHoriz sx={{ fontSize: 32 }} />, color: 'warning' },
+  const navItems = [
+    { label: 'Store Inventory', icon: <Inventory fontSize="small" /> },
+    { label: 'Customers', icon: <People fontSize="small" /> },
+    { label: 'Checkout', icon: <PointOfSale fontSize="small" /> },
+    { label: 'Sales History', icon: <History fontSize="small" /> },
+    { label: 'Users', icon: <Badge fontSize="small" /> },
+    { label: 'Roles', icon: <Security fontSize="small" /> },
+    { label: 'Trade-In', icon: <SwapHoriz fontSize="small" /> },
   ];
 
   return (
@@ -72,7 +83,16 @@ const DashboardPreview = () => {
         }}
       >
         <AppBar position="static" elevation={0}>
-          <Toolbar sx={{ minHeight: 48, px: 2 }}>
+          <Toolbar sx={{ minHeight: 48, px: 1 }}>
+            <IconButton
+              color="inherit"
+              size="small"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label="Toggle menu"
+              sx={{ mr: 1 }}
+            >
+              <MenuIcon sx={{ fontSize: 20 }} />
+            </IconButton>
             <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 700, fontSize: '0.95rem' }}>
               Your Store Dashboard
             </Typography>
@@ -86,6 +106,21 @@ const DashboardPreview = () => {
             </Button>
           </Toolbar>
         </AppBar>
+
+        <Collapse in={menuOpen}>
+          <List dense disablePadding sx={{ bgcolor: 'background.paper', color: 'text.primary' }}>
+            {navItems.map((item, index) => (
+              <ListItemButton key={index} sx={{ py: 0.75 }}>
+                <ListItemIcon sx={{ minWidth: 32, color: 'primary.main' }}>{item.icon}</ListItemIcon>
+                <ListItemText
+                  primary={item.label}
+                  slotProps={{ primary: { fontSize: '0.8rem', fontWeight: 500 } }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+          <Divider />
+        </Collapse>
 
         <Box sx={{ p: 1.5 }}>
           <Alert
@@ -107,7 +142,7 @@ const DashboardPreview = () => {
             </Stack>
           </Alert>
 
-          <Grid container spacing={1} sx={{ mb: 2 }}>
+          <Grid container spacing={1}>
             {stats.map((stat, index) => (
               <Grid item xs={6} key={index}>
                 <Card elevation={1} sx={{ '& .MuiCardContent-root': { py: 1, px: 1.5 } }}>
@@ -136,52 +171,6 @@ const DashboardPreview = () => {
                       </Box>
                     </Stack>
                   </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, fontSize: '0.8rem' }}>
-            Manage Your Store
-          </Typography>
-          <Grid container spacing={1}>
-            {sections.map((section, index) => (
-              <Grid item xs={4} key={index}>
-                <Card
-                  elevation={1}
-                  sx={{
-                    '& .MuiCardContent-root': { py: 1, px: 1 },
-                    transition: 'transform 0.2s',
-                    '&:hover': { transform: 'translateY(-2px)' },
-                  }}
-                >
-                  <CardActionArea sx={{ '&.Mui-focusVisible': { backgroundColor: 'transparent' } }}>
-                    <CardContent>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Box
-                          sx={{
-                            p: 1,
-                            borderRadius: 1,
-                            bgcolor: `${section.color}.light`,
-                            color: `${section.color}.main`,
-                            display: 'inline-flex',
-                            mb: 0.5,
-                          }}
-                        >
-                          {section.icon}
-                        </Box>
-                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.65rem', display: 'block' }}>
-                          {section.title}
-                        </Typography>
-                        <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.25}>
-                          <Typography variant="caption" sx={{ fontSize: '0.6rem', color: `${section.color}.main` }}>
-                            Open
-                          </Typography>
-                          <ArrowForward sx={{ fontSize: 12 }} />
-                        </Stack>
-                      </Box>
-                    </CardContent>
-                  </CardActionArea>
                 </Card>
               </Grid>
             ))}
