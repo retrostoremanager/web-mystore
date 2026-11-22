@@ -15,23 +15,34 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({
-    auth: { token: 'tok', companyId: 1, slug: 'test' },
-    isAuthenticated: true,
-    loading: false,
-    logout: vi.fn(),
-    getAuthHeaders: () => ({ Authorization: 'Bearer tok', 'X-Company-Id': '1' }),
-  }),
-}));
+vi.mock('../contexts/AuthContext', () => {
+  // Stable reference across renders -- a fresh arrow function returned from
+  // inline object literal every useAuth() call would change on every render
+  // (same as the real context does *not* do, since it's memoized there),
+  // causing every effect that depends on it to re-fire and race itself.
+  const getAuthHeaders = () => ({ Authorization: 'Bearer tok', 'X-Company-Id': '1' });
+  return {
+    useAuth: () => ({
+      auth: { token: 'tok', companyId: 1, slug: 'test' },
+      isAuthenticated: true,
+      loading: false,
+      logout: vi.fn(),
+      getAuthHeaders,
+    }),
+  };
+});
 
-vi.mock('../contexts/PermissionsContext', () => ({
-  usePermissions: () => ({
-    hasPermission: (p) => ['inventory.view', 'customers.view', 'users.view', 'sales.view', 'sales.create', 'inventory.create', 'settings.manage', 'billing.view'].includes(p),
-    loading: false,
-    permissions: new Set(['inventory.view', 'customers.view', 'users.view', 'sales.view']),
-  }),
-}));
+vi.mock('../contexts/PermissionsContext', () => {
+  // Same stable-reference concern as the AuthContext mock above.
+  const hasPermission = (p) => ['inventory.view', 'customers.view', 'users.view', 'sales.view', 'sales.create', 'inventory.create', 'settings.manage', 'billing.view'].includes(p);
+  return {
+    usePermissions: () => ({
+      hasPermission,
+      loading: false,
+      permissions: new Set(['inventory.view', 'customers.view', 'users.view', 'sales.view']),
+    }),
+  };
+});
 
 vi.mock('../contexts/FormattingContext', () => ({
   useFormatting: () => ({
@@ -100,10 +111,18 @@ describe('Dashboard', () => {
         makeSale(6, 2, 'Frank Miller', 9.99),
       ],
     });
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      headers: { get: () => 'application/json' },
-      json: async () => ({ success: true, data: [] }),
+    global.fetch = vi.fn().mockImplementation(() => {
+      const response = {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ success: true, data: [] }),
+      };
+      // RTK Query's fetchBaseQuery calls Response.clone() internally; a plain
+      // mock without it throws "response.clone is not a function" as an
+      // unhandled rejection on every getInventory call.
+      response.clone = () => response;
+      return Promise.resolve(response);
     });
   });
 
@@ -141,8 +160,8 @@ describe('Dashboard', () => {
 
       await waitFor(() => {
         expect(screen.getByText('3')).toBeInTheDocument();
+        expect(screen.getByText('Customers')).toBeInTheDocument();
       });
-      expect(screen.getByText('Customers')).toBeInTheDocument();
     });
 
     it("displays today's sales total after API resolves", async () => {

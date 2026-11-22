@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Box,
   Container,
@@ -10,10 +10,16 @@ import {
   AppBar,
   Toolbar,
   Stack,
+  IconButton,
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemText,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
 import {
+  Menu as MenuIcon,
   Inventory,
   PointOfSale,
   History,
@@ -33,8 +39,10 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const featuresRef = useRef(null);
   const pricingRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const scrollTo = (ref) => {
+    setMenuOpen(false);
     ref?.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -43,7 +51,7 @@ const LandingPage = () => {
       icon: <Inventory sx={{ fontSize: 48, color: 'primary.main' }} />,
       title: 'Inventory',
       description:
-        'Track stock by location with optional IGDB-backed game metadata, condition, and pricing. Categories work for TCG and other products.',
+        'Track stock by location with optional built-in game metadata, condition, and pricing. Categories work for TCG and other products.',
     },
     {
       icon: <PointOfSale sx={{ fontSize: 48, color: 'primary.main' }} />,
@@ -88,6 +96,15 @@ const LandingPage = () => {
       {/* Navigation Bar */}
       <AppBar position="sticky" elevation={0} sx={{ bgcolor: 'background.paper', color: 'text.primary' }}>
         <Toolbar>
+          <IconButton
+            color="inherit"
+            edge="start"
+            sx={{ display: { xs: 'inline-flex', sm: 'none' }, mr: 1 }}
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <MenuIcon />
+          </IconButton>
           <Typography
             variant="h5"
             component="div"
@@ -109,6 +126,27 @@ const LandingPage = () => {
           </Stack>
         </Toolbar>
       </AppBar>
+
+      <Drawer anchor="left" open={menuOpen} onClose={() => setMenuOpen(false)}>
+        <Box sx={{ width: 240 }} role="presentation">
+          <List>
+            <ListItemButton onClick={() => scrollTo(featuresRef)}>
+              <ListItemText primary="Features" />
+            </ListItemButton>
+            <ListItemButton onClick={() => scrollTo(pricingRef)}>
+              <ListItemText primary="Pricing" />
+            </ListItemButton>
+            <ListItemButton
+              onClick={() => {
+                setMenuOpen(false);
+                navigate('/signup');
+              }}
+            >
+              <ListItemText primary="Get Started" />
+            </ListItemButton>
+          </List>
+        </Box>
+      </Drawer>
 
       {/* Hero Section */}
       <Box
@@ -382,7 +420,7 @@ const LandingPage = () => {
                     </Typography>
                     <Stack spacing={1.5} sx={{ mb: 3, flex: 1 }}>
                       {[
-                        'Inventory with IGDB-backed game search',
+                        'Inventory with built-in game catalog search',
                         'In-store checkout & sales history',
                         'Customer records tied to purchases',
                         'Multi-location company profile',
